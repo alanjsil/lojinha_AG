@@ -1,0 +1,211 @@
+{
+  "folders": [
+    {
+      "path": ".",
+    },
+  ],
+
+  "settings": {
+    // =========================================================
+    // EXCLUSÕES VISUAIS
+    // =========================================================
+    "files.exclude": {
+      // Arquivos
+      ".env.local": true,
+      ".gitattributes": true,
+      ".gitignore": true,
+      ".mcp.json": true,
+      ".next": true,
+      ".vercel": true,
+      ".vercelignore": true,
+      ".vscode": true,
+      "CLAUDE.md": true,
+      "next.config.js": true,
+      "node_modules": true,
+      "opencode.json": true,
+      "package-lock.json": true,
+      "README.md": true,
+    },
+
+    // =========================================================
+    // JSON
+    // =========================================================
+    "json.schemaDownload.enable": true,
+
+    // =========================================================
+    // EDITOR
+    // =========================================================
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true,
+    "editor.detectIndentation": false,
+
+    "editor.rulers": [150],
+    "editor.wordWrapColumn": 150,
+    "editor.wordWrap": "wordWrapColumn",
+
+    "breadcrumbs.enabled": true,
+    "editor.minimap.enabled": false,
+    "editor.guides.bracketPairs": true,
+    "editor.bracketPairColorization.enabled": true,
+
+    // Exibe espaços apenas quando selecionados
+    "editor.renderWhitespace": "selection",
+
+    // Mostra caracteres invisíveis/problemáticos
+    "editor.renderControlCharacters": true,
+
+    // Sempre abre arquivos .md em visualização
+    "workbench.editorAssociations": {
+      "*.md": "vscode.markdown.preview.editor",
+    },
+
+    // =========================================================
+    // ARQUIVOS / EOL
+    // =========================================================
+    // Força LF em todos os arquivos
+    "files.eol": "\n",
+
+    // Remove espaços no fim da linha ao salvar
+    "files.trimTrailingWhitespace": true,
+
+    // Garante linha vazia no fim do arquivo
+    "files.insertFinalNewline": true,
+
+    // Salvamento automático ao trocar de foco
+    "files.autoSave": "onFocusChange",
+
+    // Associa .mjs como JavaScript (ESM)
+    "files.associations": {
+      "*.mjs": "javascript",
+    },
+
+    // =========================================================
+    // FORMATAÇÃO
+    // =========================================================
+    "editor.formatOnSave": true,
+
+    // Formatter padrão global
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+
+    // Não ignorar diferenças de trailing spaces
+    "diffEditor.ignoreTrimWhitespace": true,
+
+    // =========================================================
+    // CODE ACTIONS
+    // =========================================================
+    "editor.codeActionsOnSave": {
+      // Executa correções automáticas do ESLint
+      "source.fixAll.eslint": "always",
+
+      // Organiza imports manualmente/sob demanda
+      "source.organizeImports": "explicit",
+    },
+
+    // ESLint só linta, não formata (quem formata é o Prettier)
+    "eslint.format.enable": false,
+
+    // =========================================================
+    // SQL FORMATTER
+    // =========================================================
+    // Dialeto SQL usado pelo formatter
+    "SQL-Formatter-VSCode.dialect": "postgresql",
+
+    // Largura máxima antes de quebrar expressões
+    "SQL-Formatter-VSCode.expressionWidth": 90,
+
+    // =========================================================
+    // TERMINAL
+    // =========================================================
+    "terminal.integrated.defaultProfile.windows": "PowerShell",
+
+    // Aprovação automática para comandos específicos do Chat
+    "chat.tools.terminal.autoApprove": {
+      "npx vitest": true,
+    },
+
+    // =========================================================
+    // EXPLORER
+    // =========================================================
+    "explorer.confirmDelete": false,
+    "explorer.compactFolders": false, // Não compactar pastas únicas
+    "explorer.confirmDragAndDrop": false,
+
+    // =========================================================
+    // GIT / SCM
+    // =========================================================
+    "scm.diffDecorations": "all", // Mostra indicadores de alteração no editor
+    "git.autofetch": true,
+    "git.confirmSync": false,
+
+    // Habilita decorações visuais do Git
+    "git.decorations.enabled": true,
+
+    // =========================================================
+    // EXCLUSÕES DA BUSCA
+    // =========================================================
+    "search.exclude": {
+      "**/dist": true,
+      "**/test": true,
+      "**/node_modules": true,
+    },
+
+    // =========================================================
+    // PERFORMANCE / WATCHERS
+    // =========================================================
+    "files.watcherExclude": {
+      "**/node_modules": true,
+      "**/dist": true,
+    },
+
+    // =========================================================
+    // JAVASCRIPT / TYPESCRIPT
+    // =========================================================
+    // Atualizar imports automaticamente ao mover arquivos
+    "js/ts.updateImportsOnFileMove.enabled": "prompt",
+
+    // =========================================================
+    // HTML
+    // =========================================================
+    "[html]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode",
+      "editor.formatOnSave": true,
+    },
+
+    // =========================================================
+    // CSS
+    // =========================================================
+    "[css]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode",
+      "editor.formatOnSave": true,
+    },
+
+    // =========================================================
+    // JSON
+    // =========================================================
+    "[json]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode",
+      "editor.formatOnSave": true,
+    },
+    "[jsonc]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode",
+      "editor.formatOnSave": true,
+    },
+
+    // =========================================================
+    // MARKDOWN
+    // =========================================================
+    "[markdown]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode",
+      "editor.formatOnSave": true,
+      "diffEditor.ignoreTrimWhitespace": false,
+    },
+
+    // =========================================================
+    // SQL
+    // =========================================================
+    "[sql]": {
+      "editor.defaultFormatter": "ReneSaarsoo.sql-formatter-vsc",
+      "editor.formatOnSave": true,
+    },
+  },
+}

@@ -1,0 +1,90 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+
+  "lsp": true,
+
+  "default_agent": "plan",
+
+  "mcp": {
+    "postgres-bar": {
+      "type": "local",
+      "command": [
+        "C:\\Users\\alan_\\AppData\\Roaming\\uv\\tools\\postgres-mcp\\Scripts\\postgres-mcp.exe",
+        "postgresql://getsu:SuaSenhaForte@192.168.1.50:5432/barapp",
+        "--access-mode",
+        "unrestricted"
+      ],
+      "enabled": true
+    }
+  },
+
+  "permission": {
+    "read": {
+      "*": "allow",
+      "*.env": "deny"
+    },
+
+    "bash": {
+      // fallback (último a casar vence; os denies abaixo sobrescrevem)
+      "*": "allow",
+
+      // ===== DEV FLOW SEM PROMPTS =====
+      "npx tsc": "allow",
+      "npm test": "allow",
+      "npm test *": "allow",
+      "npm run test": "allow",
+      "npm run test *": "allow",
+      "npx vitest run 2>&1": "allow",
+      "npx vitest run 2>&1 *": "allow",
+
+      "npm lint": "allow",
+      "npm lint *": "allow",
+      "npm run lint": "allow",
+      "npm run lint *": "allow",
+      "npm run lint 2>&1": "allow",
+
+      "npm build": "allow",
+      "npm build *": "allow",
+      "npm run build": "allow",
+      "npm run build *": "allow",
+
+      // ferramentas genéricas (vitest/jest/eslint/etc)
+      "npx *": "allow",
+      "npm * test *": "allow",
+      "npm * lint *": "allow",
+      "npm * build *": "allow",
+
+      "python *": "allow",
+
+      "git *": "allow",
+      "git diff *": "allow",
+      "git status *": "allow",
+
+      // destrutivos continuam bloqueados
+      "rm *": "deny",
+      "del *": "deny",
+      "format *": "deny"
+    },
+
+    "edit": {
+      "*.sql": "ask",
+      "*.js": "allow",
+      "*.ts": "allow",
+      "*.py": "allow",
+      "*.md": "allow",
+      "*.json": "ask",
+      "*.yml": "allow",
+      "*.html": "allow",
+      "*.toml": "allow"
+    },
+
+    "webfetch": "ask",
+    "external_directory": "deny"
+  },
+
+  "compaction": {
+    "auto": true,
+    "prune": true,
+    "reserved": 12000
+  }
+}

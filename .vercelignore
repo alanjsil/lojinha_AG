@@ -1,0 +1,11 @@
+# Nada disso vai para a Vercel no "vercel deploy" (as variáveis de produção ficam no painel)
+.env*
+!.env.example
+.mcp.json
+.claude/
+.vscode/
+opencode.json
+WorkPlace.code-workspace
+supabase/.temp/
+node_modules/
+.next/
