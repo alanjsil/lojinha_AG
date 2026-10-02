@@ -9,3 +9,5 @@ WorkPlace.code-workspace
 supabase/.temp/
 node_modules/
 .next/
+Exemplo/
+.env.local.barapp.bak

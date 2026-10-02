@@ -19,12 +19,12 @@
       ".vercel": true,
       ".vercelignore": true,
       ".vscode": true,
-      "CLAUDE.md": true,
+      // "CLAUDE.md": true,
       "next.config.js": true,
       "node_modules": true,
       "opencode.json": true,
       "package-lock.json": true,
-      "README.md": true,
+      // "README.md": true,
     },
 
     // =========================================================

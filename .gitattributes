@@ -19,15 +19,19 @@
 *.txt  text eol=lf
 *.csv  text eol=lf
 *.map  text eol=lf
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.sh   text eol=lf
 
 # Config deste repo — LF explícito (senão o Windows grava CRLF)
 .gitignore       text eol=lf
 .gitattributes   text eol=lf
+.vercelignore    text eol=lf
 *.code-workspace text eol=lf
 .env.example     text eol=lf
 
 # Lockfile é JSON de texto — normaliza para evitar diff/conflito entre máquinas
-package-lock.json text eol=lf
+package-lock.json text eol=lf -diff linguist-generated
 
 # Windows: CRLF obrigatório para shell do cmd
 *.bat text eol=crlf
