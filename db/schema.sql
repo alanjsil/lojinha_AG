@@ -9,6 +9,8 @@ create table if not exists perfis (
   id uuid primary key references auth.users(id) on delete cascade,
   nome text not null,
   comissao_pct numeric(5,2) not null default 40 check (comissao_pct between 0 and 100),
+  -- gerente vê/cadastra despesas e vê o resumo de todos; vendedor só o próprio. Só o admin muda (SQL/painel).
+  papel text not null default 'vendedor' check (papel in ('gerente', 'vendedor')),
   created_at timestamptz not null default now()
 );
 
@@ -146,9 +148,13 @@ create policy vendas_ver on vendas for select to authenticated using (true);
 create policy vendas_criar on vendas for insert to authenticated with check (true);
 create policy vendas_apagar on vendas for delete to authenticated using (true);
 
-create policy despesas_ver on despesas for select to authenticated using (true);
-create policy despesas_criar on despesas for insert to authenticated with check (true);
-create policy despesas_apagar on despesas for delete to authenticated using (true);
+-- despesas: só gerente vê, cadastra ou apaga
+create policy despesas_ver on despesas for select to authenticated
+  using (exists (select 1 from perfis where id = auth.uid() and papel = 'gerente'));
+create policy despesas_criar on despesas for insert to authenticated
+  with check (exists (select 1 from perfis where id = auth.uid() and papel = 'gerente'));
+create policy despesas_apagar on despesas for delete to authenticated
+  using (exists (select 1 from perfis where id = auth.uid() and papel = 'gerente'));
 
 create policy contagens_ver on contagens_estoque for select to authenticated using (true);
 create policy contagens_criar on contagens_estoque for insert to authenticated with check (true);

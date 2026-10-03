@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { numero, preenchido, qtd } from "../lib/formato";
-import { createClient } from "../lib/supabase/server";
+import { createClient, usuarioAtual } from "../lib/supabase/server";
 
 const PAGAMENTOS = ["dinheiro", "pix", "cartao"];
 const TIPOS_DESPESA = ["aluguel", "agua", "luz", "internet", "outros"];
@@ -16,13 +16,17 @@ const falha = (msg) => {
 
 // Toda ação confere o login (o middleware não cobre chamadas de Server Action de outra origem)
 // e devolve { ok } ou { ok: false, erro } em vez de estourar exceção na tela.
-async function executar(fn) {
+async function executar(fn, { exigeGerente = false } = {}) {
   try {
     const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) falha("Sessão expirada. Entre novamente.");
+    if (exigeGerente) {
+      const usuario = await usuarioAtual(supabase);
+      if (!usuario?.gerente) falha("Só o gerente pode fazer isso.");
+    }
     await fn(supabase, user);
     return { ok: true };
   } catch (e) {
@@ -183,26 +187,32 @@ export async function excluirCompra(id) {
 // ---------- Despesas ----------
 
 export async function registrarDespesa({ tipo, descricao, valor, data }) {
-  return executar(async (supabase) => {
-    if (!TIPOS_DESPESA.includes(tipo)) falha("Escolha o tipo da despesa.");
-    const v = valorPositivo(valor, "o valor");
-    const { error } = await supabase.from("despesas").insert({
-      data: dataValida(data),
-      tipo,
-      descricao: (descricao ?? "").trim() || null,
-      valor: v,
-    });
-    if (error) throw error;
-    atualizarTudo();
-  });
+  return executar(
+    async (supabase) => {
+      if (!TIPOS_DESPESA.includes(tipo)) falha("Escolha o tipo da despesa.");
+      const v = valorPositivo(valor, "o valor");
+      const { error } = await supabase.from("despesas").insert({
+        data: dataValida(data),
+        tipo,
+        descricao: (descricao ?? "").trim() || null,
+        valor: v,
+      });
+      if (error) throw error;
+      atualizarTudo();
+    },
+    { exigeGerente: true },
+  );
 }
 
 export async function excluirDespesa(id) {
-  return executar(async (supabase) => {
-    const { error } = await supabase.from("despesas").delete().eq("id", id);
-    if (error) throw error;
-    atualizarTudo();
-  });
+  return executar(
+    async (supabase) => {
+      const { error } = await supabase.from("despesas").delete().eq("id", id);
+      if (error) throw error;
+      atualizarTudo();
+    },
+    { exigeGerente: true },
+  );
 }
 
 // ---------- Contagem cíclica ----------

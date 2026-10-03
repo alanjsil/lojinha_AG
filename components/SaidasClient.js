@@ -202,7 +202,7 @@ function FormDespesa() {
   );
 }
 
-export default function SaidasClient({ produtos, compras, despesas }) {
+export default function SaidasClient({ produtos, compras, despesas, gerente }) {
   const [aba, setAba] = useState("compras");
 
   const itensCompras = compras.map((c) => ({
@@ -221,24 +221,26 @@ export default function SaidasClient({ produtos, compras, despesas }) {
 
   return (
     <>
-      <div className="segmentos">
-        <button
-          type="button"
-          className={aba === "compras" ? "ativo" : ""}
-          onClick={() => setAba("compras")}
-        >
-          Compras
-        </button>
-        <button
-          type="button"
-          className={aba === "despesas" ? "ativo" : ""}
-          onClick={() => setAba("despesas")}
-        >
-          Despesas
-        </button>
-      </div>
+      {gerente && (
+        <div className="segmentos">
+          <button
+            type="button"
+            className={aba === "compras" ? "ativo" : ""}
+            onClick={() => setAba("compras")}
+          >
+            Compras
+          </button>
+          <button
+            type="button"
+            className={aba === "despesas" ? "ativo" : ""}
+            onClick={() => setAba("despesas")}
+          >
+            Despesas
+          </button>
+        </div>
+      )}
 
-      {aba === "compras" ? (
+      {aba === "compras" || !gerente ? (
         <>
           <FormCompra produtos={produtos} />
           <div className="card">

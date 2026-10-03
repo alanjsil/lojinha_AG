@@ -567,9 +567,13 @@ button:disabled {
 }
 
 .chk input {
+  appearance: auto;
+  -webkit-appearance: auto;
   width: 24px;
   min-height: 24px;
   height: 24px;
+  flex-shrink: 0;
+  accent-color: var(--primaria);
 }
 
 .sair {

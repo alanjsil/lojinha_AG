@@ -16,7 +16,10 @@ campos ≥ 52px com fonte ≥ 16px, botões de largura total, cartões em vez de
 - Comissão = % (padrão 40) do **lucro** da venda; prejuízo não gera comissão negativa.
 - Estoque = compras − vendas + diferença das contagens (view `estoque_atual`). Não vende acima do saldo.
 - Lucro líquido = lucro bruto − comissões − despesas (compras não entram de novo: o custo já está na venda).
-- Todos os usuários têm o mesmo acesso. Só o admin altera `comissao_pct` (SQL/painel).
+- Dois papéis (`perfis.papel`): **gerente** vê e cadastra despesas e vê o resumo de todos os vendedores;
+  **vendedor** não acessa despesas (aba some em Saídas, Server Action recusa) e no resumo só vê as
+  próprias vendas/comissão (sem despesas, lucro líquido ou comparativo entre vendedores). Só o admin
+  altera `papel`/`comissao_pct` (SQL/painel ou `--` do `criar-usuario`).
 
 ## Banco e auth
 
@@ -24,5 +27,5 @@ campos ≥ 52px com fonte ≥ 16px, botões de largura total, cartões em vez de
 - Auth: Supabase Auth (e-mail/senha), sessão por cookie (`@supabase/ssr`). Dados pelo servidor, com o
   usuário logado, sob RLS (`lib/supabase/server.js`, Server Actions em `app/actions.js`).
 - Schema em `db/schema.sql`; mudanças em `db/migracoes/NNN_*.sql`.
-- Usuários: `npm run criar-usuario -- "Nome" email senha [comissao]`.
+- Usuários: `npm run criar-usuario -- "Nome" email senha [comissao] [papel]` (papel: gerente|vendedor, padrão vendedor).
 - O caminho tem "&": no Windows rode o Next com `node node_modules/next/dist/bin/next ...` (o `npx` quebra).
