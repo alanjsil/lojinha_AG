@@ -62,6 +62,12 @@ function FormProduto({ inicial, aoFechar }) {
             onChange={set("custo")}
             required
           />
+          {f.id && (
+            <p className="sub">
+              Vale só até a 1ª compra; depois o custo passa a ser a média
+              ponderada das compras, calculada automaticamente.
+            </p>
+          )}
         </div>
         <div>
           <label htmlFor="preco">Preço (R$) *</label>

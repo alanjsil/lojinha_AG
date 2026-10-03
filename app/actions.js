@@ -148,13 +148,14 @@ export async function registrarCompra({
   custo,
   fornecedor,
   data,
-  atualizarCusto,
 }) {
   return executar(async (supabase) => {
     if (!produtoId) falha("Escolha o produto.");
     const q = valorPositivo(quantidade, "a quantidade");
     const c = valorPositivo(custo, "o custo unitário", { permiteZero: true });
 
+    // o custo do produto é recalculado automaticamente (trigger) como a média
+    // ponderada de todas as compras; vendas antigas guardam o custo da época
     const { error } = await supabase.from("compras").insert({
       data: dataValida(data),
       produto_id: produtoId,
@@ -163,15 +164,6 @@ export async function registrarCompra({
       fornecedor: (fornecedor ?? "").trim() || null,
     });
     if (error) throw error;
-
-    // o custo novo vale só para vendas futuras; as vendas antigas guardam o custo da época
-    if (atualizarCusto) {
-      const { error: e2 } = await supabase
-        .from("produtos")
-        .update({ custo: c })
-        .eq("id", produtoId);
-      if (e2) throw e2;
-    }
     atualizarTudo();
   });
 }

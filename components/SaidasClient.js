@@ -33,13 +33,13 @@ function FormCompra({ produtos }) {
     quantidade: "",
     custo: "",
     fornecedor: "",
-    atualizarCusto: true,
   });
 
   function escolher(id) {
-    const p = produtos.find((x) => x.id === id);
-    setF({ ...f, produtoId: id, custo: p ? String(p.custo) : "" });
+    setF({ ...f, produtoId: id });
   }
+
+  const produtoEscolhido = produtos.find((x) => x.id === f.produtoId);
 
   return (
     <form
@@ -106,6 +106,13 @@ function FormCompra({ produtos }) {
           />
         </div>
       </div>
+      {produtoEscolhido && (
+        <div className="sub">
+          Custo médio atual: {brl(produtoEscolhido.custo)}. Após salvar, o
+          custo do produto é recalculado automaticamente como a média
+          ponderada de todas as compras.
+        </div>
+      )}
       <label htmlFor="forn">Fornecedor</label>
       <input
         id="forn"
@@ -120,14 +127,6 @@ function FormCompra({ produtos }) {
         onChange={(e) => setData(e.target.value)}
         required
       />
-      <label className="chk">
-        <input
-          type="checkbox"
-          checked={f.atualizarCusto}
-          onChange={(e) => setF({ ...f, atualizarCusto: e.target.checked })}
-        />
-        Usar este custo no produto
-      </label>
       <button type="submit" disabled={salvando}>
         {salvando ? "Salvando..." : "Registrar compra"}
       </button>
