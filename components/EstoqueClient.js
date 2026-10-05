@@ -14,7 +14,7 @@ const VAZIO = {
   ativo: true,
 };
 
-function FormProduto({ inicial, aoFechar }) {
+function FormProduto({ inicial, aoFechar, embutido = false }) {
   const { salvando, msg, enviar } = useEnvio();
   const [f, setF] = useState(inicial);
   const set = (campo) => (e) => setF({ ...f, [campo]: e.target.value });
@@ -30,7 +30,7 @@ function FormProduto({ inicial, aoFechar }) {
 
   return (
     <form
-      className="card"
+      className={embutido ? "form-inline" : "card"}
       onSubmit={(e) => {
         e.preventDefault();
         enviar(salvarProduto, f, {
@@ -39,7 +39,7 @@ function FormProduto({ inicial, aoFechar }) {
         });
       }}
     >
-      <h2>{f.id ? "Editar produto" : "Novo produto"}</h2>
+      {!embutido && <h2>{f.id ? "Editar produto" : "Novo produto"}</h2>}
       <label htmlFor="nome">Nome</label>
       <input id="nome" value={f.nome} onChange={set("nome")} required />
       <label htmlFor="unidade">Unidade</label>
@@ -227,7 +227,7 @@ export default function EstoqueClient({ produtos, contagens }) {
 
       {aba === "produtos" && (
         <>
-          {editando ? (
+          {editando && !editando.id ? (
             <FormProduto
               key={editando.id ?? "novo"}
               inicial={editando}
@@ -247,35 +247,48 @@ export default function EstoqueClient({ produtos, contagens }) {
               <p className="vazio">Nenhum produto cadastrado.</p>
             ) : (
               <ul className="lista">
-                {produtos.map((p) => (
-                  <li
-                    key={p.id}
-                    className="editavel"
-                    onClick={() =>
-                      setEditando({
-                        id: p.id,
-                        nome: p.nome,
-                        unidade: p.unidade,
-                        custo: String(p.custo),
-                        preco: String(p.preco),
-                        ativo: p.ativo,
-                      })
-                    }
-                  >
-                    <div>
-                      <div className="titulo">
-                        {p.nome}
-                        {!p.ativo && " (inativo)"}
+                {produtos.map((p) =>
+                  editando?.id === p.id ? (
+                    <li key={p.id} className="editando">
+                      <FormProduto
+                        key={p.id}
+                        inicial={editando}
+                        aoFechar={() => setEditando(null)}
+                        embutido
+                      />
+                    </li>
+                  ) : (
+                    <li
+                      key={p.id}
+                      className="editavel"
+                      onClick={() =>
+                        setEditando({
+                          id: p.id,
+                          nome: p.nome,
+                          unidade: p.unidade,
+                          custo: String(p.custo),
+                          preco: String(p.preco),
+                          ativo: p.ativo,
+                        })
+                      }
+                    >
+                      <div>
+                        <div className="titulo">
+                          {p.nome}
+                          {!p.ativo && " (inativo)"}
+                        </div>
+                        <div className="sub">
+                          Custo {brl(p.custo)} · Preço {brl(p.preco)}
+                        </div>
                       </div>
-                      <div className="sub">
-                        Custo {brl(p.custo)} · Preço {brl(p.preco)}
+                      <div
+                        className={`valor ${p.saldo <= 0 ? "negativo" : ""}`}
+                      >
+                        {qtd(p.saldo)} {p.unidade}
                       </div>
-                    </div>
-                    <div className={`valor ${p.saldo <= 0 ? "negativo" : ""}`}>
-                      {qtd(p.saldo)} {p.unidade}
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  ),
+                )}
               </ul>
             )}
           </div>

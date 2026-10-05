@@ -49,30 +49,61 @@ create table if not exists compras (
   created_at timestamptz not null default now()
 );
 create index if not exists compras_data on compras (data);
+create index if not exists compras_produto on compras (produto_id);
+create index if not exists compras_created_by on compras (created_by);
 
--- produtos.custo é o custo médio ponderado de todas as compras (valor total
--- comprado / quantidade total comprada), recalculado automaticamente a cada
--- compra lançada ou excluída. Sem nenhuma compra ainda, vale o custo digitado
--- à mão no cadastro do produto.
+-- produtos.custo é o custo médio móvel sobre o saldo em estoque: o histórico
+-- (compras, vendas e contagens) é refeito em ordem cronológica a cada compra
+-- lançada ou excluída.
+--   compra: novo custo = (saldo antes * custo atual + qtd * custo da compra) / (saldo antes + qtd)
+--   venda e contagem só alteram a quantidade, nunca o custo
+--   saldo zerado/negativo antes da compra: custo passa a ser o da compra
+-- Sem nenhuma compra ainda, vale o custo digitado à mão no cadastro do produto.
 create or replace function recalcular_custo_medio(p_produto_id uuid) returns void
 language plpgsql security definer set search_path = '' as $$
 declare
-  v_qtd numeric(14,4);
-  v_valor numeric(14,4);
+  r record;
+  v_saldo numeric := 0;
+  v_custo numeric := null;
 begin
-  select sum(quantidade), sum(quantidade * custo_unit)
-    into v_qtd, v_valor
-  from public.compras where produto_id = p_produto_id;
+  for r in
+    select data, created_at, 1 as ord, 'C' as tipo, quantidade as qtd, custo_unit as custo
+      from public.compras where produto_id = p_produto_id
+    union all
+    select data, created_at, 2, 'V', quantidade, null
+      from public.vendas where produto_id = p_produto_id
+    union all
+    select data, created_at, 3, 'E', coalesce(diferenca, 0), null
+      from public.contagens_estoque where produto_id = p_produto_id
+    order by data, created_at, ord
+  loop
+    if r.tipo = 'C' then
+      if v_custo is null or v_saldo <= 0 then
+        v_custo := r.custo;
+      else
+        v_custo := (v_saldo * v_custo + r.qtd * r.custo) / (v_saldo + r.qtd);
+      end if;
+      v_saldo := v_saldo + r.qtd;
+    elsif r.tipo = 'V' then
+      v_saldo := v_saldo - r.qtd;
+    else
+      v_saldo := v_saldo + r.qtd;
+    end if;
+  end loop;
 
-  if v_qtd is null or v_qtd = 0 then
+  -- sem nenhuma compra lançada: mantém o custo cadastrado manualmente no produto
+  if v_custo is null then
     return;
   end if;
 
-  update public.produtos set custo = round(v_valor / v_qtd, 2) where id = p_produto_id;
+  -- liga a flag só nesta transação para o bloqueio de custo manual deixar passar
+  perform pg_catalog.set_config('app.recalculando_cmp', 'on', true);
+  update public.produtos set custo = round(v_custo, 2) where id = p_produto_id;
+  perform pg_catalog.set_config('app.recalculando_cmp', 'off', true);
 end $$;
 
 create or replace function compras_recalcular_custo() returns trigger
-language plpgsql set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $$
 begin
   if tg_op = 'DELETE' then
     perform public.recalcular_custo_medio(old.produto_id);
@@ -87,11 +118,13 @@ create trigger depois_de_gravar_compra after insert or delete on compras
   for each row execute function compras_recalcular_custo();
 
 -- Depois da 1ª compra, o custo do produto passa a ser só o CMP calculado;
--- edição manual (tela de produto) é ignorada para não quebrar a média.
+-- edição manual (tela de produto) é ignorada para não quebrar a média
+-- (exceto dentro de recalcular_custo_medio, que liga app.recalculando_cmp).
 create or replace function produtos_bloquear_custo_manual() returns trigger
 language plpgsql set search_path = '' as $$
 begin
   if new.custo is distinct from old.custo
+     and coalesce(pg_catalog.current_setting('app.recalculando_cmp', true), 'off') <> 'on'
      and exists (select 1 from public.compras where produto_id = new.id) then
     new.custo := old.custo;
   end if;
@@ -121,6 +154,7 @@ create table if not exists vendas (
 );
 create index if not exists vendas_data on vendas (data);
 create index if not exists vendas_vendedor on vendas (vendedor_id, data);
+create index if not exists vendas_produto on vendas (produto_id);
 
 create or replace function vendas_preencher() returns trigger
 language plpgsql set search_path = '' as $$
@@ -146,6 +180,7 @@ create table if not exists despesas (
   created_at timestamptz not null default now()
 );
 create index if not exists despesas_data on despesas (data);
+create index if not exists despesas_created_by on despesas (created_by);
 
 -- 6) Contagem cíclica: guarda o que o sistema achava e o que foi contado; a diferença ajusta o estoque
 create table if not exists contagens_estoque (
@@ -159,6 +194,8 @@ create table if not exists contagens_estoque (
   created_by uuid default auth.uid() references perfis(id),
   created_at timestamptz not null default now()
 );
+create index if not exists contagens_produto on contagens_estoque (produto_id);
+create index if not exists contagens_created_by on contagens_estoque (created_by);
 
 -- 7) Estoque atual = compras − vendas + ajustes de contagem
 create or replace view estoque_atual with (security_invoker = true) as

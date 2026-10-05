@@ -27,7 +27,7 @@ export default function FormVenda({ produtos, comissaoPct }) {
   function escolher(id) {
     setProdutoId(id);
     const p = produtos.find((x) => x.id === id);
-    setPreco(p ? String(p.preco).replace(".", ",") : "");
+    setPreco(p ? String(p.preco) : "");
     limpar();
   }
 

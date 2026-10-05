@@ -307,6 +307,18 @@ button:disabled {
   background: #f2f1ee;
 }
 
+/* Formulário de edição aberto dentro do próprio item da lista */
+.lista li.editando {
+  display: block;
+  margin: 0 -16px;
+  padding: 12px 16px;
+  background: var(--verde-claro);
+}
+
+.lista li.editando .form-inline > h2 {
+  margin-top: 0;
+}
+
 .lista li.selecionado {
   background: var(--verde-claro);
 }
