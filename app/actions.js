@@ -99,6 +99,43 @@ export async function registrarVenda({
   });
 }
 
+export async function editarVenda({ id, quantidade, preco, pagamento, data }) {
+  return executar(async (supabase) => {
+    const q = valorPositivo(quantidade, "a quantidade");
+    const p = valorPositivo(preco, "o preço");
+    if (!PAGAMENTOS.includes(pagamento)) falha("Escolha a forma de pagamento.");
+
+    const { data: antiga, error: erroVenda } = await supabase
+      .from("vendas")
+      .select("produto_id, quantidade")
+      .eq("id", id)
+      .single();
+    if (erroVenda || !antiga) falha("Venda não encontrada.");
+
+    // o saldo atual já desconta a quantidade antiga desta venda
+    const produto = await saldoDoProduto(supabase, antiga.produto_id);
+    const limite = produto.saldo + Number(antiga.quantidade);
+    if (q > limite)
+      falha(
+        `Estoque insuficiente de ${produto.nome}: dá para vender até ${qtd(limite)}.`,
+      );
+
+    const { data: salvas, error } = await supabase
+      .from("vendas")
+      .update({
+        data: dataValida(data),
+        quantidade: q,
+        preco_unit: p,
+        pagamento,
+      })
+      .eq("id", id)
+      .select("id");
+    if (error) throw error;
+    if (!salvas?.length) falha("Você não pode editar esta venda.");
+    atualizarTudo();
+  });
+}
+
 export async function excluirVenda(id) {
   return executar(async (supabase) => {
     const { error } = await supabase.from("vendas").delete().eq("id", id);

@@ -555,6 +555,20 @@ button:disabled {
   margin-top: 8px;
 }
 
+/* Editar + Excluir (ou Cancelar + Salvar) lado a lado dentro do item expandido */
+.acoes-item {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.acoes-item button {
+  min-width: 0;
+  padding: 12px 8px;
+  font-size: 16px;
+  line-height: 1.2;
+}
+
 .resumo-venda {
   display: grid;
   gap: 4px;

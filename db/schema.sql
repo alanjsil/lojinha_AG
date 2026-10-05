@@ -208,8 +208,8 @@ from produtos p;
 
 -- ============================================================
 -- Segurança: RLS ligado em tudo. Só usuários logados (todos com o mesmo acesso).
--- Vendas, compras e contagens não são editáveis (apaga e lança de novo), para
--- não adulterar custo/comissão fotografados.
+-- Compras e contagens não são editáveis (apaga e lança de novo). Vendas só
+-- editam data, quantidade, preço e pagamento, para não adulterar custo/comissão fotografados.
 -- ============================================================
 alter table perfis enable row level security;
 alter table produtos enable row level security;
@@ -236,6 +236,18 @@ create policy compras_apagar on compras for delete to authenticated using (true)
 create policy vendas_ver on vendas for select to authenticated using (true);
 create policy vendas_criar on vendas for insert to authenticated with check (true);
 create policy vendas_apagar on vendas for delete to authenticated using (true);
+-- editar: o vendedor corrige as próprias vendas, o gerente qualquer uma; só estas colunas
+create policy vendas_editar on vendas for update to authenticated
+  using (
+    vendedor_id = (select auth.uid())
+    or exists (select 1 from perfis where id = (select auth.uid()) and papel = 'gerente')
+  )
+  with check (
+    vendedor_id = (select auth.uid())
+    or exists (select 1 from perfis where id = (select auth.uid()) and papel = 'gerente')
+  );
+revoke update on vendas from authenticated;
+grant update (data, quantidade, preco_unit, pagamento) on vendas to authenticated;
 
 -- despesas: só gerente vê, cadastra ou apaga
 create policy despesas_ver on despesas for select to authenticated

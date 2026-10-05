@@ -4,14 +4,18 @@ import { useState } from "react";
 import BotaoExcluir from "./BotaoExcluir";
 import useEnvio, { Mensagem } from "./useEnvio";
 
-// Lista em cartões: tocar num item mostra os detalhes e o botão de excluir.
+// Lista em cartões: tocar num item mostra os detalhes e os botões de ação.
 // itens: [{ id, titulo, sub, valor, detalhes: [texto] }]
+// renderEditar(item, fechar): opcional; quando passado, aparece o botão Editar
+// ao lado de Excluir e o formulário abre dentro do próprio item.
 export default function ListaExpansivel({
   itens,
   excluir,
+  renderEditar,
   vazio = "Nada lançado ainda.",
 }) {
   const [aberto, setAberto] = useState(null);
+  const [editando, setEditando] = useState(null);
   const { msg, enviar } = useEnvio();
 
   if (itens.length === 0) return <p className="vazio">{vazio}</p>;
@@ -29,7 +33,10 @@ export default function ListaExpansivel({
                 alignItems: "center",
                 gap: 12,
               }}
-              onClick={() => setAberto(aberto === i.id ? null : i.id)}
+              onClick={() => {
+                setAberto(aberto === i.id ? null : i.id);
+                setEditando(null);
+              }}
             >
               <div>
                 <div className="titulo">{i.titulo}</div>
@@ -39,14 +46,31 @@ export default function ListaExpansivel({
             </div>
             {aberto === i.id && (
               <div className="detalhe-item">
-                {i.detalhes?.map((d) => (
-                  <p key={d}>{d}</p>
-                ))}
-                <BotaoExcluir
-                  onConfirmar={() =>
-                    enviar(excluir, i.id, { textoOk: "Excluído." })
-                  }
-                />
+                {editando === i.id ? (
+                  renderEditar(i, () => setEditando(null))
+                ) : (
+                  <>
+                    {i.detalhes?.map((d) => (
+                      <p key={d}>{d}</p>
+                    ))}
+                    <div className={renderEditar ? "acoes-item" : undefined}>
+                      {renderEditar && (
+                        <button
+                          type="button"
+                          className="botao-secundario"
+                          onClick={() => setEditando(i.id)}
+                        >
+                          Editar
+                        </button>
+                      )}
+                      <BotaoExcluir
+                        onConfirmar={() =>
+                          enviar(excluir, i.id, { textoOk: "Excluído." })
+                        }
+                      />
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </li>
