@@ -666,3 +666,38 @@ button:disabled {
 .tabela td.negativo {
   color: var(--vermelho);
 }
+
+/* ---------- Navegação por mês (Resumos) ---------- */
+
+.mes-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.mes-nav a,
+.mes-nav .desabilitado {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  font-size: 28px;
+  background: var(--cartao);
+  color: var(--texto);
+  border-radius: var(--raio);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  text-decoration: none;
+}
+
+.mes-nav a:active {
+  background: var(--primaria-clara);
+}
+
+.mes-nav .desabilitado {
+  opacity: 0.35;
+}

@@ -27,6 +27,9 @@ Campos `type="number"` só aceitam ponto decimal: preencha com `String(valor)`, 
   Sem compras, vale o custo digitado no cadastro; depois da 1ª compra a edição manual do custo é ignorada
   (trigger `produtos_bloquear_custo_manual`, liberado só dentro do recálculo via `app.recalculando_cmp`).
 - Lucro líquido = lucro bruto − comissões − despesas (compras não entram de novo: o custo já está na venda).
+- Lançamentos dos sócios (`lancamentos`, aba em Saídas, só gerente): `pro_labore`, `pagamento_comissao` (exige
+  vendedor), `saque`, `aporte`. Só o **pró-labore** entra no lucro líquido; os demais ficam na "Movimentação de caixa"
+  dos Resumos. Resumos tem aba Mês com setas ‹ › (`?p=mes&m=AAAA-MM`; mês corrente vai só até hoje).
 - Dois papéis (`perfis.papel`): **gerente** vê e cadastra despesas e vê o resumo de todos os vendedores;
   **vendedor** não acessa despesas (aba some em Saídas, Server Action recusa) e no resumo só vê as
   próprias vendas/comissão (sem despesas, lucro líquido ou comparativo entre vendedores). Só o admin
@@ -38,7 +41,7 @@ Campos `type="number"` só aceitam ponto decimal: preencha com `String(valor)`, 
 - Auth: Supabase Auth (e-mail/senha), sessão por cookie (`@supabase/ssr`). Dados pelo servidor, com o
   usuário logado, sob RLS (`lib/supabase/server.js`, Server Actions em `app/actions.js`).
 - Projeto Supabase da Lojinha: ref `modldgphwfzjarydzolx` (o mesmo de `NEXT_PUBLIC_SUPABASE_URL` em `.env.local`).
-- Schema em `db/schema.sql` (estado atual completo); mudanças em `db/migracoes/NNN_*.sql` (001–009), sempre
+- Schema em `db/schema.sql` (estado atual completo); mudanças em `db/migracoes/NNN_*.sql` (001–011), sempre
   refletidas no schema. O banco aplica a partir da 003 pelo histórico do Supabase; confira com o MCP
   (`list_migrations`) antes de numerar a próxima. Funções de trigger têm `execute` revogado de
   anon/authenticated; funções que chamam outras revogadas precisam ser `security definer`.

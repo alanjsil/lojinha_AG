@@ -7,6 +7,7 @@ import { createClient, usuarioAtual } from "../lib/supabase/server";
 
 const PAGAMENTOS = ["a_vista", "cartao"];
 const TIPOS_DESPESA = ["aluguel", "agua", "luz", "internet", "gasolina", "outros"];
+const TIPOS_LANCAMENTO = ["pro_labore", "pagamento_comissao", "saque", "aporte"];
 const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
 
 class ErroDeNegocio extends Error {}
@@ -262,6 +263,46 @@ export async function excluirDespesa(id) {
   return executar(
     async (supabase) => {
       const { error } = await supabase.from("despesas").delete().eq("id", id);
+      if (error) throw error;
+      atualizarTudo();
+    },
+    { exigeGerente: true },
+  );
+}
+
+// ---------- Lançamentos dos sócios ----------
+
+export async function registrarLancamento({
+  tipo,
+  valor,
+  data,
+  descricao,
+  vendedorId,
+}) {
+  return executar(
+    async (supabase) => {
+      if (!TIPOS_LANCAMENTO.includes(tipo)) falha("Escolha o tipo do lançamento.");
+      const v = valorPositivo(valor, "o valor");
+      if (tipo === "pagamento_comissao" && !vendedorId)
+        falha("Escolha o vendedor.");
+      const { error } = await supabase.from("lancamentos").insert({
+        data: dataValida(data),
+        tipo,
+        valor: v,
+        descricao: (descricao ?? "").trim() || null,
+        vendedor_id: tipo === "pagamento_comissao" ? vendedorId : null,
+      });
+      if (error) throw error;
+      atualizarTudo();
+    },
+    { exigeGerente: true },
+  );
+}
+
+export async function excluirLancamento(id) {
+  return executar(
+    async (supabase) => {
+      const { error } = await supabase.from("lancamentos").delete().eq("id", id);
       if (error) throw error;
       atualizarTudo();
     },

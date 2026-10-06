@@ -227,6 +227,22 @@ create table if not exists despesas (
 create index if not exists despesas_data on despesas (data);
 create index if not exists despesas_created_by on despesas (created_by);
 
+-- 5b) Lançamentos dos sócios (pró-labore, pagamento de comissão, saque, aporte)
+create table if not exists lancamentos (
+  id uuid primary key default gen_random_uuid(),
+  data date not null default current_date,
+  tipo text not null check (tipo in ('pro_labore', 'pagamento_comissao', 'saque', 'aporte')),
+  valor numeric(12,2) not null check (valor > 0),
+  descricao text,
+  vendedor_id uuid references perfis(id),
+  created_by uuid default auth.uid() references perfis(id),
+  created_at timestamptz not null default now(),
+  check (tipo <> 'pagamento_comissao' or vendedor_id is not null)
+);
+create index if not exists lancamentos_data on lancamentos (data);
+create index if not exists lancamentos_vendedor on lancamentos (vendedor_id);
+create index if not exists lancamentos_created_by on lancamentos (created_by);
+
 -- 6) Contagem cíclica: guarda o que o sistema achava e o que foi contado; a diferença ajusta o estoque
 create table if not exists contagens_estoque (
   id uuid primary key default gen_random_uuid(),
@@ -261,6 +277,7 @@ alter table produtos enable row level security;
 alter table compras enable row level security;
 alter table vendas enable row level security;
 alter table despesas enable row level security;
+alter table lancamentos enable row level security;
 alter table contagens_estoque enable row level security;
 
 create policy perfis_ver on perfis for select to authenticated using (true);
@@ -308,10 +325,18 @@ create policy despesas_criar on despesas for insert to authenticated
 create policy despesas_apagar on despesas for delete to authenticated
   using (exists (select 1 from perfis where id = auth.uid() and papel = 'gerente'));
 
+-- lançamentos: só gerente
+create policy lancamentos_ver on lancamentos for select to authenticated
+  using (exists (select 1 from perfis where id = (select auth.uid()) and papel = 'gerente'));
+create policy lancamentos_criar on lancamentos for insert to authenticated
+  with check (exists (select 1 from perfis where id = (select auth.uid()) and papel = 'gerente'));
+create policy lancamentos_apagar on lancamentos for delete to authenticated
+  using (exists (select 1 from perfis where id = (select auth.uid()) and papel = 'gerente'));
+
 create policy contagens_ver on contagens_estoque for select to authenticated using (true);
 create policy contagens_criar on contagens_estoque for insert to authenticated with check (true);
 
-revoke all on perfis, produtos, compras, vendas, despesas, contagens_estoque, estoque_atual from anon;
+revoke all on perfis, produtos, compras, vendas, despesas, lancamentos, contagens_estoque, estoque_atual from anon;
 
 -- Funções de gatilho não devem ser chamáveis pela API pública (rpc)
 revoke execute on function criar_perfil() from public, anon, authenticated;

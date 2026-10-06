@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import {
   excluirCompra,
   excluirDespesa,
+  excluirLancamento,
   registrarCompra,
   registrarDespesa,
+  registrarLancamento,
 } from "../app/actions";
 import { brl, dataBR, hoje, qtd } from "../lib/formato";
 import ListaExpansivel from "./ListaExpansivel";
@@ -18,6 +20,13 @@ const TIPOS = {
   internet: "Internet",
   gasolina: "Gasolina",
   outros: "Outros",
+};
+
+const TIPOS_LANCAMENTO = {
+  pro_labore: "Pró-labore",
+  pagamento_comissao: "Pagamento de comissão",
+  saque: "Saque",
+  aporte: "Aporte",
 };
 
 function useDataHoje() {
@@ -207,7 +216,104 @@ function FormDespesa() {
   );
 }
 
-export default function SaidasClient({ produtos, compras, despesas, gerente }) {
+function FormLancamento({ vendedores }) {
+  const { salvando, msg, enviar } = useEnvio();
+  const [data, setData] = useDataHoje();
+  const [f, setF] = useState({
+    tipo: "pro_labore",
+    descricao: "",
+    valor: "",
+    vendedorId: "",
+  });
+  const porComissao = f.tipo === "pagamento_comissao";
+
+  return (
+    <form
+      className="card"
+      onSubmit={(e) => {
+        e.preventDefault();
+        enviar(
+          registrarLancamento,
+          { ...f, data },
+          {
+            textoOk: "Lançamento registrado!",
+            aoConcluir: () => setF({ ...f, descricao: "", valor: "" }),
+          },
+        );
+      }}
+    >
+      <h2>Lançamento</h2>
+      <label htmlFor="ltipo">Tipo</label>
+      <select
+        id="ltipo"
+        value={f.tipo}
+        onChange={(e) => setF({ ...f, tipo: e.target.value })}
+      >
+        {Object.entries(TIPOS_LANCAMENTO).map(([v, r]) => (
+          <option key={v} value={v}>
+            {r}
+          </option>
+        ))}
+      </select>
+      {porComissao && (
+        <>
+          <label htmlFor="lvend">Vendedor</label>
+          <select
+            id="lvend"
+            value={f.vendedorId}
+            onChange={(e) => setF({ ...f, vendedorId: e.target.value })}
+            required
+          >
+            <option value="">Escolha...</option>
+            {vendedores.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.nome}
+              </option>
+            ))}
+          </select>
+        </>
+      )}
+      <label htmlFor="lvalor">Valor (R$)</label>
+      <input
+        id="lvalor"
+        type="number"
+        inputMode="decimal"
+        step="0.01"
+        min="0"
+        value={f.valor}
+        onChange={(e) => setF({ ...f, valor: e.target.value })}
+        required
+      />
+      <label htmlFor="ldesc">Descrição</label>
+      <input
+        id="ldesc"
+        value={f.descricao}
+        onChange={(e) => setF({ ...f, descricao: e.target.value })}
+      />
+      <label htmlFor="ldata">Data</label>
+      <input
+        id="ldata"
+        type="date"
+        value={data}
+        onChange={(e) => setData(e.target.value)}
+        required
+      />
+      <button type="submit" disabled={salvando}>
+        {salvando ? "Salvando..." : "Registrar lançamento"}
+      </button>
+      <Mensagem msg={msg} />
+    </form>
+  );
+}
+
+export default function SaidasClient({
+  produtos,
+  compras,
+  despesas,
+  lancamentos,
+  vendedores,
+  gerente,
+}) {
   const [aba, setAba] = useState("compras");
 
   const itensCompras = compras.map((c) => ({
@@ -222,6 +328,12 @@ export default function SaidasClient({ produtos, compras, despesas, gerente }) {
     titulo: TIPOS[d.tipo],
     sub: `${dataBR(d.data)}${d.descricao ? ` · ${d.descricao}` : ""}`,
     valor: brl(d.valor),
+  }));
+  const itensLancamentos = lancamentos.map((l) => ({
+    id: l.id,
+    titulo: TIPOS_LANCAMENTO[l.tipo],
+    sub: `${dataBR(l.data)}${l.vendedor ? ` · ${l.vendedor}` : ""}${l.descricao ? ` · ${l.descricao}` : ""}`,
+    valor: brl(l.valor),
   }));
 
   return (
@@ -242,6 +354,13 @@ export default function SaidasClient({ produtos, compras, despesas, gerente }) {
           >
             Despesas
           </button>
+          <button
+            type="button"
+            className={aba === "lancamentos" ? "ativo" : ""}
+            onClick={() => setAba("lancamentos")}
+          >
+            Lançamentos
+          </button>
         </div>
       )}
 
@@ -254,6 +373,18 @@ export default function SaidasClient({ produtos, compras, despesas, gerente }) {
               itens={itensCompras}
               excluir={excluirCompra}
               vazio="Nenhuma compra nos últimos 30 dias."
+            />
+          </div>
+        </>
+      ) : aba === "lancamentos" ? (
+        <>
+          <FormLancamento vendedores={vendedores} />
+          <div className="card">
+            <h2>Últimos 30 dias</h2>
+            <ListaExpansivel
+              itens={itensLancamentos}
+              excluir={excluirLancamento}
+              vazio="Nenhum lançamento nos últimos 30 dias."
             />
           </div>
         </>

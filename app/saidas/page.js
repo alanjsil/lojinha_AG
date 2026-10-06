@@ -12,6 +12,8 @@ export default async function Saidas() {
     { data: compras },
     { data: despesas },
     { data: historico },
+    { data: lancamentos },
+    { data: vendedores },
   ] =
     await Promise.all([
       supabase
@@ -39,6 +41,17 @@ export default async function Saidas() {
         .select("produto_id, custo_unit")
         .order("data", { ascending: false })
         .order("created_at", { ascending: false }),
+      usuario?.gerente
+        ? supabase
+            .from("lancamentos")
+            .select("id, data, tipo, valor, descricao, perfis!lancamentos_vendedor_id_fkey(nome)")
+            .gte("data", desde)
+            .order("data", { ascending: false })
+            .limit(100)
+        : Promise.resolve({ data: [] }),
+      usuario?.gerente
+        ? supabase.from("perfis").select("id, nome").order("nome")
+        : Promise.resolve({ data: [] }),
     ]);
 
   const ultimoCusto = {};
@@ -65,6 +78,15 @@ export default async function Saidas() {
           ...d,
           valor: Number(d.valor),
         }))}
+        lancamentos={(lancamentos ?? []).map((l) => ({
+          id: l.id,
+          data: l.data,
+          tipo: l.tipo,
+          descricao: l.descricao,
+          valor: Number(l.valor),
+          vendedor: l.perfis?.nome ?? null,
+        }))}
+        vendedores={vendedores ?? []}
         gerente={Boolean(usuario?.gerente)}
       />
     </>

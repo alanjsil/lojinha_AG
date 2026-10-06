@@ -1,19 +1,27 @@
 import Link from "next/link";
 import GraficoBarras from "../../components/GraficoBarras";
-import { brl, qtd, somarDias } from "../../lib/formato";
+import { brl, nomeMes, qtd, somarDias, somarMeses, ultimoDiaDoMes } from "../../lib/formato";
 import { createClient, usuarioAtual } from "../../lib/supabase/server";
 import { sair } from "../actions";
 
-const PERIODOS = { dia: "Hoje", semana: "7 dias", mes: "Este mês" };
+const PERIODOS = { dia: "Hoje", semana: "7 dias", mes: "Mês" };
 
 // o servidor roda em UTC; "hoje" precisa ser o dia de Brasília
 const hojeBR = () =>
   new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
 
-function intervalo(p, fim) {
-  if (p === "dia") return fim;
-  if (p === "semana") return somarDias(fim, -6);
-  return fim.slice(0, 8) + "01";
+// mês escolhido (AAAA-MM); inválido ou futuro cai no mês atual
+function mesEscolhido(m, hoje) {
+  const atual = hoje.slice(0, 7);
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(m ?? "") && m <= atual ? m : atual;
+}
+
+// o mês corrente vai só até hoje; meses passados vão até o último dia
+function intervalo(p, hoje, mes) {
+  if (p === "dia") return [hoje, hoje];
+  if (p === "semana") return [somarDias(hoje, -6), hoje];
+  const fim = ultimoDiaDoMes(mes);
+  return [`${mes}-01`, fim < hoje ? fim : hoje];
 }
 
 function diasEntre(de, ate) {
@@ -24,8 +32,9 @@ function diasEntre(de, ate) {
 
 export default async function Resumos({ searchParams }) {
   const p = PERIODOS[searchParams?.p] ? searchParams.p : "semana";
-  const ate = hojeBR();
-  const de = intervalo(p, ate);
+  const hoje = hojeBR();
+  const mes = mesEscolhido(searchParams?.m, hoje);
+  const [de, ate] = intervalo(p, hoje, mes);
 
   const supabase = createClient();
   const usuario = await usuarioAtual(supabase);
@@ -51,7 +60,12 @@ export default async function Resumos({ searchParams }) {
   if (!gerente)
     consultaParcelas = consultaParcelas.eq("vendedor_id", usuario?.id);
 
-  const [{ data: vendas }, { data: parcelas }, { data: despesas }] =
+  const [
+    { data: vendas },
+    { data: parcelas },
+    { data: despesas },
+    { data: lancamentos },
+  ] =
     await Promise.all([
       consultaVendas,
       consultaParcelas,
@@ -59,6 +73,14 @@ export default async function Resumos({ searchParams }) {
         ? supabase
             .from("despesas")
             .select("valor")
+            .gte("data", de)
+            .lte("data", ate)
+            .limit(5000)
+        : Promise.resolve({ data: [] }),
+      gerente
+        ? supabase
+            .from("lancamentos")
+            .select("tipo, valor, vendedor_id, perfis!lancamentos_vendedor_id_fkey(nome)")
             .gte("data", de)
             .lte("data", ate)
             .limit(5000)
@@ -125,18 +147,37 @@ export default async function Resumos({ searchParams }) {
     (s, d) => s + Number(d.valor),
     0,
   );
-  const liquido = total.lucro - total.comissoes - totalDespesas;
+  const caixa = { pro_labore: 0, pagamento_comissao: 0, saque: 0, aporte: 0 };
+  for (const l of lancamentos ?? []) {
+    caixa[l.tipo] += Number(l.valor);
+    if (l.tipo === "pagamento_comissao") {
+      const vend = porVendedor.get(l.vendedor_id) ?? {
+        nome: l.perfis?.nome ?? "-",
+        n: 0,
+        vendas: 0,
+        lucro: 0,
+        comissao: 0,
+      };
+      vend.pago = (vend.pago ?? 0) + Number(l.valor);
+      porVendedor.set(l.vendedor_id, vend);
+    }
+  }
+  const liquido =
+    total.lucro - total.comissoes - totalDespesas - caixa.pro_labore;
+  const saldoCaixa =
+    caixa.aporte - caixa.saque - caixa.pro_labore - caixa.pagamento_comissao;
 
   // % sobre a receita e % sobre o lucro bruto (vazio quando a base é zero)
   const pct = (v, base) => (base > 0 ? `${qtd((v / base) * 100)}%` : "–");
   const linhasDre = [
-    { item: "Receita", valor: total.vendas },
-    { item: "Custo das mercadorias", valor: total.custo },
+    { item: "Receita", valor: total.vendas, semPctLucro: true },
+    { item: "Custo das mercadorias", valor: total.custo, semPctLucro: true },
     { item: "Lucro bruto", valor: total.lucro, forte: true },
     { item: gerente ? "Comissões" : "Sua comissão", valor: total.comissoes },
     ...(gerente
       ? [
           { item: "Despesas", valor: totalDespesas },
+          { item: "Pró-labore", valor: caixa.pro_labore },
           { item: "Lucro líquido", valor: liquido, forte: true },
         ]
       : []),
@@ -155,13 +196,37 @@ export default async function Resumos({ searchParams }) {
         {Object.entries(PERIODOS).map(([k, r]) => (
           <Link
             key={k}
-            href={`/resumos?p=${k}`}
+            href={k === "mes" ? `/resumos?p=mes&m=${mes}` : `/resumos?p=${k}`}
             className={p === k ? "ativo" : ""}
           >
             {r}
           </Link>
         ))}
       </div>
+
+      {p === "mes" && (
+        <div className="mes-nav">
+          <Link
+            href={`/resumos?p=mes&m=${somarMeses(mes, -1)}`}
+            aria-label="Mês anterior"
+          >
+            ‹
+          </Link>
+          <span>{nomeMes(mes)}</span>
+          {mes < hoje.slice(0, 7) ? (
+            <Link
+              href={`/resumos?p=mes&m=${somarMeses(mes, 1)}`}
+              aria-label="Próximo mês"
+            >
+              ›
+            </Link>
+          ) : (
+            <span className="desabilitado" aria-hidden="true">
+              ›
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="kpis">
         <div className="kpi">
@@ -204,7 +269,7 @@ export default async function Resumos({ searchParams }) {
                     {brl(l.valor)}
                   </td>
                   <td>{pct(l.valor, total.vendas)}</td>
-                  <td>{pct(l.valor, total.lucro)}</td>
+                  <td>{l.semPctLucro ? "–" : pct(l.valor, total.lucro)}</td>
                 </tr>
               ))}
             </tbody>
@@ -225,10 +290,46 @@ export default async function Resumos({ searchParams }) {
             </li>
           </ul>
           <p className="info">
-            Lucro líquido = lucro bruto − comissões − despesas. As comissões
+            Lucro líquido = lucro bruto − comissões − despesas − pró-labore. As comissões
             contam no vencimento de cada parcela (venda no cartão parcelada paga
             a comissão aos poucos). A mercadoria já entra no lucro pelo custo de
             cada venda; por isso as compras não são subtraídas de novo.
+          </p>
+        </div>
+      )}
+
+      {gerente && (
+        <div className="card">
+          <h2>Movimentação de caixa</h2>
+          <ul className="lista">
+            <li>
+              <span className="titulo">Aportes</span>
+              <span className="valor positivo">{brl(caixa.aporte)}</span>
+            </li>
+            <li>
+              <span className="titulo">Saques</span>
+              <span className="valor">{brl(caixa.saque)}</span>
+            </li>
+            <li>
+              <span className="titulo">Pró-labore</span>
+              <span className="valor">{brl(caixa.pro_labore)}</span>
+            </li>
+            <li>
+              <span className="titulo">Comissões pagas</span>
+              <span className="valor">{brl(caixa.pagamento_comissao)}</span>
+            </li>
+            <li>
+              <span className="titulo">Saldo dos lançamentos</span>
+              <span
+                className={`valor ${saldoCaixa < 0 ? "negativo" : "positivo"}`}
+              >
+                {brl(saldoCaixa)}
+              </span>
+            </li>
+          </ul>
+          <p className="info">
+            Só os lançamentos de Saídas. Saques, aportes e comissões pagas não
+            mudam o lucro; o pró-labore já entra no lucro líquido.
           </p>
         </div>
       )}
@@ -254,6 +355,10 @@ export default async function Resumos({ searchParams }) {
                     <div className="sub">
                       {v.n} {v.n === 1 ? "venda" : "vendas"} · lucro{" "}
                       {brl(v.lucro)}
+                    </div>
+                    <div className="sub">
+                      paga {brl(v.pago ?? 0)} · a pagar{" "}
+                      {brl(v.comissao - (v.pago ?? 0))}
                     </div>
                   </div>
                   <div className="valor">{brl(v.comissao)}</div>
