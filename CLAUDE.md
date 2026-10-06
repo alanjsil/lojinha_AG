@@ -17,6 +17,9 @@ Campos `type="number"` só aceitam ponto decimal: preencha com `String(valor)`, 
 
 - Venda = um item por venda. Custo e % de comissão são fotografados por trigger (`vendas_preencher`).
 - Comissão = % (padrão 40) do **lucro** da venda; prejuízo não gera comissão negativa.
+- Pagamento: `a_vista` ou `cartao` (sem Pix). Só cartão parcela (1–12x). `parcelas` guarda uma linha por
+  parcela (trigger `vendas_gerar_parcelas`, vence data + (k−1) meses) com a fatia da comissão; nos Resumos
+  a comissão conta no **vencimento da parcela**, não na data da venda.
 - Estoque = compras − vendas + diferença das contagens (view `estoque_atual`). Não vende acima do saldo.
 - Custo do produto (`produtos.custo`) = **custo médio móvel sobre o saldo**: a cada compra lançada/excluída,
   `recalcular_custo_medio` refaz o histórico em ordem cronológica (compra: `(saldo×custo + qtd×custo da compra) /
@@ -35,7 +38,7 @@ Campos `type="number"` só aceitam ponto decimal: preencha com `String(valor)`, 
 - Auth: Supabase Auth (e-mail/senha), sessão por cookie (`@supabase/ssr`). Dados pelo servidor, com o
   usuário logado, sob RLS (`lib/supabase/server.js`, Server Actions em `app/actions.js`).
 - Projeto Supabase da Lojinha: ref `modldgphwfzjarydzolx` (o mesmo de `NEXT_PUBLIC_SUPABASE_URL` em `.env.local`).
-- Schema em `db/schema.sql` (estado atual completo); mudanças em `db/migracoes/NNN_*.sql` (001–007), sempre
+- Schema em `db/schema.sql` (estado atual completo); mudanças em `db/migracoes/NNN_*.sql` (001–009), sempre
   refletidas no schema. O banco aplica a partir da 003 pelo histórico do Supabase; confira com o MCP
   (`list_migrations`) antes de numerar a próxima. Funções de trigger têm `execute` revogado de
   anon/authenticated; funções que chamam outras revogadas precisam ser `security definer`.

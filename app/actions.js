@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { numero, preenchido, qtd } from "../lib/formato";
 import { createClient, usuarioAtual } from "../lib/supabase/server";
 
-const PAGAMENTOS = ["dinheiro", "pix", "cartao"];
+const PAGAMENTOS = ["a_vista", "cartao"];
 const TIPOS_DESPESA = ["aluguel", "agua", "luz", "internet", "outros"];
 const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -59,6 +59,15 @@ async function saldoDoProduto(supabase, produtoId) {
   return data;
 }
 
+// só cartão parcela (1 a 12x); qualquer outra forma é sempre 1 parcela
+function parcelasValidas(pagamento, parcelas) {
+  if (pagamento !== "cartao") return 1;
+  const n = Number(parcelas ?? 1);
+  if (!Number.isInteger(n) || n < 1 || n > 12)
+    falha("Parcelas inválidas (1 a 12).");
+  return n;
+}
+
 function atualizarTudo() {
   ["/vendas", "/estoque", "/saidas", "/resumos"].forEach((p) =>
     revalidatePath(p),
@@ -72,6 +81,7 @@ export async function registrarVenda({
   quantidade,
   preco,
   pagamento,
+  parcelas,
   data,
 }) {
   return executar(async (supabase) => {
@@ -79,6 +89,7 @@ export async function registrarVenda({
     const q = valorPositivo(quantidade, "a quantidade");
     const p = valorPositivo(preco, "o preço");
     if (!PAGAMENTOS.includes(pagamento)) falha("Escolha a forma de pagamento.");
+    const nParcelas = parcelasValidas(pagamento, parcelas);
 
     const produto = await saldoDoProduto(supabase, produtoId);
     if (!produto.ativo) falha("Este produto está inativo.");
@@ -93,17 +104,26 @@ export async function registrarVenda({
       quantidade: q,
       preco_unit: p,
       pagamento,
+      parcelas: nParcelas,
     });
     if (error) throw error;
     atualizarTudo();
   });
 }
 
-export async function editarVenda({ id, quantidade, preco, pagamento, data }) {
+export async function editarVenda({
+  id,
+  quantidade,
+  preco,
+  pagamento,
+  parcelas,
+  data,
+}) {
   return executar(async (supabase) => {
     const q = valorPositivo(quantidade, "a quantidade");
     const p = valorPositivo(preco, "o preço");
     if (!PAGAMENTOS.includes(pagamento)) falha("Escolha a forma de pagamento.");
+    const nParcelas = parcelasValidas(pagamento, parcelas);
 
     const { data: antiga, error: erroVenda } = await supabase
       .from("vendas")
@@ -127,6 +147,7 @@ export async function editarVenda({ id, quantidade, preco, pagamento, data }) {
         quantidade: q,
         preco_unit: p,
         pagamento,
+        parcelas: nParcelas,
       })
       .eq("id", id)
       .select("id");

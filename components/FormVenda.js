@@ -6,8 +6,7 @@ import { brl, hoje, numero, preenchido, qtd } from "../lib/formato";
 import useEnvio, { Mensagem } from "./useEnvio";
 
 const FORMAS = [
-  ["dinheiro", "Dinheiro"],
-  ["pix", "Pix"],
+  ["a_vista", "À Vista"],
   ["cartao", "Cartão"],
 ];
 
@@ -16,7 +15,8 @@ export default function FormVenda({ produtos, comissaoPct }) {
   const [produtoId, setProdutoId] = useState("");
   const [quantidade, setQuantidade] = useState("1");
   const [preco, setPreco] = useState("");
-  const [pagamento, setPagamento] = useState("dinheiro");
+  const [pagamento, setPagamento] = useState("a_vista");
+  const [parcelas, setParcelas] = useState("1");
   const [data, setData] = useState("");
 
   // data local só no navegador (o servidor roda em UTC)
@@ -38,18 +38,20 @@ export default function FormVenda({ produtos, comissaoPct }) {
   const total = valido ? q * pr : 0;
   const lucro = valido ? (pr - produto.custo) * q : 0;
   const comissao = Math.max(lucro, 0) * (comissaoPct / 100);
+  const nParcelas = pagamento === "cartao" ? Number(parcelas) : 1;
 
   async function enviarVenda(e) {
     e.preventDefault();
     await enviar(
       registrarVenda,
-      { produtoId, quantidade, preco, pagamento, data },
+      { produtoId, quantidade, preco, pagamento, parcelas: nParcelas, data },
       {
         textoOk: "Venda registrada!",
         aoConcluir: () => {
           setProdutoId("");
           setQuantidade("1");
           setPreco("");
+          setParcelas("1");
         },
       },
     );
@@ -119,12 +121,32 @@ export default function FormVenda({ produtos, comissaoPct }) {
             key={valor}
             type="button"
             className={pagamento === valor ? "ativo" : ""}
-            onClick={() => setPagamento(valor)}
+            onClick={() => {
+              setPagamento(valor);
+              if (valor !== "cartao") setParcelas("1");
+            }}
           >
             {rotulo}
           </button>
         ))}
       </div>
+
+      {pagamento === "cartao" && (
+        <>
+          <label htmlFor="parcelas">Parcelas</label>
+          <select
+            id="parcelas"
+            value={parcelas}
+            onChange={(e) => setParcelas(e.target.value)}
+          >
+            {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+              <option key={n} value={n}>
+                {n}x{valido ? ` de ${brl(total / n)}` : ""}
+              </option>
+            ))}
+          </select>
+        </>
+      )}
 
       <label htmlFor="data">Data</label>
       <input
@@ -151,6 +173,12 @@ export default function FormVenda({ produtos, comissaoPct }) {
             <span>Sua comissão ({qtd(comissaoPct)}%)</span>
             <strong>{brl(comissao)}</strong>
           </div>
+          {nParcelas > 1 && (
+            <span className="info">
+              A comissão cai junto com as parcelas: {brl(comissao / nParcelas)}{" "}
+              por mês, durante {nParcelas} meses.
+            </span>
+          )}
           {pr < produto.custo && (
             <span className="negativo">
               Atenção: preço abaixo do custo ({brl(produto.custo)}).

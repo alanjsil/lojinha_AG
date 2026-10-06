@@ -34,24 +34,36 @@ export default async function Resumos({ searchParams }) {
   let consultaVendas = supabase
     .from("vendas")
     .select(
-      "data, quantidade, preco_unit, custo_unit, lucro, comissao, vendedor_id, produto_id, produtos(nome), perfis(nome)",
+      "data, quantidade, preco_unit, custo_unit, lucro, vendedor_id, produto_id, produtos(nome), perfis(nome)",
     )
     .gte("data", de)
     .lte("data", ate)
     .limit(5000);
   if (!gerente) consultaVendas = consultaVendas.eq("vendedor_id", usuario?.id);
 
-  const [{ data: vendas }, { data: despesas }] = await Promise.all([
-    consultaVendas,
-    gerente
-      ? supabase
-          .from("despesas")
-          .select("valor")
-          .gte("data", de)
-          .lte("data", ate)
-          .limit(5000)
-      : Promise.resolve({ data: [] }),
-  ]);
+  // a comissão cai junto com cada parcela: conta no vencimento, não na data da venda
+  let consultaParcelas = supabase
+    .from("parcelas")
+    .select("comissao, vendedor_id, perfis(nome)")
+    .gte("vencimento", de)
+    .lte("vencimento", ate)
+    .limit(5000);
+  if (!gerente)
+    consultaParcelas = consultaParcelas.eq("vendedor_id", usuario?.id);
+
+  const [{ data: vendas }, { data: parcelas }, { data: despesas }] =
+    await Promise.all([
+      consultaVendas,
+      consultaParcelas,
+      gerente
+        ? supabase
+            .from("despesas")
+            .select("valor")
+            .gte("data", de)
+            .lte("data", ate)
+            .limit(5000)
+        : Promise.resolve({ data: [] }),
+    ]);
 
   const total = { vendas: 0, custo: 0, lucro: 0, comissoes: 0 };
   const porDia = new Map(
@@ -64,11 +76,9 @@ export default async function Resumos({ searchParams }) {
     const receita = Number(v.quantidade) * Number(v.preco_unit);
     const custo = Number(v.quantidade) * Number(v.custo_unit);
     const lucro = Number(v.lucro);
-    const comissao = Number(v.comissao);
     total.vendas += receita;
     total.custo += custo;
     total.lucro += lucro;
-    total.comissoes += comissao;
 
     const dia = porDia.get(v.data);
     if (dia) {
@@ -85,7 +95,6 @@ export default async function Resumos({ searchParams }) {
     vend.n += 1;
     vend.vendas += receita;
     vend.lucro += lucro;
-    vend.comissao += comissao;
     porVendedor.set(v.vendedor_id, vend);
 
     const prod = porProduto.get(v.produto_id) ?? {
@@ -96,6 +105,20 @@ export default async function Resumos({ searchParams }) {
     prod.quantidade += Number(v.quantidade);
     prod.lucro += lucro;
     porProduto.set(v.produto_id, prod);
+  }
+
+  for (const pc of parcelas ?? []) {
+    const comissao = Number(pc.comissao);
+    total.comissoes += comissao;
+    const vend = porVendedor.get(pc.vendedor_id) ?? {
+      nome: pc.perfis?.nome ?? "-",
+      n: 0,
+      vendas: 0,
+      lucro: 0,
+      comissao: 0,
+    };
+    vend.comissao += comissao;
+    porVendedor.set(pc.vendedor_id, vend);
   }
 
   const totalDespesas = (despesas ?? []).reduce(
@@ -159,9 +182,10 @@ export default async function Resumos({ searchParams }) {
             </li>
           </ul>
           <p className="info">
-            Lucro líquido = lucro bruto − comissões − despesas. A mercadoria já
-            entra no lucro pelo custo de cada venda; por isso as compras não são
-            subtraídas de novo.
+            Lucro líquido = lucro bruto − comissões − despesas. As comissões
+            contam no vencimento de cada parcela (venda no cartão parcelada paga
+            a comissão aos poucos). A mercadoria já entra no lucro pelo custo de
+            cada venda; por isso as compras não são subtraídas de novo.
           </p>
         </div>
       )}

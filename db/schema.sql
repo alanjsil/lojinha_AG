@@ -145,7 +145,10 @@ create table if not exists vendas (
   quantidade numeric(12,2) not null check (quantidade > 0),
   preco_unit numeric(12,2) not null check (preco_unit > 0),
   custo_unit numeric(12,2) not null check (custo_unit >= 0),
-  pagamento text not null check (pagamento in ('dinheiro', 'pix', 'cartao')),
+  pagamento text not null check (pagamento in ('a_vista', 'cartao')),
+  -- só cartão parcela; a comissão cai junto com cada parcela (tabela parcelas)
+  parcelas smallint not null default 1 check (parcelas between 1 and 12),
+  check (parcelas = 1 or pagamento = 'cartao'),
   comissao_pct numeric(5,2) not null,
   lucro numeric(12,2) generated always as (round((preco_unit - custo_unit) * quantidade, 2)) stored,
   -- comissão = % do lucro; venda no prejuízo não gera comissão negativa
@@ -168,6 +171,48 @@ end $$;
 drop trigger if exists antes_de_inserir_venda on vendas;
 create trigger antes_de_inserir_venda before insert on vendas
   for each row execute function vendas_preencher();
+
+-- 4b) Parcelas: uma linha por parcela da venda, com a fatia da comissão. A parcela k vence
+-- data + (k-1) meses (a 1ª na data da venda). Mantida por trigger; a última absorve os centavos.
+create table if not exists parcelas (
+  id uuid primary key default gen_random_uuid(),
+  venda_id uuid not null references vendas(id) on delete cascade,
+  vendedor_id uuid not null references perfis(id),
+  numero smallint not null,
+  vencimento date not null,
+  valor numeric(12,2) not null,
+  comissao numeric(12,2) not null,
+  unique (venda_id, numero)
+);
+create index if not exists parcelas_vencimento on parcelas (vencimento);
+create index if not exists parcelas_vendedor on parcelas (vendedor_id, vencimento);
+
+create or replace function vendas_gerar_parcelas() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare
+  n int := new.parcelas;
+  total numeric := round(new.quantidade * new.preco_unit, 2);
+  v_parc numeric := round(total / n, 2);
+  c_parc numeric := round(new.comissao / n, 2);
+  k int;
+begin
+  delete from public.parcelas where venda_id = new.id;
+  for k in 1..n loop
+    insert into public.parcelas (venda_id, vendedor_id, numero, vencimento, valor, comissao)
+    values (
+      new.id, new.vendedor_id, k,
+      (new.data + ((k - 1) * interval '1 month'))::date,
+      case when k = n then total - v_parc * (n - 1) else v_parc end,
+      case when k = n then new.comissao - c_parc * (n - 1) else c_parc end
+    );
+  end loop;
+  return null;
+end $$;
+
+drop trigger if exists depois_de_gravar_venda on vendas;
+create trigger depois_de_gravar_venda
+  after insert or update of data, quantidade, preco_unit, parcelas on vendas
+  for each row execute function vendas_gerar_parcelas();
 
 -- 5) Despesas (aluguel, luz, etc.)
 create table if not exists despesas (
@@ -247,7 +292,13 @@ create policy vendas_editar on vendas for update to authenticated
     or exists (select 1 from perfis where id = (select auth.uid()) and papel = 'gerente')
   );
 revoke update on vendas from authenticated;
-grant update (data, quantidade, preco_unit, pagamento) on vendas to authenticated;
+grant update (data, quantidade, preco_unit, pagamento, parcelas) on vendas to authenticated;
+
+-- parcelas: só leitura para o app; quem grava é o trigger
+alter table parcelas enable row level security;
+create policy parcelas_ver on parcelas for select to authenticated using (true);
+revoke all on parcelas from anon;
+revoke insert, update, delete on parcelas from authenticated;
 
 -- despesas: só gerente vê, cadastra ou apaga
 create policy despesas_ver on despesas for select to authenticated
@@ -268,3 +319,4 @@ revoke execute on function vendas_preencher() from public, anon, authenticated;
 revoke execute on function recalcular_custo_medio(uuid) from public, anon, authenticated;
 revoke execute on function compras_recalcular_custo() from public, anon, authenticated;
 revoke execute on function produtos_bloquear_custo_manual() from public, anon, authenticated;
+revoke execute on function vendas_gerar_parcelas() from public, anon, authenticated;

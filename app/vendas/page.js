@@ -1,10 +1,10 @@
-import { createClient, usuarioAtual } from "../../lib/supabase/server";
-import { brl, dataBR, qtd, somarDias } from "../../lib/formato";
 import FormVenda from "../../components/FormVenda";
 import ListaVendas from "../../components/ListaVendas";
+import { brl, dataBR, qtd, somarDias } from "../../lib/formato";
+import { createClient, usuarioAtual } from "../../lib/supabase/server";
 import { excluirVenda } from "../actions";
 
-const FORMA = { dinheiro: "Dinheiro", pix: "Pix", cartao: "Cartão" };
+const FORMA = { a_vista: "À Vista", cartao: "Cartão" };
 
 export default async function Vendas() {
   const supabase = createClient();
@@ -21,7 +21,7 @@ export default async function Vendas() {
     supabase
       .from("vendas")
       .select(
-        "id, data, quantidade, preco_unit, custo_unit, pagamento, lucro, comissao, produtos(nome, unidade), perfis(nome)",
+        "id, data, quantidade, preco_unit, custo_unit, pagamento, parcelas, lucro, comissao, produtos(nome, unidade), perfis(nome), parcelas_venda:parcelas(numero, vencimento, valor, comissao)",
       )
       .gte("data", desde)
       .order("data", { ascending: false })
@@ -32,7 +32,7 @@ export default async function Vendas() {
   const itens = (vendas ?? []).map((v) => ({
     id: v.id,
     titulo: v.produtos?.nome ?? "Produto",
-    sub: `${dataBR(v.data)} · ${qtd(v.quantidade)} × ${brl(v.preco_unit)} · ${FORMA[v.pagamento]}`,
+    sub: `${dataBR(v.data)} · ${qtd(v.quantidade)} × ${brl(v.preco_unit)} · ${FORMA[v.pagamento]}${v.parcelas > 1 ? ` ${v.parcelas}x` : ""}`,
     valor: brl(v.quantidade * v.preco_unit),
     dados: {
       id: v.id,
@@ -40,11 +40,20 @@ export default async function Vendas() {
       quantidade: String(v.quantidade),
       preco: String(v.preco_unit),
       pagamento: v.pagamento,
+      parcelas: String(v.parcelas),
     },
     detalhes: [
       `Vendedor: ${v.perfis?.nome ?? "-"}`,
       `Custo unit.: ${brl(v.custo_unit)}`,
       `Lucro: ${brl(v.lucro)} · Comissão: ${brl(v.comissao)}`,
+      ...(v.parcelas > 1
+        ? [...(v.parcelas_venda ?? [])]
+            .sort((a, b) => a.numero - b.numero)
+            .map(
+              (p) =>
+                `${p.numero}/${v.parcelas} · ${dataBR(p.vencimento)} · ${brl(p.valor)} · comissão ${brl(p.comissao)}`,
+            )
+        : []),
     ],
   }));
 

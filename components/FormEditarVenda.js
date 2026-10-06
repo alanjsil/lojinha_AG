@@ -5,8 +5,7 @@ import { editarVenda } from "../app/actions";
 import useEnvio, { Mensagem } from "./useEnvio";
 
 const FORMAS = [
-  ["dinheiro", "Dinheiro"],
-  ["pix", "Pix"],
+  ["a_vista", "À Vista"],
   ["cartao", "Cartão"],
 ];
 
@@ -71,12 +70,34 @@ export default function FormEditarVenda({ venda, aoFechar }) {
             key={valor}
             type="button"
             className={f.pagamento === valor ? "ativo" : ""}
-            onClick={() => setF({ ...f, pagamento: valor })}
+            onClick={() =>
+              setF({
+                ...f,
+                pagamento: valor,
+                parcelas: valor === "cartao" ? f.parcelas : "1",
+              })
+            }
           >
             {rotulo}
           </button>
         ))}
       </div>
+      {f.pagamento === "cartao" && (
+        <>
+          <label htmlFor={`eparc-${venda.id}`}>Parcelas</label>
+          <select
+            id={`eparc-${venda.id}`}
+            value={f.parcelas}
+            onChange={set("parcelas")}
+          >
+            {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+              <option key={n} value={n}>
+                {n}x
+              </option>
+            ))}
+          </select>
+        </>
+      )}
       <div className="acoes-item">
         <button type="button" className="botao-secundario" onClick={aoFechar}>
           Cancelar
