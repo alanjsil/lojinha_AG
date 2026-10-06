@@ -126,6 +126,21 @@ export default async function Resumos({ searchParams }) {
     0,
   );
   const liquido = total.lucro - total.comissoes - totalDespesas;
+
+  // % sobre a receita e % sobre o lucro bruto (vazio quando a base é zero)
+  const pct = (v, base) => (base > 0 ? `${qtd((v / base) * 100)}%` : "–");
+  const linhasDre = [
+    { item: "Receita", valor: total.vendas },
+    { item: "Custo das mercadorias", valor: total.custo },
+    { item: "Lucro bruto", valor: total.lucro, forte: true },
+    { item: gerente ? "Comissões" : "Sua comissão", valor: total.comissoes },
+    ...(gerente
+      ? [
+          { item: "Despesas", valor: totalDespesas },
+          { item: "Lucro líquido", valor: liquido, forte: true },
+        ]
+      : []),
+  ];
   const vendedores = [...porVendedor.values()].sort(
     (a, b) => b.comissao - a.comissao,
   );
@@ -167,6 +182,34 @@ export default async function Resumos({ searchParams }) {
             <div className="numero">{brl(totalDespesas)}</div>
           </div>
         )}
+      </div>
+
+      <div className="card">
+        <h2>Demonstrativo</h2>
+        <div className="tabela-rolagem">
+          <table className="tabela">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Valor</th>
+                <th>% receita</th>
+                <th>% lucro</th>
+              </tr>
+            </thead>
+            <tbody>
+              {linhasDre.map((l) => (
+                <tr key={l.item} className={l.forte ? "forte" : ""}>
+                  <td>{l.item}</td>
+                  <td className={l.valor < 0 ? "negativo" : ""}>
+                    {brl(l.valor)}
+                  </td>
+                  <td>{pct(l.valor, total.vendas)}</td>
+                  <td>{pct(l.valor, total.lucro)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {gerente && (

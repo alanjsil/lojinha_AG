@@ -6,7 +6,7 @@ import { numero, preenchido, qtd } from "../lib/formato";
 import { createClient, usuarioAtual } from "../lib/supabase/server";
 
 const PAGAMENTOS = ["a_vista", "cartao"];
-const TIPOS_DESPESA = ["aluguel", "agua", "luz", "internet", "outros"];
+const TIPOS_DESPESA = ["aluguel", "agua", "luz", "internet", "gasolina", "outros"];
 const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
 
 class ErroDeNegocio extends Error {}

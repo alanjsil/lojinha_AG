@@ -218,7 +218,7 @@ create trigger depois_de_gravar_venda
 create table if not exists despesas (
   id uuid primary key default gen_random_uuid(),
   data date not null default current_date,
-  tipo text not null check (tipo in ('aluguel', 'agua', 'luz', 'internet', 'outros')),
+  tipo text not null check (tipo in ('aluguel', 'agua', 'luz', 'internet', 'gasolina', 'outros')),
   descricao text,
   valor numeric(12,2) not null check (valor > 0),
   created_by uuid default auth.uid() references perfis(id),
