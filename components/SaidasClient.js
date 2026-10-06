@@ -26,6 +26,7 @@ const TIPOS_LANCAMENTO = {
   pro_labore: "Pró-labore",
   pagamento_comissao: "Pagamento de comissão",
   saque: "Saque",
+  capital_inicial: "Capital inicial",
   aporte: "Aporte",
 };
 

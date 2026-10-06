@@ -1,5 +1,4 @@
 import Link from "next/link";
-import GraficoBarras from "../../components/GraficoBarras";
 import {
   brl,
   dataBR,
@@ -30,12 +29,6 @@ function intervalo(p, hoje, mes) {
   if (p === "semana") return [somarDias(hoje, -6), hoje];
   const fim = ultimoDiaDoMes(mes);
   return [`${mes}-01`, fim < hoje ? fim : hoje];
-}
-
-function diasEntre(de, ate) {
-  const dias = [];
-  for (let d = de; d <= ate; d = somarDias(d, 1)) dias.push(d);
-  return dias;
 }
 
 export default async function Resumos({ searchParams }) {
@@ -74,6 +67,7 @@ export default async function Resumos({ searchParams }) {
     { data: despesas },
     { data: lancamentos },
     { data: acumuladoLinhas },
+    { data: anteriorLinhas },
     { data: compras },
     { data: estoque },
   ] = await Promise.all([
@@ -101,6 +95,9 @@ export default async function Resumos({ searchParams }) {
       ? supabase.rpc("resumo_acumulado", { ate })
       : Promise.resolve({ data: [] }),
     gerente
+      ? supabase.rpc("resumo_acumulado", { ate: somarDias(de, -1) })
+      : Promise.resolve({ data: [] }),
+    gerente
       ? supabase
           .from("compras")
           .select("quantidade, custo_unit")
@@ -114,9 +111,6 @@ export default async function Resumos({ searchParams }) {
   ]);
 
   const total = { vendas: 0, custo: 0, lucro: 0, comissoes: 0 };
-  const porDia = new Map(
-    diasEntre(de, ate).map((d) => [d, { data: d, vendas: 0, lucro: 0 }]),
-  );
   const porVendedor = new Map();
   const porProduto = new Map();
 
@@ -128,11 +122,6 @@ export default async function Resumos({ searchParams }) {
     total.custo += custo;
     total.lucro += lucro;
 
-    const dia = porDia.get(v.data);
-    if (dia) {
-      dia.vendas += receita;
-      dia.lucro += lucro;
-    }
     const vend = porVendedor.get(v.vendedor_id) ?? {
       nome: v.perfis?.nome ?? "-",
       n: 0,
@@ -199,18 +188,31 @@ export default async function Resumos({ searchParams }) {
   }
   const liquido =
     total.lucro - total.comissoes - totalDespesas - caixa.pro_labore;
-  // acumulado desde o início até o fim do período; saldo de resultado = lucro líquido acumulado + aportes − saques
+  // caixa (dinheiro): recebido (parcelas vencidas) + capital inicial + aportes − compras − despesas − saques − pró-labore − comissões pagas
+  const caixaAte = (r) =>
+    r
+      ? Number(r.recebido) +
+        Number(r.capital_inicial) +
+        Number(r.aportes) -
+        Number(r.compras) -
+        Number(r.despesas) -
+        Number(r.saques) -
+        Number(r.pro_labore) -
+        Number(r.comissoes_pagas)
+      : 0;
   const ac = acumuladoLinhas?.[0];
+  const an = anteriorLinhas?.[0];
   const acLiquido = ac
     ? Number(ac.lucro) -
       Number(ac.comissoes) -
       Number(ac.despesas) -
       Number(ac.pro_labore)
     : 0;
-  const acSaldo = ac ? acLiquido + Number(ac.aportes) - Number(ac.saques) : 0;
+  const acSaldo = caixaAte(ac);
+  const saldoInicial = caixaAte(an);
   const acAPagar = ac ? Number(ac.comissoes) - Number(ac.comissoes_pagas) : 0;
-  const saldoCaixa =
-    caixa.aporte - caixa.saque - caixa.pro_labore - caixa.pagamento_comissao;
+  // movimento do período = acumulado até o fim − acumulado até o dia anterior
+  const mov = (campo) => (ac ? Number(ac[campo]) - Number(an?.[campo] ?? 0) : 0);
 
   // % sobre a receita e % sobre o lucro bruto (vazio quando a base é zero)
   const pct = (v, base) => (base > 0 ? `${qtd((v / base) * 100)}%` : "–");
@@ -270,6 +272,18 @@ export default async function Resumos({ searchParams }) {
               ›
             </span>
           )}
+        </div>
+      )}
+
+      {gerente && ac && (
+        <div className="card">
+          <div className="rotulo">Saldo em {dataBR(ate, true)}</div>
+          <div
+            className={`numero ${acSaldo < 0 ? "negativo" : "positivo"}`}
+            style={{ fontSize: "2rem", fontWeight: 700 }}
+          >
+            {brl(acSaldo)}
+          </div>
         </div>
       )}
 
@@ -361,33 +375,57 @@ export default async function Resumos({ searchParams }) {
           <h2>Movimentação de caixa</h2>
           <ul className="lista">
             <li>
+              <span className="titulo">Saldo anterior</span>
+              <span className={`valor ${saldoInicial < 0 ? "negativo" : ""}`}>
+                {brl(saldoInicial)}
+              </span>
+            </li>
+            <li>
+              <span className="titulo">Recebido das vendas</span>
+              <span className="valor positivo">{brl(mov("recebido"))}</span>
+            </li>
+            <li>
+              <span className="titulo">Capital inicial</span>
+              <span className="valor positivo">
+                {brl(mov("capital_inicial"))}
+              </span>
+            </li>
+            <li>
               <span className="titulo">Aportes</span>
-              <span className="valor positivo">{brl(caixa.aporte)}</span>
+              <span className="valor positivo">{brl(mov("aportes"))}</span>
+            </li>
+            <li>
+              <span className="titulo">Compras</span>
+              <span className="valor">− {brl(mov("compras"))}</span>
+            </li>
+            <li>
+              <span className="titulo">Despesas</span>
+              <span className="valor">− {brl(mov("despesas"))}</span>
             </li>
             <li>
               <span className="titulo">Saques</span>
-              <span className="valor">{brl(caixa.saque)}</span>
+              <span className="valor">− {brl(mov("saques"))}</span>
             </li>
             <li>
               <span className="titulo">Pró-labore</span>
-              <span className="valor">{brl(caixa.pro_labore)}</span>
+              <span className="valor">− {brl(mov("pro_labore"))}</span>
             </li>
             <li>
               <span className="titulo">Comissões pagas</span>
-              <span className="valor">{brl(caixa.pagamento_comissao)}</span>
+              <span className="valor">− {brl(mov("comissoes_pagas"))}</span>
             </li>
             <li>
-              <span className="titulo">Saldo dos lançamentos</span>
-              <span
-                className={`valor ${saldoCaixa < 0 ? "negativo" : "positivo"}`}
-              >
-                {brl(saldoCaixa)}
+              <span className="titulo">Saldo final</span>
+              <span className={`valor ${acSaldo < 0 ? "negativo" : "positivo"}`}>
+                {brl(acSaldo)}
               </span>
             </li>
           </ul>
           <p className="info">
-            Só os lançamentos de Saídas. Saques, aportes e comissões pagas não
-            mudam o lucro; o pró-labore já entra no lucro líquido.
+            Dinheiro em caixa: o que entrou (vendas à vista na data, cartão em
+            cada parcela no vencimento, capital inicial e aportes) menos o que saiu (compras,
+            despesas, saques, pró-labore e comissões pagas). O saldo de um
+            período passa para o seguinte. Não é o saldo da conta bancária.
           </p>
         </div>
       )}
@@ -413,36 +451,10 @@ export default async function Resumos({ searchParams }) {
               </span>
             </li>
             <li>
-              <span className="titulo">Aportes − saques</span>
-              <span className="valor">
-                {brl(Number(ac.aportes) - Number(ac.saques))}
-              </span>
-            </li>
-            <li>
-              <span className="titulo">Saldo de resultado</span>
-              <span
-                className={`valor ${acSaldo < 0 ? "negativo" : "positivo"}`}
-              >
-                {brl(acSaldo)}
-              </span>
-            </li>
-            <li>
               <span className="titulo">Comissões a pagar</span>
               <span className="valor">{brl(acAPagar)}</span>
             </li>
           </ul>
-          <p className="info">
-            Saldo de resultado = lucro líquido acumulado + aportes − saques (o
-            pró-labore já está no lucro líquido). Não é o saldo da conta
-            bancária.
-          </p>
-        </div>
-      )}
-
-      {p !== "dia" && (
-        <div className="card">
-          <h2>Por dia</h2>
-          <GraficoBarras dados={[...porDia.values()]} />
         </div>
       )}
 

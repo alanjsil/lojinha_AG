@@ -227,11 +227,11 @@ create table if not exists despesas (
 create index if not exists despesas_data on despesas (data);
 create index if not exists despesas_created_by on despesas (created_by);
 
--- 5b) Lançamentos dos sócios (pró-labore, pagamento de comissão, saque, aporte)
+-- 5b) Lançamentos dos sócios (pró-labore, pagamento de comissão, saque, aporte, capital inicial)
 create table if not exists lancamentos (
   id uuid primary key default gen_random_uuid(),
   data date not null default current_date,
-  tipo text not null check (tipo in ('pro_labore', 'pagamento_comissao', 'saque', 'aporte')),
+  tipo text not null check (tipo in ('pro_labore', 'pagamento_comissao', 'saque', 'aporte', 'capital_inicial')),
   valor numeric(12,2) not null check (valor > 0),
   descricao text,
   vendedor_id uuid references perfis(id),
@@ -267,13 +267,13 @@ select
   + coalesce((select sum(e.diferenca) from contagens_estoque e where e.produto_id = p.id), 0) as saldo
 from produtos p;
 
--- 8) 012: totais acumulados desde o início até uma data (só gerente). Roda com o usuário logado (RLS vale).
--- Saldo de resultado = lucro bruto − comissões − despesas − pró-labore + aportes − saques
--- (comissão paga não entra de novo: a comissão já abate o lucro líquido).
-create or replace function resumo_acumulado(ate date)
+-- 014: caixa real (recebido, capital inicial, aportes, compras). Caixa = recebido + capital inicial + aportes − compras − despesas − saques − pró-labore − comissões pagas.
+drop function if exists resumo_acumulado(date);
+create function resumo_acumulado(ate date)
 returns table (
   receita numeric, custo numeric, lucro numeric, comissoes numeric, despesas numeric,
-  pro_labore numeric, aportes numeric, saques numeric, comissoes_pagas numeric
+  pro_labore numeric, capital_inicial numeric, aportes numeric, saques numeric, comissoes_pagas numeric,
+  recebido numeric, compras numeric
 )
 language sql stable security invoker set search_path = public as $$
   select
@@ -283,9 +283,12 @@ language sql stable security invoker set search_path = public as $$
     coalesce((select sum(p.comissao) from parcelas p where p.vencimento <= ate), 0),
     coalesce((select sum(d.valor) from despesas d where d.data <= ate), 0),
     coalesce((select sum(l.valor) from lancamentos l where l.tipo = 'pro_labore' and l.data <= ate), 0),
+    coalesce((select sum(l.valor) from lancamentos l where l.tipo = 'capital_inicial' and l.data <= ate), 0),
     coalesce((select sum(l.valor) from lancamentos l where l.tipo = 'aporte' and l.data <= ate), 0),
     coalesce((select sum(l.valor) from lancamentos l where l.tipo = 'saque' and l.data <= ate), 0),
-    coalesce((select sum(l.valor) from lancamentos l where l.tipo = 'pagamento_comissao' and l.data <= ate), 0)
+    coalesce((select sum(l.valor) from lancamentos l where l.tipo = 'pagamento_comissao' and l.data <= ate), 0),
+    coalesce((select sum(p.valor) from parcelas p where p.vencimento <= ate), 0),
+    coalesce((select sum(c.quantidade * c.custo_unit) from compras c where c.data <= ate), 0)
   where exists (select 1 from perfis where id = (select auth.uid()) and papel = 'gerente');
 $$;
 revoke execute on function resumo_acumulado(date) from public, anon;
