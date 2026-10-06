@@ -14,7 +14,7 @@ const VAZIO = {
   ativo: true,
 };
 
-function FormProduto({ inicial, aoFechar, embutido = false }) {
+function FormProduto({ inicial, aoFechar, gerente, embutido = false }) {
   const { salvando, msg, enviar } = useEnvio();
   const [f, setF] = useState(inicial);
   const set = (campo) => (e) => setF({ ...f, [campo]: e.target.value });
@@ -60,9 +60,10 @@ function FormProduto({ inicial, aoFechar, embutido = false }) {
             min="0"
             value={f.custo}
             onChange={set("custo")}
+            disabled={!gerente}
             required
           />
-          {f.id && (
+          {gerente && f.id && (
             <p className="sub">
               Vale só até a 1ª compra; depois o custo passa a ser a média
               ponderada das compras, calculada automaticamente.
@@ -79,6 +80,7 @@ function FormProduto({ inicial, aoFechar, embutido = false }) {
             min="0"
             value={f.preco}
             onChange={set("preco")}
+            disabled={!gerente}
             required
           />
         </div>
@@ -202,7 +204,7 @@ function FormContagem({ produtos }) {
   );
 }
 
-export default function EstoqueClient({ produtos, contagens }) {
+export default function EstoqueClient({ produtos, contagens, gerente }) {
   const [aba, setAba] = useState("produtos");
   const [editando, setEditando] = useState(null);
 
@@ -231,9 +233,10 @@ export default function EstoqueClient({ produtos, contagens }) {
             <FormProduto
               key={editando.id ?? "novo"}
               inicial={editando}
+              gerente={gerente}
               aoFechar={() => setEditando(null)}
             />
-          ) : (
+          ) : gerente ? (
             <button
               type="button"
               style={{ marginTop: 0, marginBottom: 16 }}
@@ -241,7 +244,7 @@ export default function EstoqueClient({ produtos, contagens }) {
             >
               Novo produto
             </button>
-          )}
+          ) : null}
           <div className="card">
             {produtos.length === 0 ? (
               <p className="vazio">Nenhum produto cadastrado.</p>
@@ -253,6 +256,7 @@ export default function EstoqueClient({ produtos, contagens }) {
                       <FormProduto
                         key={p.id}
                         inicial={editando}
+                        gerente={gerente}
                         aoFechar={() => setEditando(null)}
                         embutido
                       />

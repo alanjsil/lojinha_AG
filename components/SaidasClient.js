@@ -16,6 +16,7 @@ const TIPOS = {
   agua: "Água",
   luz: "Luz",
   internet: "Internet",
+  gasolina: "Gasolina",
   outros: "Outros",
 };
 
@@ -36,7 +37,12 @@ function FormCompra({ produtos }) {
   });
 
   function escolher(id) {
-    setF({ ...f, produtoId: id });
+    const ultimo = produtos.find((x) => x.id === id)?.ultimoCusto;
+    setF({
+      ...f,
+      produtoId: id,
+      custo: ultimo != null ? String(ultimo) : "",
+    });
   }
 
   const produtoEscolhido = produtos.find((x) => x.id === f.produtoId);
@@ -108,9 +114,9 @@ function FormCompra({ produtos }) {
       </div>
       {produtoEscolhido && (
         <div className="sub">
-          Custo médio atual: {brl(produtoEscolhido.custo)}. Após salvar, o
-          custo do produto é recalculado automaticamente como a média
-          ponderada de todas as compras.
+          Custo médio atual: {brl(produtoEscolhido.custo)}. Após salvar, o custo
+          do produto é recalculado automaticamente como a média ponderada de
+          todas as compras.
         </div>
       )}
       <label htmlFor="forn">Fornecedor</label>

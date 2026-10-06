@@ -177,17 +177,21 @@ export async function salvarProduto({
   ativo = true,
 }) {
   return executar(async (supabase) => {
+    const gerente = Boolean((await usuarioAtual(supabase))?.gerente);
+    if (!gerente && !id) falha("Só o gerente pode cadastrar produtos.");
     const n = (nome ?? "").trim();
     if (!n) falha("Informe o nome do produto.");
-    const c = valorPositivo(custo, "o custo", { permiteZero: true });
-    const p = valorPositivo(preco, "o preço");
     const campos = {
       nome: n,
       unidade: (unidade ?? "").trim() || "un",
-      custo: c,
-      preco: p,
       ativo: Boolean(ativo),
     };
+    // Só o gerente altera custo e preço do produto; para o vendedor os valores enviados são ignorados
+    // (na venda ele ainda ajusta o preço cobrado, que é outro campo).
+    if (gerente) {
+      campos.custo = valorPositivo(custo, "o custo", { permiteZero: true });
+      campos.preco = valorPositivo(preco, "o preço");
+    }
 
     const { error } = id
       ? await supabase.from("produtos").update(campos).eq("id", id)

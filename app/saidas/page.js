@@ -7,7 +7,12 @@ export default async function Saidas() {
   const usuario = await usuarioAtual(supabase);
   const desde = somarDias(new Date().toLocaleDateString("sv-SE"), -30);
 
-  const [{ data: produtos }, { data: compras }, { data: despesas }] =
+  const [
+    { data: produtos },
+    { data: compras },
+    { data: despesas },
+    { data: historico },
+  ] =
     await Promise.all([
       supabase
         .from("produtos")
@@ -28,7 +33,18 @@ export default async function Saidas() {
             .order("data", { ascending: false })
             .limit(100)
         : Promise.resolve({ data: [] }),
+      // sem filtro de data: o último custo de compra pode ser antigo
+      supabase
+        .from("compras")
+        .select("produto_id, custo_unit")
+        .order("data", { ascending: false })
+        .order("created_at", { ascending: false }),
     ]);
+
+  const ultimoCusto = {};
+  for (const c of historico ?? [])
+    if (!(c.produto_id in ultimoCusto))
+      ultimoCusto[c.produto_id] = Number(c.custo_unit);
 
   return (
     <>
@@ -37,6 +53,7 @@ export default async function Saidas() {
         produtos={(produtos ?? []).map((p) => ({
           ...p,
           custo: Number(p.custo),
+          ultimoCusto: ultimoCusto[p.id] ?? null,
         }))}
         compras={(compras ?? []).map((c) => ({
           ...c,

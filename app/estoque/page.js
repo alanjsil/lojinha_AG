@@ -1,8 +1,9 @@
-import { createClient } from "../../lib/supabase/server";
+import { createClient, usuarioAtual } from "../../lib/supabase/server";
 import EstoqueClient from "../../components/EstoqueClient";
 
 export default async function Estoque() {
   const supabase = createClient();
+  const usuario = await usuarioAtual(supabase);
   const [{ data: produtos }, { data: contagens }] = await Promise.all([
     supabase.from("estoque_atual").select("id, nome, unidade, custo, preco, ativo, saldo").order("nome"),
     supabase
@@ -16,6 +17,7 @@ export default async function Estoque() {
     <>
       <h1>Estoque</h1>
       <EstoqueClient
+        gerente={Boolean(usuario?.gerente)}
         produtos={(produtos ?? []).map((p) => ({ ...p, custo: Number(p.custo), preco: Number(p.preco), saldo: Number(p.saldo) }))}
         contagens={(contagens ?? []).map((c) => ({
           id: c.id,
