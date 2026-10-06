@@ -1,6 +1,14 @@
 import Link from "next/link";
 import GraficoBarras from "../../components/GraficoBarras";
-import { brl, nomeMes, qtd, somarDias, somarMeses, ultimoDiaDoMes } from "../../lib/formato";
+import {
+  brl,
+  dataBR,
+  nomeMes,
+  qtd,
+  somarDias,
+  somarMeses,
+  ultimoDiaDoMes,
+} from "../../lib/formato";
 import { createClient, usuarioAtual } from "../../lib/supabase/server";
 import { sair } from "../actions";
 
@@ -65,27 +73,45 @@ export default async function Resumos({ searchParams }) {
     { data: parcelas },
     { data: despesas },
     { data: lancamentos },
-  ] =
-    await Promise.all([
-      consultaVendas,
-      consultaParcelas,
-      gerente
-        ? supabase
-            .from("despesas")
-            .select("valor")
-            .gte("data", de)
-            .lte("data", ate)
-            .limit(5000)
-        : Promise.resolve({ data: [] }),
-      gerente
-        ? supabase
-            .from("lancamentos")
-            .select("tipo, valor, vendedor_id, perfis!lancamentos_vendedor_id_fkey(nome)")
-            .gte("data", de)
-            .lte("data", ate)
-            .limit(5000)
-        : Promise.resolve({ data: [] }),
-    ]);
+    { data: acumuladoLinhas },
+    { data: compras },
+    { data: estoque },
+  ] = await Promise.all([
+    consultaVendas,
+    consultaParcelas,
+    gerente
+      ? supabase
+          .from("despesas")
+          .select("valor")
+          .gte("data", de)
+          .lte("data", ate)
+          .limit(5000)
+      : Promise.resolve({ data: [] }),
+    gerente
+      ? supabase
+          .from("lancamentos")
+          .select(
+            "tipo, valor, vendedor_id, perfis!lancamentos_vendedor_id_fkey(nome)",
+          )
+          .gte("data", de)
+          .lte("data", ate)
+          .limit(5000)
+      : Promise.resolve({ data: [] }),
+    gerente
+      ? supabase.rpc("resumo_acumulado", { ate })
+      : Promise.resolve({ data: [] }),
+    gerente
+      ? supabase
+          .from("compras")
+          .select("quantidade, custo_unit")
+          .gte("data", de)
+          .lte("data", ate)
+          .limit(5000)
+      : Promise.resolve({ data: [] }),
+    gerente
+      ? supabase.from("estoque_atual").select("custo, saldo").limit(5000)
+      : Promise.resolve({ data: [] }),
+  ]);
 
   const total = { vendas: 0, custo: 0, lucro: 0, comissoes: 0 };
   const porDia = new Map(
@@ -147,6 +173,15 @@ export default async function Resumos({ searchParams }) {
     (s, d) => s + Number(d.valor),
     0,
   );
+  // só informativo: compras não entram no lucro (o custo já está em cada venda)
+  const totalCompras = (compras ?? []).reduce(
+    (t, c) => t + Number(c.quantidade) * Number(c.custo_unit),
+    0,
+  );
+  const valorEstoque = (estoque ?? []).reduce(
+    (t, e) => t + Math.max(Number(e.saldo), 0) * Number(e.custo),
+    0,
+  );
   const caixa = { pro_labore: 0, pagamento_comissao: 0, saque: 0, aporte: 0 };
   for (const l of lancamentos ?? []) {
     caixa[l.tipo] += Number(l.valor);
@@ -164,6 +199,16 @@ export default async function Resumos({ searchParams }) {
   }
   const liquido =
     total.lucro - total.comissoes - totalDespesas - caixa.pro_labore;
+  // acumulado desde o início até o fim do período; saldo de resultado = lucro líquido acumulado + aportes − saques
+  const ac = acumuladoLinhas?.[0];
+  const acLiquido = ac
+    ? Number(ac.lucro) -
+      Number(ac.comissoes) -
+      Number(ac.despesas) -
+      Number(ac.pro_labore)
+    : 0;
+  const acSaldo = ac ? acLiquido + Number(ac.aportes) - Number(ac.saques) : 0;
+  const acAPagar = ac ? Number(ac.comissoes) - Number(ac.comissoes_pagas) : 0;
   const saldoCaixa =
     caixa.aporte - caixa.saque - caixa.pro_labore - caixa.pagamento_comissao;
 
@@ -247,6 +292,18 @@ export default async function Resumos({ searchParams }) {
             <div className="numero">{brl(totalDespesas)}</div>
           </div>
         )}
+        {gerente && (
+          <>
+            <div className="kpi">
+              <div className="rotulo">Compras</div>
+              <div className="numero">{brl(totalCompras)}</div>
+            </div>
+            <div className="kpi">
+              <div className="rotulo">Estoque (custo)</div>
+              <div className="numero">{brl(valorEstoque)}</div>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="card">
@@ -290,10 +347,11 @@ export default async function Resumos({ searchParams }) {
             </li>
           </ul>
           <p className="info">
-            Lucro líquido = lucro bruto − comissões − despesas − pró-labore. As comissões
-            contam no vencimento de cada parcela (venda no cartão parcelada paga
-            a comissão aos poucos). A mercadoria já entra no lucro pelo custo de
-            cada venda; por isso as compras não são subtraídas de novo.
+            Lucro líquido = lucro bruto − comissões − despesas − pró-labore. As
+            comissões contam no vencimento de cada parcela (venda no cartão
+            parcelada paga a comissão aos poucos). A mercadoria já entra no
+            lucro pelo custo de cada venda; por isso as compras não são
+            subtraídas de novo.
           </p>
         </div>
       )}
@@ -330,6 +388,53 @@ export default async function Resumos({ searchParams }) {
           <p className="info">
             Só os lançamentos de Saídas. Saques, aportes e comissões pagas não
             mudam o lucro; o pró-labore já entra no lucro líquido.
+          </p>
+        </div>
+      )}
+
+      {gerente && ac && (
+        <div className="card">
+          <h2>Acumulado até {dataBR(ate, true)}</h2>
+          <ul className="lista">
+            <li>
+              <span className="titulo">Vendas</span>
+              <span className="valor">{brl(ac.receita)}</span>
+            </li>
+            <li>
+              <span className="titulo">Lucro bruto</span>
+              <span className="valor positivo">{brl(ac.lucro)}</span>
+            </li>
+            <li>
+              <span className="titulo">Lucro líquido</span>
+              <span
+                className={`valor ${acLiquido < 0 ? "negativo" : "positivo"}`}
+              >
+                {brl(acLiquido)}
+              </span>
+            </li>
+            <li>
+              <span className="titulo">Aportes − saques</span>
+              <span className="valor">
+                {brl(Number(ac.aportes) - Number(ac.saques))}
+              </span>
+            </li>
+            <li>
+              <span className="titulo">Saldo de resultado</span>
+              <span
+                className={`valor ${acSaldo < 0 ? "negativo" : "positivo"}`}
+              >
+                {brl(acSaldo)}
+              </span>
+            </li>
+            <li>
+              <span className="titulo">Comissões a pagar</span>
+              <span className="valor">{brl(acAPagar)}</span>
+            </li>
+          </ul>
+          <p className="info">
+            Saldo de resultado = lucro líquido acumulado + aportes − saques (o
+            pró-labore já está no lucro líquido). Não é o saldo da conta
+            bancária.
           </p>
         </div>
       )}
