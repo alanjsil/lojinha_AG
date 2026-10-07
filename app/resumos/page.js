@@ -11,6 +11,9 @@ import {
 import { createClient, usuarioAtual } from "../../lib/supabase/server";
 import { sair } from "../actions";
 
+// meta do sócio: sobrar 20% da receita como lucro líquido
+const META_MARGEM_LIQUIDA = 0.2;
+
 const PERIODOS = { dia: "Hoje", semana: "7 dias", mes: "Mês" };
 
 // o servidor roda em UTC; "hoje" precisa ser o dia de Brasília
@@ -68,7 +71,6 @@ export default async function Resumos({ searchParams }) {
     { data: lancamentos },
     { data: acumuladoLinhas },
     { data: anteriorLinhas },
-    { data: compras },
     { data: estoque },
   ] = await Promise.all([
     consultaVendas,
@@ -98,15 +100,7 @@ export default async function Resumos({ searchParams }) {
       ? supabase.rpc("resumo_acumulado", { ate: somarDias(de, -1) })
       : Promise.resolve({ data: [] }),
     gerente
-      ? supabase
-          .from("compras")
-          .select("quantidade, custo_unit")
-          .gte("data", de)
-          .lte("data", ate)
-          .limit(5000)
-      : Promise.resolve({ data: [] }),
-    gerente
-      ? supabase.from("estoque_atual").select("custo, saldo").limit(5000)
+      ? supabase.from("estoque_atual").select("custo, preco, saldo").limit(5000)
       : Promise.resolve({ data: [] }),
   ]);
 
@@ -162,13 +156,12 @@ export default async function Resumos({ searchParams }) {
     (s, d) => s + Number(d.valor),
     0,
   );
-  // só informativo: compras não entram no lucro (o custo já está em cada venda)
-  const totalCompras = (compras ?? []).reduce(
-    (t, c) => t + Number(c.quantidade) * Number(c.custo_unit),
+  const estoqueCusto = (estoque ?? []).reduce(
+    (t, e) => t + Math.max(Number(e.saldo), 0) * Number(e.custo),
     0,
   );
-  const valorEstoque = (estoque ?? []).reduce(
-    (t, e) => t + Math.max(Number(e.saldo), 0) * Number(e.custo),
+  const estoqueVenda = (estoque ?? []).reduce(
+    (t, e) => t + Math.max(Number(e.saldo), 0) * Number(e.preco),
     0,
   );
   const caixa = { pro_labore: 0, pagamento_comissao: 0, saque: 0, aporte: 0 };
@@ -202,17 +195,35 @@ export default async function Resumos({ searchParams }) {
       : 0;
   const ac = acumuladoLinhas?.[0];
   const an = anteriorLinhas?.[0];
-  const acLiquido = ac
-    ? Number(ac.lucro) -
-      Number(ac.comissoes) -
-      Number(ac.despesas) -
-      Number(ac.pro_labore)
-    : 0;
   const acSaldo = caixaAte(ac);
   const saldoInicial = caixaAte(an);
-  const acAPagar = ac ? Number(ac.comissoes) - Number(ac.comissoes_pagas) : 0;
   // movimento do período = acumulado até o fim − acumulado até o dia anterior
-  const mov = (campo) => (ac ? Number(ac[campo]) - Number(an?.[campo] ?? 0) : 0);
+  const mov = (campo) =>
+    ac ? Number(ac[campo]) - Number(an?.[campo] ?? 0) : 0;
+
+  const entradas = mov("recebido") + mov("capital_inicial") + mov("aportes");
+  const saidas =
+    mov("compras") +
+    mov("despesas") +
+    mov("saques") +
+    mov("pro_labore") +
+    mov("comissoes_pagas");
+
+  // indicadores: custo fixo = despesas + pró-labore; comissão é variável (já sai da margem)
+  const custosFixos = totalDespesas + caixa.pro_labore;
+  const margemBruta = total.vendas > 0 ? total.lucro / total.vendas : 0;
+  const margemContrib =
+    total.vendas > 0 ? (total.lucro - total.comissoes) / total.vendas : 0;
+  const margemLiquida = total.vendas > 0 ? liquido / total.vendas : 0;
+  const margemMinima = total.vendas > 0 ? custosFixos / total.vendas : 0;
+  const pontoEquilibrio =
+    margemContrib > 0 ? custosFixos / margemContrib : null;
+  const nVendas = vendas?.length ?? 0;
+  const ticketMedio = nVendas > 0 ? total.vendas / nVendas : 0;
+  const margemPotencial =
+    estoqueVenda > 0 ? (estoqueVenda - estoqueCusto) / estoqueVenda : 0;
+  const pctMeta = margemLiquida / META_MARGEM_LIQUIDA;
+  const pc100 = (x) => `${qtd(x * 100)}%`;
 
   // % sobre a receita e % sobre o lucro bruto (vazio quando a base é zero)
   const pct = (v, base) => (base > 0 ? `${qtd((v / base) * 100)}%` : "–");
@@ -275,53 +286,272 @@ export default async function Resumos({ searchParams }) {
         </div>
       )}
 
-      {gerente && ac && (
-        <div className="card">
-          <div className="rotulo">Saldo em {dataBR(ate, true)}</div>
-          <div
-            className={`numero ${acSaldo < 0 ? "negativo" : "positivo"}`}
-            style={{ fontSize: "2rem", fontWeight: 700 }}
-          >
-            {brl(acSaldo)}
+      <div className="card">
+        <h2>01 · Visão geral</h2>
+        {gerente && ac && (
+          <>
+            <div className="rotulo">Saldo em {dataBR(ate, true)}</div>
+            <div
+              className={`numero ${acSaldo < 0 ? "negativo" : "positivo"}`}
+              style={{ fontSize: "2rem", fontWeight: 700, marginBottom: 12 }}
+            >
+              {brl(acSaldo)}
+            </div>
+          </>
+        )}
+        <div className="kpis">
+          <div className="kpi">
+            <div className="rotulo">Vendas</div>
+            <div className="numero">{brl(total.vendas)}</div>
           </div>
+          {gerente && (
+            <div className="kpi">
+              <div className="rotulo">Lucro líquido</div>
+              <div
+                className={`numero ${liquido < 0 ? "negativo" : "positivo"}`}
+              >
+                {brl(liquido)}
+              </div>
+            </div>
+          )}
+          <div className="kpi">
+            <div className="rotulo">
+              {gerente ? "Margem líquida" : "Margem bruta"}
+            </div>
+            <div className="numero">
+              {pc100(gerente ? margemLiquida : margemBruta)}
+            </div>
+          </div>
+          <div className="kpi">
+            <div className="rotulo">
+              {gerente ? "Comissões" : "Sua comissão"}
+            </div>
+            <div className="numero">{brl(total.comissoes)}</div>
+          </div>
+          <div className="kpi">
+            <div className="rotulo">Ticket médio</div>
+            <div className="numero">{brl(ticketMedio)}</div>
+          </div>
+        </div>
+      </div>
+
+      {gerente && (
+        <div className="card">
+          <h2>02 · Resultado</h2>
+          <ul className="lista">
+            <li>
+              <span className="titulo">Receita</span>
+              <span className="valor">{brl(total.vendas)}</span>
+            </li>
+            <li>
+              <span className="titulo">− CMV (custo das mercadorias)</span>
+              <span className="valor">{brl(total.custo)}</span>
+            </li>
+            <li>
+              <span className="titulo">= Lucro bruto</span>
+              <span className="valor positivo">{brl(total.lucro)}</span>
+            </li>
+            <li>
+              <span className="titulo">− Comissões</span>
+              <span className="valor">{brl(total.comissoes)}</span>
+            </li>
+            <li>
+              <span className="titulo">− Despesas</span>
+              <span className="valor">{brl(totalDespesas)}</span>
+            </li>
+            <li>
+              <span className="titulo">− Pró-labore</span>
+              <span className="valor">{brl(caixa.pro_labore)}</span>
+            </li>
+            <li>
+              <span className="titulo">= Lucro líquido</span>
+              <span
+                className={`valor ${liquido < 0 ? "negativo" : "positivo"}`}
+              >
+                {brl(liquido)}
+              </span>
+            </li>
+          </ul>
+          <p className="info">
+            As comissões contam no vencimento de cada parcela. As compras não
+            entram aqui: o custo da mercadoria já está no CMV de cada venda.
+          </p>
         </div>
       )}
 
-      <div className="kpis">
-        <div className="kpi">
-          <div className="rotulo">Vendas</div>
-          <div className="numero">{brl(total.vendas)}</div>
+      {gerente && ac && (
+        <div className="card">
+          <h2>03 · Caixa</h2>
+          <ul className="lista">
+            <li>
+              <span className="titulo">Saldo inicial</span>
+              <span className={`valor ${saldoInicial < 0 ? "negativo" : ""}`}>
+                {brl(saldoInicial)}
+              </span>
+            </li>
+            <li>
+              <div>
+                <div className="titulo">+ Entradas</div>
+                <div className="sub">
+                  vendas recebidas {brl(mov("recebido"))} · capital inicial{" "}
+                  {brl(mov("capital_inicial"))} · aportes {brl(mov("aportes"))}
+                </div>
+              </div>
+              <span className="valor positivo">{brl(entradas)}</span>
+            </li>
+            <li>
+              <div>
+                <div className="titulo">− Saídas</div>
+                <div className="sub">
+                  compras {brl(mov("compras"))} · despesas{" "}
+                  {brl(mov("despesas"))} · saques {brl(mov("saques"))} ·
+                  pró-labore {brl(mov("pro_labore"))} · comissões pagas{" "}
+                  {brl(mov("comissoes_pagas"))}
+                </div>
+              </div>
+              <span className="valor">{brl(saidas)}</span>
+            </li>
+            <li>
+              <span className="titulo">= Saldo final</span>
+              <span
+                className={`valor ${acSaldo < 0 ? "negativo" : "positivo"}`}
+              >
+                {brl(acSaldo)}
+              </span>
+            </li>
+          </ul>
+          <p className="info">
+            Dinheiro em caixa: vendas à vista entram na data e cartão em cada
+            parcela, no vencimento. O saldo de um período passa para o seguinte.
+            Não é o saldo da conta bancária.
+          </p>
         </div>
-        <div className="kpi">
-          <div className="rotulo">Lucro bruto</div>
-          <div className="numero positivo">{brl(total.lucro)}</div>
+      )}
+
+      {gerente && (
+        <div className="card">
+          <h2>04 · Estoque</h2>
+          <ul className="lista">
+            <li>
+              <span className="titulo">Estoque a custo</span>
+              <span className="valor">{brl(estoqueCusto)}</span>
+            </li>
+            <li>
+              <span className="titulo">Estoque a venda</span>
+              <span className="valor">{brl(estoqueVenda)}</span>
+            </li>
+            <li>
+              <span className="titulo">Margem potencial</span>
+              <span className="valor positivo">
+                {brl(estoqueVenda - estoqueCusto)} · {pc100(margemPotencial)}
+              </span>
+            </li>
+          </ul>
+          <p className="info">Posição de hoje, não do período escolhido.</p>
         </div>
-        <div className="kpi">
-          <div className="rotulo">Comissões</div>
-          <div className="numero">{brl(total.comissoes)}</div>
-        </div>
-        {gerente && (
-          <div className="kpi">
-            <div className="rotulo">Despesas</div>
-            <div className="numero">{brl(totalDespesas)}</div>
-          </div>
+      )}
+
+      <div className="card">
+        <h2>05 · Performance</h2>
+        {vendedores.length === 0 ? (
+          <p className="vazio">Sem vendas no período.</p>
+        ) : (
+          <ul className="lista">
+            {vendedores.map((v) => (
+              <li key={v.nome}>
+                <div>
+                  <div className="titulo">{v.nome}</div>
+                  <div className="sub">
+                    {v.n} {v.n === 1 ? "venda" : "vendas"} · vendas{" "}
+                    {brl(v.vendas)}
+                  </div>
+                  {gerente && (
+                    <div className="sub">
+                      paga {brl(v.pago ?? 0)} · a pagar{" "}
+                      {brl(v.comissao - (v.pago ?? 0))}
+                    </div>
+                  )}
+                </div>
+                <div className="valor">{brl(v.comissao)}</div>
+              </li>
+            ))}
+          </ul>
         )}
-        {gerente && (
+        {maisVendidos.length > 0 && (
           <>
-            <div className="kpi">
-              <div className="rotulo">Compras</div>
-              <div className="numero">{brl(totalCompras)}</div>
-            </div>
-            <div className="kpi">
-              <div className="rotulo">Estoque (custo)</div>
-              <div className="numero">{brl(valorEstoque)}</div>
-            </div>
+            <h2 style={{ marginTop: 16 }}>Mais vendidos</h2>
+            <ul className="lista">
+              {maisVendidos.map((m) => (
+                <li key={m.nome}>
+                  <div>
+                    <div className="titulo">{m.nome}</div>
+                    <div className="sub">lucro {brl(m.lucro)}</div>
+                  </div>
+                  <div className="valor">{qtd(m.quantidade)}</div>
+                </li>
+              ))}
+            </ul>
           </>
         )}
       </div>
 
+      {gerente && (
+        <div className="card">
+          <h2>06 · Indicadores</h2>
+          <ul className="lista">
+            <li>
+              <div>
+                <div className="titulo">Ponto de equilíbrio</div>
+                <div className="sub">
+                  vendas para cobrir despesas + pró-labore
+                </div>
+              </div>
+              <span className="valor">
+                {pontoEquilibrio === null ? "–" : brl(pontoEquilibrio)}
+              </span>
+            </li>
+            <li>
+              <div>
+                <div className="titulo">Margem mínima</div>
+                <div className="sub">
+                  margem bruta atual {pc100(margemBruta)}
+                </div>
+              </div>
+              <span
+                className={`valor ${margemBruta >= margemMinima ? "positivo" : "negativo"}`}
+              >
+                {pc100(margemMinima)}
+              </span>
+            </li>
+            <li>
+              <div>
+                <div className="titulo">Meta</div>
+                <div className="sub">sobrar na margem líquida</div>
+              </div>
+              <span className="valor">{pc100(META_MARGEM_LIQUIDA)}</span>
+            </li>
+            <li>
+              <div>
+                <div className="titulo">% da meta atingida</div>
+                <div className="sub">
+                  margem líquida atual {pc100(margemLiquida)}
+                </div>
+              </div>
+              <span className={`valor ${pctMeta >= 1 ? "positivo" : ""}`}>
+                {pc100(Math.max(pctMeta, 0))}
+              </span>
+            </li>
+          </ul>
+          <p className="info">
+            Ponto de equilíbrio = (despesas + pró-labore) ÷ margem de
+            contribuição (lucro bruto − comissões, sobre as vendas). Margem
+            mínima = (despesas + pró-labore) ÷ vendas.
+          </p>
+        </div>
+      )}
+
       <div className="card">
-        <h2>Demonstrativo</h2>
+        <h2>07 · Demonstrativo</h2>
         <div className="tabela-rolagem">
           <table className="tabela">
             <thead>
@@ -346,163 +576,6 @@ export default async function Resumos({ searchParams }) {
             </tbody>
           </table>
         </div>
-      </div>
-
-      {gerente && (
-        <div className="card">
-          <ul className="lista">
-            <li>
-              <span className="titulo">Lucro líquido</span>
-              <span
-                className={`valor ${liquido < 0 ? "negativo" : "positivo"}`}
-              >
-                {brl(liquido)}
-              </span>
-            </li>
-          </ul>
-          <p className="info">
-            Lucro líquido = lucro bruto − comissões − despesas − pró-labore. As
-            comissões contam no vencimento de cada parcela (venda no cartão
-            parcelada paga a comissão aos poucos). A mercadoria já entra no
-            lucro pelo custo de cada venda; por isso as compras não são
-            subtraídas de novo.
-          </p>
-        </div>
-      )}
-
-      {gerente && (
-        <div className="card">
-          <h2>Movimentação de caixa</h2>
-          <ul className="lista">
-            <li>
-              <span className="titulo">Saldo anterior</span>
-              <span className={`valor ${saldoInicial < 0 ? "negativo" : ""}`}>
-                {brl(saldoInicial)}
-              </span>
-            </li>
-            <li>
-              <span className="titulo">Recebido das vendas</span>
-              <span className="valor positivo">{brl(mov("recebido"))}</span>
-            </li>
-            <li>
-              <span className="titulo">Capital inicial</span>
-              <span className="valor positivo">
-                {brl(mov("capital_inicial"))}
-              </span>
-            </li>
-            <li>
-              <span className="titulo">Aportes</span>
-              <span className="valor positivo">{brl(mov("aportes"))}</span>
-            </li>
-            <li>
-              <span className="titulo">Compras</span>
-              <span className="valor">− {brl(mov("compras"))}</span>
-            </li>
-            <li>
-              <span className="titulo">Despesas</span>
-              <span className="valor">− {brl(mov("despesas"))}</span>
-            </li>
-            <li>
-              <span className="titulo">Saques</span>
-              <span className="valor">− {brl(mov("saques"))}</span>
-            </li>
-            <li>
-              <span className="titulo">Pró-labore</span>
-              <span className="valor">− {brl(mov("pro_labore"))}</span>
-            </li>
-            <li>
-              <span className="titulo">Comissões pagas</span>
-              <span className="valor">− {brl(mov("comissoes_pagas"))}</span>
-            </li>
-            <li>
-              <span className="titulo">Saldo final</span>
-              <span className={`valor ${acSaldo < 0 ? "negativo" : "positivo"}`}>
-                {brl(acSaldo)}
-              </span>
-            </li>
-          </ul>
-          <p className="info">
-            Dinheiro em caixa: o que entrou (vendas à vista na data, cartão em
-            cada parcela no vencimento, capital inicial e aportes) menos o que saiu (compras,
-            despesas, saques, pró-labore e comissões pagas). O saldo de um
-            período passa para o seguinte. Não é o saldo da conta bancária.
-          </p>
-        </div>
-      )}
-
-      {gerente && ac && (
-        <div className="card">
-          <h2>Acumulado até {dataBR(ate, true)}</h2>
-          <ul className="lista">
-            <li>
-              <span className="titulo">Vendas</span>
-              <span className="valor">{brl(ac.receita)}</span>
-            </li>
-            <li>
-              <span className="titulo">Lucro bruto</span>
-              <span className="valor positivo">{brl(ac.lucro)}</span>
-            </li>
-            <li>
-              <span className="titulo">Lucro líquido</span>
-              <span
-                className={`valor ${acLiquido < 0 ? "negativo" : "positivo"}`}
-              >
-                {brl(acLiquido)}
-              </span>
-            </li>
-            <li>
-              <span className="titulo">Comissões a pagar</span>
-              <span className="valor">{brl(acAPagar)}</span>
-            </li>
-          </ul>
-        </div>
-      )}
-
-      {gerente && (
-        <div className="card">
-          <h2>Comissão por vendedor</h2>
-          {vendedores.length === 0 ? (
-            <p className="vazio">Sem vendas no período.</p>
-          ) : (
-            <ul className="lista">
-              {vendedores.map((v) => (
-                <li key={v.nome}>
-                  <div>
-                    <div className="titulo">{v.nome}</div>
-                    <div className="sub">
-                      {v.n} {v.n === 1 ? "venda" : "vendas"} · lucro{" "}
-                      {brl(v.lucro)}
-                    </div>
-                    <div className="sub">
-                      paga {brl(v.pago ?? 0)} · a pagar{" "}
-                      {brl(v.comissao - (v.pago ?? 0))}
-                    </div>
-                  </div>
-                  <div className="valor">{brl(v.comissao)}</div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-
-      <div className="card">
-        <h2>Mais vendidos</h2>
-        {maisVendidos.length === 0 ? (
-          <p className="vazio">Sem vendas no período.</p>
-        ) : (
-          <ul className="lista">
-            {maisVendidos.map((m) => (
-              <li key={m.nome}>
-                <div>
-                  <div className="titulo">{m.nome}</div>
-                  <div className="sub">lucro {brl(m.lucro)}</div>
-                </div>
-                <div className="valor">{qtd(m.quantidade)}</div>
-              </li>
-            ))}
-          </ul>
-        )}
       </div>
 
       <div className="card">
