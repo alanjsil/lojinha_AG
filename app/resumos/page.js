@@ -11,8 +11,8 @@ import {
 import { createClient, usuarioAtual } from "../../lib/supabase/server";
 import { sair } from "../actions";
 
-// meta do sócio: sobrar 20% da receita como lucro líquido
-const META_MARGEM_LIQUIDA = 0.2;
+// meta do sócio: sobrar (antes do pró-labore) 20% do lucro bruto
+const META_SOBRA = 0.2;
 
 const PERIODOS = { dia: "Hoje", semana: "7 dias", mes: "Mês" };
 
@@ -209,8 +209,8 @@ export default async function Resumos({ searchParams }) {
     mov("pro_labore") +
     mov("comissoes_pagas");
 
-  // indicadores: custo fixo = despesas + pró-labore; comissão é variável (já sai da margem)
-  const custosFixos = totalDespesas + caixa.pro_labore;
+  // indicadores: custo fixo = despesas (o pró-labore é a sobra do sócio); comissão é variável (já sai da margem)
+  const custosFixos = totalDespesas;
   const margemBruta = total.vendas > 0 ? total.lucro / total.vendas : 0;
   const margemContrib =
     total.vendas > 0 ? (total.lucro - total.comissoes) / total.vendas : 0;
@@ -222,7 +222,17 @@ export default async function Resumos({ searchParams }) {
   const ticketMedio = nVendas > 0 ? total.vendas / nVendas : 0;
   const margemPotencial =
     estoqueVenda > 0 ? (estoqueVenda - estoqueCusto) / estoqueVenda : 0;
-  const pctMeta = margemLiquida / META_MARGEM_LIQUIDA;
+  // meta: sobra = vendas × margem contrib − despesas = META × vendas × margem bruta
+  const denomMeta = margemContrib - META_SOBRA * margemBruta;
+  const metaFaturar = denomMeta > 0 ? custosFixos / denomMeta : null;
+  const pctMeta = metaFaturar > 0 ? total.vendas / metaFaturar : null;
+  // quanto falta faturar para um alvo (ou "atingido")
+  const faltaFaturar = (alvo) =>
+    alvo === null
+      ? "sem vendas no período para calcular"
+      : total.vendas >= alvo
+        ? "atingido"
+        : `falta ${brl(alvo - total.vendas)}`;
   const pc100 = (x) => `${qtd(x * 100)}%`;
 
   // % sobre a receita e % sobre o lucro bruto (vazio quando a base é zero)
@@ -390,26 +400,46 @@ export default async function Resumos({ searchParams }) {
               </span>
             </li>
             <li>
-              <div>
-                <div className="titulo">+ Entradas</div>
-                <div className="sub">
-                  vendas recebidas {brl(mov("recebido"))} · capital inicial{" "}
-                  {brl(mov("capital_inicial"))} · aportes {brl(mov("aportes"))}
-                </div>
-              </div>
-              <span className="valor positivo">{brl(entradas)}</span>
+              <details className="detalhe">
+                <summary>
+                  <span className="titulo">+ Entradas</span>
+                  <span className="valor positivo">{brl(entradas)}</span>
+                </summary>
+                <ul className="lista">
+                  {[
+                    ["Vendas recebidas", mov("recebido")],
+                    ["Capital inicial", mov("capital_inicial")],
+                    ["Aportes", mov("aportes")],
+                  ].map(([nome, v]) => (
+                    <li key={nome}>
+                      <span className="sub">{nome}</span>
+                      <span className="valor">{brl(v)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
             </li>
             <li>
-              <div>
-                <div className="titulo">− Saídas</div>
-                <div className="sub">
-                  compras {brl(mov("compras"))} · despesas{" "}
-                  {brl(mov("despesas"))} · saques {brl(mov("saques"))} ·
-                  pró-labore {brl(mov("pro_labore"))} · comissões pagas{" "}
-                  {brl(mov("comissoes_pagas"))}
-                </div>
-              </div>
-              <span className="valor">{brl(saidas)}</span>
+              <details className="detalhe">
+                <summary>
+                  <span className="titulo">− Saídas</span>
+                  <span className="valor">{brl(saidas)}</span>
+                </summary>
+                <ul className="lista">
+                  {[
+                    ["Compras", mov("compras")],
+                    ["Despesas", mov("despesas")],
+                    ["Saques", mov("saques")],
+                    ["Pró-labore", mov("pro_labore")],
+                    ["Comissões pagas", mov("comissoes_pagas")],
+                  ].map(([nome, v]) => (
+                    <li key={nome}>
+                      <span className="sub">{nome}</span>
+                      <span className="valor">{brl(v)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
             </li>
             <li>
               <span className="titulo">= Saldo final</span>
@@ -503,7 +533,11 @@ export default async function Resumos({ searchParams }) {
               <div>
                 <div className="titulo">Ponto de equilíbrio</div>
                 <div className="sub">
-                  vendas para cobrir despesas + pró-labore
+                  faturar para pagar CMV, comissões e despesas, sem sobrar
+                </div>
+                <div className="sub">
+                  já faturou {brl(total.vendas)} ·{" "}
+                  {faltaFaturar(pontoEquilibrio)}
                 </div>
               </div>
               <span className="valor">
@@ -524,29 +558,14 @@ export default async function Resumos({ searchParams }) {
               </span>
             </li>
             <li>
-              <div>
-                <div className="titulo">Meta</div>
-                <div className="sub">sobrar na margem líquida</div>
-              </div>
-              <span className="valor">{pc100(META_MARGEM_LIQUIDA)}</span>
-            </li>
-            <li>
-              <div>
-                <div className="titulo">% da meta atingida</div>
-                <div className="sub">
-                  margem líquida atual {pc100(margemLiquida)}
-                </div>
-              </div>
-              <span className={`valor ${pctMeta >= 1 ? "positivo" : ""}`}>
-                {pc100(Math.max(pctMeta, 0))}
+              <span className="titulo">% da meta atingida</span>
+              <span
+                className={`valor ${pctMeta !== null && pctMeta >= 1 ? "positivo" : ""}`}
+              >
+                {pctMeta === null ? "–" : pc100(pctMeta)}
               </span>
             </li>
           </ul>
-          <p className="info">
-            Ponto de equilíbrio = (despesas + pró-labore) ÷ margem de
-            contribuição (lucro bruto − comissões, sobre as vendas). Margem
-            mínima = (despesas + pró-labore) ÷ vendas.
-          </p>
         </div>
       )}
 
