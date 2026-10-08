@@ -7,14 +7,14 @@ import ListaExpansivel from "./ListaExpansivel";
 import useEnvio, { Mensagem } from "./useEnvio";
 
 const TIPOS = {
-  aluguel: "Aluguel",
-  agua: "Água",
-  luz: "Luz",
-  internet: "Internet",
   gasolina: "Gasolina",
   alimentacao: "Alimentação",
   pedagio: "Pedágio",
   outros: "Outros",
+  aluguel: "Aluguel",
+  agua: "Água",
+  luz: "Luz",
+  internet: "Internet",
 };
 
 const TIPOS_LANCAMENTO = {
@@ -112,7 +112,7 @@ function FormCompra({ produtos }) {
 function FormDespesa() {
   const { salvando, msg, enviar } = useEnvio();
   const [data, setData] = useDataHoje();
-  const [f, setF] = useState({ tipo: "aluguel", descricao: "", valor: "" });
+  const [f, setF] = useState({ tipo: "gasolina", descricao: "", valor: "" });
 
   return (
     <form

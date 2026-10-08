@@ -88,5 +88,5 @@ export async function proxy(req) {
 
 // tudo, menos os arquivos do próprio Next e os ícones
 export const config = {
-  matcher: ["/((?!_next/|logo.png|manifest.webmanifest|favicon.ico).*)"],
+  matcher: ["/((?!_next/|icons/|manifest.webmanifest|icon.png|apple-icon.png).*)"],
 };
