@@ -7,7 +7,7 @@ import { createClient, usuarioAtual } from "../lib/supabase/server";
 
 const PAGAMENTOS = ["a_vista", "cartao"];
 const TIPOS_DESPESA = ["aluguel", "agua", "luz", "internet", "gasolina", "alimentacao", "pedagio", "outros"];
-const TIPOS_LANCAMENTO = ["pro_labore", "pagamento_comissao", "saque", "aporte", "capital_inicial"];
+const TIPOS_LANCAMENTO = ["pro_labore", "pagamento_comissao", "saque", "aporte", "capital_inicial", "repasse"];
 const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
 
 class ErroDeNegocio extends Error {}
@@ -253,13 +253,14 @@ export async function registrarLancamento({ tipo, valor, data, descricao, vended
     async (supabase) => {
       if (!TIPOS_LANCAMENTO.includes(tipo)) falha("Escolha o tipo do lançamento.");
       const v = valorPositivo(valor, "o valor");
-      if (tipo === "pagamento_comissao" && !vendedorId) falha("Escolha o vendedor.");
+      const comVendedor = tipo === "pagamento_comissao" || tipo === "repasse";
+      if (comVendedor && !vendedorId) falha("Escolha o vendedor.");
       const { error } = await supabase.from("lancamentos").insert({
         data: dataValida(data),
         tipo,
         valor: v,
         descricao: (descricao ?? "").trim() || null,
-        vendedor_id: tipo === "pagamento_comissao" ? vendedorId : null,
+        vendedor_id: comVendedor ? vendedorId : null,
       });
       if (error) throw error;
       atualizarTudo();

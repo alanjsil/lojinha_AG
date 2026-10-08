@@ -57,6 +57,28 @@ export default async function Resumos(props) {
     gerente ? supabase.from("estoque_atual").select("custo, preco, saldo").limit(5000) : Promise.resolve({ data: [] }),
   ]);
 
+  // dinheiro das vendas em mãos: recebido (parcelas vencidas até o fim, nunca no futuro) − repasses entregues ao gerente
+  const [{ data: parcelasAcum }, { data: repassesAcum }] = await Promise.all([
+    (() => {
+      const q = supabase
+        .from("parcelas")
+        .select("valor, vendedor_id, perfis(nome)")
+        .lte("vencimento", ate < hoje ? ate : hoje)
+        .limit(10000);
+      return gerente ? q : q.eq("vendedor_id", usuario?.id);
+    })(),
+    supabase.from("lancamentos").select("valor, vendedor_id, perfis!lancamentos_vendedor_id_fkey(nome)").eq("tipo", "repasse").lte("data", ate).limit(10000),
+  ]);
+  const emMaos = new Map();
+  const linhaMaos = (id, nome) => {
+    const m = emMaos.get(id) ?? { nome: nome ?? "-", recebido: 0, entregue: 0 };
+    emMaos.set(id, m);
+    return m;
+  };
+  for (const pc of parcelasAcum ?? []) linhaMaos(pc.vendedor_id, pc.perfis?.nome).recebido += Number(pc.valor);
+  for (const r of repassesAcum ?? []) linhaMaos(r.vendedor_id, r.perfis?.nome).entregue += Number(r.valor);
+  const maos = [...emMaos.values()].sort((a, b) => b.recebido - b.entregue - (a.recebido - a.entregue));
+
   const total = { vendas: 0, custo: 0, lucro: 0, comissoes: 0 };
   const porVendedor = new Map();
   const porProduto = new Map();
@@ -108,7 +130,7 @@ export default async function Resumos(props) {
   const totalDespesas = (despesas ?? []).reduce((s, d) => s + Number(d.valor), 0);
   const estoqueCusto = (estoque ?? []).reduce((t, e) => t + Math.max(Number(e.saldo), 0) * Number(e.custo), 0);
   const estoqueVenda = (estoque ?? []).reduce((t, e) => t + Math.max(Number(e.saldo), 0) * Number(e.preco), 0);
-  const caixa = { pro_labore: 0, pagamento_comissao: 0, saque: 0, aporte: 0 };
+  const caixa = { pro_labore: 0, pagamento_comissao: 0, saque: 0, aporte: 0, capital_inicial: 0, repasse: 0 };
   for (const l of lancamentos ?? []) {
     caixa[l.tipo] += Number(l.valor);
     if (l.tipo === "pagamento_comissao") {
@@ -231,6 +253,29 @@ export default async function Resumos(props) {
           </div>
         </div>
       </div>
+
+      {maos.length > 0 && (
+        <div className="card">
+          <h2>{gerente ? "Dinheiro com os vendedores" : "Seu repasse"}</h2>
+          <ul className="lista">
+            {maos.map((m) => {
+              const pendente = m.recebido - m.entregue;
+              return (
+                <li key={m.nome}>
+                  <div>
+                    <div className="titulo">{gerente ? m.nome : "Pendente de entrega"}</div>
+                    <div className="sub">
+                      recebido {brl(m.recebido)} · entregue {brl(m.entregue)}
+                    </div>
+                  </div>
+                  <div className={`valor ${pendente > 0 ? "negativo" : ""}`}>{brl(pendente)}</div>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="info">Recebido das vendas (parcelas vencidas) menos repasses, até {dataBR(ate, true)}.</p>
+        </div>
+      )}
 
       {gerente && (
         <div className="card">

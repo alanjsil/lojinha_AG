@@ -23,6 +23,7 @@ const TIPOS_LANCAMENTO = {
   saque: "Saque",
   capital_inicial: "Capital inicial",
   aporte: "Aporte",
+  repasse: "Repasse de vendedor",
 };
 
 function useDataHoje() {
@@ -205,7 +206,7 @@ function FormLancamento({ vendedores }) {
     valor: "",
     vendedorId: "",
   });
-  const porComissao = f.tipo === "pagamento_comissao";
+  const porComissao = f.tipo === "pagamento_comissao" || f.tipo === "repasse";
 
   return (
     <form

@@ -28,7 +28,7 @@ Campos `type="number"` só aceitam ponto decimal: preencha com `String(valor)`, 
   (trigger `produtos_bloquear_custo_manual`, liberado só dentro do recálculo via `app.recalculando_cmp`).
 - Lucro líquido = lucro bruto − comissões − despesas (compras não entram de novo: o custo já está na venda).
 - Lançamentos dos sócios (`lancamentos`, aba em Saídas, só gerente): `pro_labore`, `pagamento_comissao` (exige
-  vendedor), `saque`, `aporte`, `capital_inicial`. Só o **pró-labore** entra no lucro líquido; os demais ficam na "Movimentação de caixa"
+  vendedor), `saque`, `aporte`, `capital_inicial`, `repasse` (exige vendedor: dinheiro das vendas que ele entregou ao gerente; não mexe no caixa total; o vendedor lê só os próprios; Resumos mostra recebido/entregue/pendente = parcelas vencidas − repasses). Só o **pró-labore** entra no lucro líquido; os demais ficam na "Movimentação de caixa"
   dos Resumos. Resumos tem aba Mês com setas ‹ › (`?p=mes&m=AAAA-MM`; mês corrente vai só até hoje).
 - Resumos (gerente) tem o card "Acumulado até <fim do período>" via função `resumo_acumulado(ate)` (mig. 012):
   **saldo = caixa real**: recebido (parcelas vencidas) + capital inicial + aportes − compras − despesas − saques − pró-labore − comissões pagas.
@@ -44,8 +44,13 @@ Campos `type="number"` só aceitam ponto decimal: preencha com `String(valor)`, 
 - Auth: Supabase Auth (e-mail/senha), sessão por cookie (`@supabase/ssr`). Dados pelo servidor, com o
   usuário logado, sob RLS (`lib/supabase/server.js`, Server Actions em `app/actions.js`).
 - Projeto Supabase da Lojinha: ref `modldgphwfzjarydzolx` (o mesmo de `NEXT_PUBLIC_SUPABASE_URL` em `.env.local`).
-- Schema em `db/schema.sql` (estado atual completo); mudanças em `db/migracoes/NNN_*.sql` (001–014), sempre
+- Schema em `db/schema.sql` (estado atual completo); mudanças em `db/migracoes/NNN_*.sql` (001–017), sempre
   refletidas no schema. O banco aplica a partir da 003 pelo histórico do Supabase; confira com o MCP
   (`list_migrations`) antes de numerar a próxima. Funções de trigger têm `execute` revogado de
   anon/authenticated; funções que chamam outras revogadas precisam ser `security definer`.
 - Usuários: `npm run criar-usuario -- "Nome" email senha [comissao] [papel]` (papel: gerente|vendedor, padrão vendedor).
+
+## Qualidade
+
+- `npm run lint` (ESLint 9 + `eslint-config-next`, config em `eslint.config.mjs`) e `npm test` (runner nativo do Node, testes em `tests/`).
+  Rode os dois antes de commitar. Lógica pura vai em `lib/` e ganha teste; `set-state-in-effect` está desligada de propósito (data local só no navegador).

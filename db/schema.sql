@@ -263,14 +263,16 @@ create index if not exists despesas_created_by on despesas (created_by);
 create table if not exists lancamentos (
   id uuid primary key default gen_random_uuid(),
   data date not null default current_date,
-  tipo text not null check (tipo in ('pro_labore', 'pagamento_comissao', 'saque', 'aporte', 'capital_inicial')),
+  tipo text not null check (
+    tipo in ('pro_labore', 'pagamento_comissao', 'saque', 'aporte', 'capital_inicial', 'repasse')
+  ),
   valor numeric(12, 2) not null check (valor > 0),
   descricao text,
   vendedor_id uuid references perfis (id),
   created_by uuid default auth.uid () references perfis (id),
   created_at timestamptz not null default now(),
   check (
-    tipo <> 'pagamento_comissao'
+    tipo not in ('pagamento_comissao', 'repasse')
     or vendedor_id is not null
   )
 );
@@ -576,17 +578,19 @@ create policy despesas_apagar on despesas for delete to authenticated using (
   )
 );
 
-create policy despesas_editar on despesas for update to authenticated using (
-  exists (
-    select
-      1
-    from
-      perfis
-    where
-      id = auth.uid ()
-      and papel = 'gerente'
+create policy despesas_editar on despesas
+for update
+  to authenticated using (
+    exists (
+      select
+        1
+      from
+        perfis
+      where
+        id = auth.uid ()
+        and papel = 'gerente'
+    )
   )
-)
 with
   check (
     exists (
@@ -600,7 +604,17 @@ with
     )
   );
 
--- lançamentos: só gerente
+-- lançamentos: só gerente (o vendedor lê só os próprios repasses)
+create policy lancamentos_ver_repasse_proprio on lancamentos for
+select
+  to authenticated using (
+    tipo = 'repasse'
+    and vendedor_id = (
+      select
+        auth.uid ()
+    )
+  );
+
 create policy lancamentos_ver on lancamentos for
 select
   to authenticated using (
