@@ -11,20 +11,19 @@
     // =========================================================
     "files.exclude": {
       // Arquivos
-      ".env.local": true,
-      ".gitattributes": true,
-      ".gitignore": true,
-      ".mcp.json": true,
       ".next": true,
       ".vercel": true,
-      ".vercelignore": true,
       ".vscode": true,
-      // "CLAUDE.md": true,
-      "next.config.js": true,
+      ".mcp.json": true,
+      "CLAUDE.md": true,
+      ".env.local": true,
+      ".gitignore": true,
       "node_modules": true,
+      ".vercelignore": true,
       "opencode.json": true,
+      ".gitattributes": true,
+      "next.config.js": true,
       "package-lock.json": true,
-      // "README.md": true,
     },
 
     // =========================================================

@@ -40,8 +40,7 @@ async function executar(fn, { exigeGerente = false } = {}) {
 function valorPositivo(texto, nome, { permiteZero = false } = {}) {
   if (!preenchido(texto)) falha(`Informe ${nome}.`);
   const n = numero(texto);
-  if (!Number.isFinite(n) || n < 0 || (!permiteZero && n === 0))
-    falha(`${nome[0].toUpperCase()}${nome.slice(1)} inválido.`);
+  if (!Number.isFinite(n) || n < 0 || (!permiteZero && n === 0)) falha(`${nome[0].toUpperCase()}${nome.slice(1)} inválido.`);
   return n;
 }
 
@@ -51,11 +50,7 @@ function dataValida(data) {
 }
 
 async function saldoDoProduto(supabase, produtoId) {
-  const { data, error } = await supabase
-    .from("estoque_atual")
-    .select("saldo, nome, ativo")
-    .eq("id", produtoId)
-    .single();
+  const { data, error } = await supabase.from("estoque_atual").select("saldo, nome, ativo").eq("id", produtoId).single();
   if (error || !data) falha("Produto não encontrado.");
   return data;
 }
@@ -64,27 +59,17 @@ async function saldoDoProduto(supabase, produtoId) {
 function parcelasValidas(pagamento, parcelas) {
   if (pagamento !== "cartao") return 1;
   const n = Number(parcelas ?? 1);
-  if (!Number.isInteger(n) || n < 1 || n > 12)
-    falha("Parcelas inválidas (1 a 12).");
+  if (!Number.isInteger(n) || n < 1 || n > 12) falha("Parcelas inválidas (1 a 12).");
   return n;
 }
 
 function atualizarTudo() {
-  ["/vendas", "/estoque", "/saidas", "/resumos"].forEach((p) =>
-    revalidatePath(p),
-  );
+  ["/vendas", "/estoque", "/saidas", "/resumos"].forEach((p) => revalidatePath(p));
 }
 
 // ---------- Vendas ----------
 
-export async function registrarVenda({
-  produtoId,
-  quantidade,
-  preco,
-  pagamento,
-  parcelas,
-  data,
-}) {
+export async function registrarVenda({ produtoId, quantidade, preco, pagamento, parcelas, data }) {
   return executar(async (supabase) => {
     if (!produtoId) falha("Escolha o produto.");
     const q = valorPositivo(quantidade, "a quantidade");
@@ -94,10 +79,7 @@ export async function registrarVenda({
 
     const produto = await saldoDoProduto(supabase, produtoId);
     if (!produto.ativo) falha("Este produto está inativo.");
-    if (q > produto.saldo)
-      falha(
-        `Estoque insuficiente de ${produto.nome}: restam ${qtd(produto.saldo)}.`,
-      );
+    if (q > produto.saldo) falha(`Estoque insuficiente de ${produto.nome}: restam ${qtd(produto.saldo)}.`);
 
     const { error } = await supabase.from("vendas").insert({
       data: dataValida(data),
@@ -112,34 +94,20 @@ export async function registrarVenda({
   });
 }
 
-export async function editarVenda({
-  id,
-  quantidade,
-  preco,
-  pagamento,
-  parcelas,
-  data,
-}) {
+export async function editarVenda({ id, quantidade, preco, pagamento, parcelas, data }) {
   return executar(async (supabase) => {
     const q = valorPositivo(quantidade, "a quantidade");
     const p = valorPositivo(preco, "o preço");
     if (!PAGAMENTOS.includes(pagamento)) falha("Escolha a forma de pagamento.");
     const nParcelas = parcelasValidas(pagamento, parcelas);
 
-    const { data: antiga, error: erroVenda } = await supabase
-      .from("vendas")
-      .select("produto_id, quantidade")
-      .eq("id", id)
-      .single();
+    const { data: antiga, error: erroVenda } = await supabase.from("vendas").select("produto_id, quantidade").eq("id", id).single();
     if (erroVenda || !antiga) falha("Venda não encontrada.");
 
     // o saldo atual já desconta a quantidade antiga desta venda
     const produto = await saldoDoProduto(supabase, antiga.produto_id);
     const limite = produto.saldo + Number(antiga.quantidade);
-    if (q > limite)
-      falha(
-        `Estoque insuficiente de ${produto.nome}: dá para vender até ${qtd(limite)}.`,
-      );
+    if (q > limite) falha(`Estoque insuficiente de ${produto.nome}: dá para vender até ${qtd(limite)}.`);
 
     const { data: salvas, error } = await supabase
       .from("vendas")
@@ -169,14 +137,7 @@ export async function excluirVenda(id) {
 // ---------- Produtos ----------
 
 // Custo e preço são obrigatórios: sem os dois o produto não é salvo.
-export async function salvarProduto({
-  id,
-  nome,
-  unidade,
-  custo,
-  preco,
-  ativo = true,
-}) {
+export async function salvarProduto({ id, nome, unidade, custo, preco, ativo = true }) {
   return executar(async (supabase) => {
     const gerente = Boolean((await usuarioAtual(supabase))?.gerente);
     if (!gerente && !id) falha("Só o gerente pode cadastrar produtos.");
@@ -194,9 +155,7 @@ export async function salvarProduto({
       campos.preco = valorPositivo(preco, "o preço");
     }
 
-    const { error } = id
-      ? await supabase.from("produtos").update(campos).eq("id", id)
-      : await supabase.from("produtos").insert(campos);
+    const { error } = id ? await supabase.from("produtos").update(campos).eq("id", id) : await supabase.from("produtos").insert(campos);
     if (error?.code === "23505") falha("Já existe um produto com esse nome.");
     if (error) throw error;
     atualizarTudo();
@@ -205,13 +164,7 @@ export async function salvarProduto({
 
 // ---------- Compras (entrada de estoque) ----------
 
-export async function registrarCompra({
-  produtoId,
-  quantidade,
-  custo,
-  fornecedor,
-  data,
-}) {
+export async function registrarCompra({ produtoId, quantidade, custo, fornecedor, data }) {
   return executar(async (supabase) => {
     if (!produtoId) falha("Escolha o produto.");
     const q = valorPositivo(quantidade, "a quantidade");
@@ -272,19 +225,12 @@ export async function excluirDespesa(id) {
 
 // ---------- Lançamentos dos sócios ----------
 
-export async function registrarLancamento({
-  tipo,
-  valor,
-  data,
-  descricao,
-  vendedorId,
-}) {
+export async function registrarLancamento({ tipo, valor, data, descricao, vendedorId }) {
   return executar(
     async (supabase) => {
       if (!TIPOS_LANCAMENTO.includes(tipo)) falha("Escolha o tipo do lançamento.");
       const v = valorPositivo(valor, "o valor");
-      if (tipo === "pagamento_comissao" && !vendedorId)
-        falha("Escolha o vendedor.");
+      if (tipo === "pagamento_comissao" && !vendedorId) falha("Escolha o vendedor.");
       const { error } = await supabase.from("lancamentos").insert({
         data: dataValida(data),
         tipo,
@@ -313,12 +259,7 @@ export async function excluirLancamento(id) {
 // ---------- Contagem cíclica ----------
 
 // Guarda o que o sistema achava e o que foi contado; a diferença ajusta o estoque.
-export async function registrarContagem({
-  produtoId,
-  quantidade,
-  observacao,
-  data,
-}) {
+export async function registrarContagem({ produtoId, quantidade, observacao, data }) {
   return executar(async (supabase) => {
     if (!produtoId) falha("Escolha o produto.");
     const contada = valorPositivo(quantidade, "a quantidade contada", {

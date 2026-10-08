@@ -33,8 +33,7 @@ export default function FormVenda({ produtos, comissaoPct }) {
 
   const q = numero(quantidade);
   const pr = numero(preco);
-  const valido =
-    produto && preenchido(quantidade) && preenchido(preco) && q > 0 && pr > 0;
+  const valido = produto && preenchido(quantidade) && preenchido(preco) && q > 0 && pr > 0;
   const total = valido ? q * pr : 0;
   const lucro = valido ? (pr - produto.custo) * q : 0;
   const comissao = Math.max(lucro, 0) * (comissaoPct / 100);
@@ -60,10 +59,7 @@ export default function FormVenda({ produtos, comissaoPct }) {
   if (produtos.length === 0) {
     return (
       <div className="card">
-        <p className="vazio">
-          Nenhum produto com estoque. Cadastre produtos e lance uma compra na
-          aba Estoque / Saídas.
-        </p>
+        <p className="vazio">Nenhum produto com estoque. Cadastre produtos e lance uma compra na aba Estoque / Saídas.</p>
       </div>
     );
   }
@@ -71,12 +67,7 @@ export default function FormVenda({ produtos, comissaoPct }) {
   return (
     <form className="card" onSubmit={enviarVenda}>
       <label htmlFor="produto">Produto</label>
-      <select
-        id="produto"
-        value={produtoId}
-        onChange={(e) => escolher(e.target.value)}
-        required
-      >
+      <select id="produto" value={produtoId} onChange={(e) => escolher(e.target.value)} required>
         <option value="">Escolha...</option>
         {produtos.map((p) => (
           <option key={p.id} value={p.id}>
@@ -88,29 +79,11 @@ export default function FormVenda({ produtos, comissaoPct }) {
       <div className="linha-2">
         <div>
           <label htmlFor="qtd">Quantidade</label>
-          <input
-            id="qtd"
-            type="number"
-            inputMode="decimal"
-            step="any"
-            min="0"
-            value={quantidade}
-            onChange={(e) => setQuantidade(e.target.value)}
-            required
-          />
+          <input id="qtd" type="number" inputMode="decimal" step="any" min="0" value={quantidade} onChange={(e) => setQuantidade(e.target.value)} required />
         </div>
         <div>
           <label htmlFor="preco">Preço unit. (R$)</label>
-          <input
-            id="preco"
-            type="number"
-            inputMode="decimal"
-            step="0.01"
-            min="0"
-            value={preco}
-            onChange={(e) => setPreco(e.target.value)}
-            required
-          />
+          <input id="preco" type="number" inputMode="decimal" step="0.01" min="0" value={preco} onChange={(e) => setPreco(e.target.value)} required />
         </div>
       </div>
 
@@ -134,11 +107,7 @@ export default function FormVenda({ produtos, comissaoPct }) {
       {pagamento === "cartao" && (
         <>
           <label htmlFor="parcelas">Parcelas</label>
-          <select
-            id="parcelas"
-            value={parcelas}
-            onChange={(e) => setParcelas(e.target.value)}
-          >
+          <select id="parcelas" value={parcelas} onChange={(e) => setParcelas(e.target.value)}>
             {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
               <option key={n} value={n}>
                 {n}x{valido ? ` de ${brl(total / n)}` : ""}
@@ -149,13 +118,7 @@ export default function FormVenda({ produtos, comissaoPct }) {
       )}
 
       <label htmlFor="data">Data</label>
-      <input
-        id="data"
-        type="date"
-        value={data}
-        onChange={(e) => setData(e.target.value)}
-        required
-      />
+      <input id="data" type="date" value={data} onChange={(e) => setData(e.target.value)} required />
 
       {valido && (
         <div className="resumo-venda">
@@ -165,9 +128,7 @@ export default function FormVenda({ produtos, comissaoPct }) {
           </div>
           <div>
             <span>Lucro</span>
-            <strong className={lucro < 0 ? "negativo" : "positivo"}>
-              {brl(lucro)}
-            </strong>
+            <strong className={lucro < 0 ? "negativo" : "positivo"}>{brl(lucro)}</strong>
           </div>
           <div>
             <span>Sua comissão ({qtd(comissaoPct)}%)</span>
@@ -175,15 +136,10 @@ export default function FormVenda({ produtos, comissaoPct }) {
           </div>
           {nParcelas > 1 && (
             <span className="info">
-              A comissão cai junto com as parcelas: {brl(comissao / nParcelas)}{" "}
-              por mês, durante {nParcelas} meses.
+              A comissão cai junto com as parcelas: {brl(comissao / nParcelas)} por mês, durante {nParcelas} meses.
             </span>
           )}
-          {pr < produto.custo && (
-            <span className="negativo">
-              Atenção: preço abaixo do custo ({brl(produto.custo)}).
-            </span>
-          )}
+          {pr < produto.custo && <span className="negativo">Atenção: preço abaixo do custo ({brl(produto.custo)}).</span>}
         </div>
       )}
 

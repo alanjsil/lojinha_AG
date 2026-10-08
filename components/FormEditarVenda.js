@@ -20,49 +20,21 @@ export default function FormEditarVenda({ venda, aoFechar }) {
       className="form-inline"
       onSubmit={(e) => {
         e.preventDefault();
-        enviar(
-          editarVenda,
-          { ...f, id: venda.id },
-          { textoOk: "Venda atualizada!", aoConcluir: aoFechar },
-        );
+        enviar(editarVenda, { ...f, id: venda.id }, { textoOk: "Venda atualizada!", aoConcluir: aoFechar });
       }}
     >
       <div className="linha-2">
         <div>
           <label htmlFor={`eqtd-${venda.id}`}>Quantidade</label>
-          <input
-            id={`eqtd-${venda.id}`}
-            type="number"
-            inputMode="decimal"
-            step="any"
-            min="0"
-            value={f.quantidade}
-            onChange={set("quantidade")}
-            required
-          />
+          <input id={`eqtd-${venda.id}`} type="number" inputMode="decimal" step="any" min="0" value={f.quantidade} onChange={set("quantidade")} required />
         </div>
         <div>
           <label htmlFor={`epreco-${venda.id}`}>Preço unit. (R$)</label>
-          <input
-            id={`epreco-${venda.id}`}
-            type="number"
-            inputMode="decimal"
-            step="0.01"
-            min="0"
-            value={f.preco}
-            onChange={set("preco")}
-            required
-          />
+          <input id={`epreco-${venda.id}`} type="number" inputMode="decimal" step="0.01" min="0" value={f.preco} onChange={set("preco")} required />
         </div>
       </div>
       <label htmlFor={`edata-${venda.id}`}>Data</label>
-      <input
-        id={`edata-${venda.id}`}
-        type="date"
-        value={f.data}
-        onChange={set("data")}
-        required
-      />
+      <input id={`edata-${venda.id}`} type="date" value={f.data} onChange={set("data")} required />
       <label>Pagamento</label>
       <div className="segmentos" style={{ marginBottom: 0 }}>
         {FORMAS.map(([valor, rotulo]) => (
@@ -85,11 +57,7 @@ export default function FormEditarVenda({ venda, aoFechar }) {
       {f.pagamento === "cartao" && (
         <>
           <label htmlFor={`eparc-${venda.id}`}>Parcelas</label>
-          <select
-            id={`eparc-${venda.id}`}
-            value={f.parcelas}
-            onChange={set("parcelas")}
-          >
+          <select id={`eparc-${venda.id}`} value={f.parcelas} onChange={set("parcelas")}>
             {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
               <option key={n} value={n}>
                 {n}x

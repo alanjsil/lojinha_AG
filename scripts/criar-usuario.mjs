@@ -4,12 +4,9 @@
 // SUPABASE_SERVICE_ROLE_KEY no .env.local (projeto da Lojinha!).
 import { createClient } from "@supabase/supabase-js";
 
-const [nome, email, senha, comissao = "40", papel = "vendedor"] =
-  process.argv.slice(2);
+const [nome, email, senha, comissao = "40", papel = "vendedor"] = process.argv.slice(2);
 if (!nome || !email || !senha) {
-  console.error(
-    'Uso: npm run criar-usuario -- "Nome" email senha [comissao%] [papel]',
-  );
+  console.error('Uso: npm run criar-usuario -- "Nome" email senha [comissao%] [papel]');
   process.exit(1);
 }
 if (!["gerente", "vendedor"].includes(papel)) {
@@ -17,13 +14,9 @@ if (!["gerente", "vendedor"].includes(papel)) {
   process.exit(1);
 }
 
-const admin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  {
-    auth: { persistSession: false },
-  },
-);
+const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
+  auth: { persistSession: false },
+});
 
 const { data, error } = await admin.auth.admin.createUser({
   email,
@@ -41,16 +34,7 @@ const ajustes = {};
 if (Number(comissao) !== 40) ajustes.comissao_pct = Number(comissao);
 if (papel !== "vendedor") ajustes.papel = papel;
 if (Object.keys(ajustes).length > 0) {
-  const { error: e2 } = await admin
-    .from("perfis")
-    .update(ajustes)
-    .eq("id", data.user.id);
-  if (e2)
-    console.error(
-      "Usuário criado, mas falhou ao ajustar perfil:",
-      e2.message,
-    );
+  const { error: e2 } = await admin.from("perfis").update(ajustes).eq("id", data.user.id);
+  if (e2) console.error("Usuário criado, mas falhou ao ajustar perfil:", e2.message);
 }
-console.log(
-  `Usuário criado: ${nome} <${email}> (comissão ${comissao}%, papel ${papel})`,
-);
+console.log(`Usuário criado: ${nome} <${email}> (comissão ${comissao}%, papel ${papel})`);

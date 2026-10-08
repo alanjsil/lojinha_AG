@@ -5,9 +5,9 @@
 -- lançar/excluir compra falhava. Como security definer, o trigger executa com
 -- os direitos do dono da função.
 -- ============================================================
-
-create or replace function compras_recalcular_custo() returns trigger
-language plpgsql security definer set search_path = '' as $$
+create or replace function compras_recalcular_custo () returns trigger language plpgsql security definer
+set
+  search_path = '' as $$
 begin
   if tg_op = 'DELETE' then
     perform public.recalcular_custo_medio(old.produto_id);
@@ -17,4 +17,9 @@ begin
   return new;
 end $$;
 
-revoke execute on function compras_recalcular_custo() from public, anon, authenticated;
+revoke
+execute on function compras_recalcular_custo ()
+from
+  public,
+  anon,
+  authenticated;

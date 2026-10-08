@@ -7,9 +7,9 @@
 --   venda e contagem só alteram a quantidade, nunca o custo
 --   saldo zerado/negativo antes da compra: custo passa a ser o da compra
 -- ============================================================
-
-create or replace function recalcular_custo_medio(p_produto_id uuid) returns void
-language plpgsql security definer set search_path = '' as $$
+create or replace function recalcular_custo_medio (p_produto_id uuid) returns void language plpgsql security definer
+set
+  search_path = '' as $$
 declare
   r record;
   v_saldo numeric := 0;
@@ -50,7 +50,12 @@ begin
   perform pg_catalog.set_config('app.recalculando_cmp', 'off', true);
 end $$;
 
-revoke execute on function recalcular_custo_medio(uuid) from public, anon, authenticated;
+revoke
+execute on function recalcular_custo_medio (uuid)
+from
+  public,
+  anon,
+  authenticated;
 
 -- acerta os produtos que já têm compras
 do $$

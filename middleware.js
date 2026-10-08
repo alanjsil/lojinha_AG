@@ -38,23 +38,19 @@ export async function middleware(req) {
   let res = seguir();
   const gravados = [];
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        getAll: () => req.cookies.getAll(),
-        setAll(lista) {
-          lista.forEach(({ name, value }) => req.cookies.set(name, value));
-          res = seguir();
-          lista.forEach(({ name, value, options }) => {
-            res.cookies.set(name, value, options);
-            gravados.push({ name, value, options });
-          });
-        },
+  const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+    cookies: {
+      getAll: () => req.cookies.getAll(),
+      setAll(lista) {
+        lista.forEach(({ name, value }) => req.cookies.set(name, value));
+        res = seguir();
+        lista.forEach(({ name, value, options }) => {
+          res.cookies.set(name, value, options);
+          gravados.push({ name, value, options });
+        });
       },
     },
-  );
+  });
 
   const {
     data: { user },
@@ -73,9 +69,7 @@ export async function middleware(req) {
     url.pathname = "/login";
     url.search = "";
     const redir = NextResponse.redirect(url);
-    gravados.forEach(({ name, value, options }) =>
-      redir.cookies.set(name, value, options),
-    );
+    gravados.forEach(({ name, value, options }) => redir.cookies.set(name, value, options));
     redir.headers.set("Content-Security-Policy", politica);
     return redir;
   }
@@ -84,9 +78,7 @@ export async function middleware(req) {
     const url = req.nextUrl.clone();
     url.pathname = "/vendas";
     const redir = NextResponse.redirect(url);
-    gravados.forEach(({ name, value, options }) =>
-      redir.cookies.set(name, value, options),
-    );
+    gravados.forEach(({ name, value, options }) => redir.cookies.set(name, value, options));
     redir.headers.set("Content-Security-Policy", politica);
     return redir;
   }
@@ -96,5 +88,5 @@ export async function middleware(req) {
 
 // tudo, menos os arquivos do próprio Next e os ícones
 export const config = {
-  matcher: ["/((?!_next/|icon.svg|manifest.webmanifest|favicon.ico).*)"],
+  matcher: ["/((?!_next/|logo.png|manifest.webmanifest|favicon.ico).*)"],
 };

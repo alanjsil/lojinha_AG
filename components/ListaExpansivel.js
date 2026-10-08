@@ -8,12 +8,7 @@ import useEnvio, { Mensagem } from "./useEnvio";
 // itens: [{ id, titulo, sub, valor, detalhes: [texto] }]
 // renderEditar(item, fechar): opcional; quando passado, aparece o botão Editar
 // ao lado de Excluir e o formulário abre dentro do próprio item.
-export default function ListaExpansivel({
-  itens,
-  excluir,
-  renderEditar,
-  vazio = "Nada lançado ainda.",
-}) {
+export default function ListaExpansivel({ itens, excluir, renderEditar, vazio = "Nada lançado ainda." }) {
   const [aberto, setAberto] = useState(null);
   const [editando, setEditando] = useState(null);
   const { msg, enviar } = useEnvio();
@@ -55,19 +50,11 @@ export default function ListaExpansivel({
                     ))}
                     <div className={renderEditar ? "acoes-item" : undefined}>
                       {renderEditar && (
-                        <button
-                          type="button"
-                          className="botao-secundario"
-                          onClick={() => setEditando(i.id)}
-                        >
+                        <button type="button" className="botao-secundario" onClick={() => setEditando(i.id)}>
                           Editar
                         </button>
                       )}
-                      <BotaoExcluir
-                        onConfirmar={() =>
-                          enviar(excluir, i.id, { textoOk: "Excluído." })
-                        }
-                      />
+                      <BotaoExcluir onConfirmar={() => enviar(excluir, i.id, { textoOk: "Excluído." })} />
                     </div>
                   </>
                 )}

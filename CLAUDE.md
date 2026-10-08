@@ -49,4 +49,3 @@ Campos `type="number"` só aceitam ponto decimal: preencha com `String(valor)`, 
   (`list_migrations`) antes de numerar a próxima. Funções de trigger têm `execute` revogado de
   anon/authenticated; funções que chamam outras revogadas precisam ser `security definer`.
 - Usuários: `npm run criar-usuario -- "Nome" email senha [comissao] [papel]` (papel: gerente|vendedor, padrão vendedor).
-- O caminho tem "&": no Windows rode o Next com `node node_modules/next/dist/bin/next ...` (o `npx` quebra).

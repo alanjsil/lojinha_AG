@@ -50,8 +50,7 @@ body {
 .content {
   max-width: 560px;
   margin: 0 auto;
-  padding: 16px 16px
-    calc(var(--nav-altura) + 24px + env(safe-area-inset-bottom));
+  padding: 16px 16px calc(var(--nav-altura) + 24px + env(safe-area-inset-bottom));
 }
 
 h1 {
@@ -140,9 +139,7 @@ textarea {
 }
 
 select {
-  background-image:
-    linear-gradient(45deg, transparent 50%, #666 50%),
-    linear-gradient(135deg, #666 50%, transparent 50%);
+  background-image: linear-gradient(45deg, transparent 50%, #666 50%), linear-gradient(135deg, #666 50%, transparent 50%);
   background-position:
     calc(100% - 20px) 50%,
     calc(100% - 14px) 50%;

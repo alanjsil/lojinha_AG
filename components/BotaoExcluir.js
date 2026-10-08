@@ -26,17 +26,8 @@ export default function BotaoExcluir({ onConfirmar, texto = "Excluir" }) {
   }
 
   return (
-    <button
-      type="button"
-      className="botao-perigo"
-      disabled={excluindo}
-      onClick={tocar}
-    >
-      {excluindo
-        ? "Excluindo..."
-        : confirmando
-          ? "Toque de novo para confirmar"
-          : texto}
+    <button type="button" className="botao-perigo" disabled={excluindo} onClick={tocar}>
+      {excluindo ? "Excluindo..." : confirmando ? "Toque de novo para confirmar" : texto}
     </button>
   );
 }

@@ -1,14 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  excluirCompra,
-  excluirDespesa,
-  excluirLancamento,
-  registrarCompra,
-  registrarDespesa,
-  registrarLancamento,
-} from "../app/actions";
+import { excluirCompra, excluirDespesa, excluirLancamento, registrarCompra, registrarDespesa, registrarLancamento } from "../app/actions";
 import { brl, dataBR, hoje, qtd } from "../lib/formato";
 import ListaExpansivel from "./ListaExpansivel";
 import useEnvio, { Mensagem } from "./useEnvio";
@@ -81,12 +74,7 @@ function FormCompra({ produtos }) {
     >
       <h2>Compra de mercadoria</h2>
       <label htmlFor="produto">Produto</label>
-      <select
-        id="produto"
-        value={f.produtoId}
-        onChange={(e) => escolher(e.target.value)}
-        required
-      >
+      <select id="produto" value={f.produtoId} onChange={(e) => escolher(e.target.value)} required>
         <option value="">Escolha...</option>
         {produtos.map((p) => (
           <option key={p.id} value={p.id}>
@@ -97,52 +85,20 @@ function FormCompra({ produtos }) {
       <div className="linha-2">
         <div>
           <label htmlFor="qtd">Quantidade</label>
-          <input
-            id="qtd"
-            type="number"
-            inputMode="decimal"
-            step="any"
-            min="0"
-            value={f.quantidade}
-            onChange={(e) => setF({ ...f, quantidade: e.target.value })}
-            required
-          />
+          <input id="qtd" type="number" inputMode="decimal" step="any" min="0" value={f.quantidade} onChange={(e) => setF({ ...f, quantidade: e.target.value })} required />
         </div>
         <div>
           <label htmlFor="custo">Custo unit. (R$)</label>
-          <input
-            id="custo"
-            type="number"
-            inputMode="decimal"
-            step="0.01"
-            min="0"
-            value={f.custo}
-            onChange={(e) => setF({ ...f, custo: e.target.value })}
-            required
-          />
+          <input id="custo" type="number" inputMode="decimal" step="0.01" min="0" value={f.custo} onChange={(e) => setF({ ...f, custo: e.target.value })} required />
         </div>
       </div>
       {produtoEscolhido && (
-        <div className="sub">
-          Custo médio atual: {brl(produtoEscolhido.custo)}. Após salvar, o custo
-          do produto é recalculado automaticamente como a média ponderada de
-          todas as compras.
-        </div>
+        <div className="sub">Custo médio atual: {brl(produtoEscolhido.custo)}. Após salvar, o custo do produto é recalculado automaticamente como a média ponderada de todas as compras.</div>
       )}
       <label htmlFor="forn">Fornecedor</label>
-      <input
-        id="forn"
-        value={f.fornecedor}
-        onChange={(e) => setF({ ...f, fornecedor: e.target.value })}
-      />
+      <input id="forn" value={f.fornecedor} onChange={(e) => setF({ ...f, fornecedor: e.target.value })} />
       <label htmlFor="data">Data</label>
-      <input
-        id="data"
-        type="date"
-        value={data}
-        onChange={(e) => setData(e.target.value)}
-        required
-      />
+      <input id="data" type="date" value={data} onChange={(e) => setData(e.target.value)} required />
       <button type="submit" disabled={salvando}>
         {salvando ? "Salvando..." : "Registrar compra"}
       </button>
@@ -173,11 +129,7 @@ function FormDespesa() {
     >
       <h2>Despesa</h2>
       <label htmlFor="tipo">Tipo</label>
-      <select
-        id="tipo"
-        value={f.tipo}
-        onChange={(e) => setF({ ...f, tipo: e.target.value })}
-      >
+      <select id="tipo" value={f.tipo} onChange={(e) => setF({ ...f, tipo: e.target.value })}>
         {Object.entries(TIPOS).map(([v, r]) => (
           <option key={v} value={v}>
             {r}
@@ -185,30 +137,11 @@ function FormDespesa() {
         ))}
       </select>
       <label htmlFor="valor">Valor (R$)</label>
-      <input
-        id="valor"
-        type="number"
-        inputMode="decimal"
-        step="0.01"
-        min="0"
-        value={f.valor}
-        onChange={(e) => setF({ ...f, valor: e.target.value })}
-        required
-      />
+      <input id="valor" type="number" inputMode="decimal" step="0.01" min="0" value={f.valor} onChange={(e) => setF({ ...f, valor: e.target.value })} required />
       <label htmlFor="desc">Descrição</label>
-      <input
-        id="desc"
-        value={f.descricao}
-        onChange={(e) => setF({ ...f, descricao: e.target.value })}
-      />
+      <input id="desc" value={f.descricao} onChange={(e) => setF({ ...f, descricao: e.target.value })} />
       <label htmlFor="ddata">Data</label>
-      <input
-        id="ddata"
-        type="date"
-        value={data}
-        onChange={(e) => setData(e.target.value)}
-        required
-      />
+      <input id="ddata" type="date" value={data} onChange={(e) => setData(e.target.value)} required />
       <button type="submit" disabled={salvando}>
         {salvando ? "Salvando..." : "Registrar despesa"}
       </button>
@@ -245,11 +178,7 @@ function FormLancamento({ vendedores }) {
     >
       <h2>Lançamento</h2>
       <label htmlFor="ltipo">Tipo</label>
-      <select
-        id="ltipo"
-        value={f.tipo}
-        onChange={(e) => setF({ ...f, tipo: e.target.value })}
-      >
+      <select id="ltipo" value={f.tipo} onChange={(e) => setF({ ...f, tipo: e.target.value })}>
         {Object.entries(TIPOS_LANCAMENTO).map(([v, r]) => (
           <option key={v} value={v}>
             {r}
@@ -259,12 +188,7 @@ function FormLancamento({ vendedores }) {
       {porComissao && (
         <>
           <label htmlFor="lvend">Vendedor</label>
-          <select
-            id="lvend"
-            value={f.vendedorId}
-            onChange={(e) => setF({ ...f, vendedorId: e.target.value })}
-            required
-          >
+          <select id="lvend" value={f.vendedorId} onChange={(e) => setF({ ...f, vendedorId: e.target.value })} required>
             <option value="">Escolha...</option>
             {vendedores.map((v) => (
               <option key={v.id} value={v.id}>
@@ -275,30 +199,11 @@ function FormLancamento({ vendedores }) {
         </>
       )}
       <label htmlFor="lvalor">Valor (R$)</label>
-      <input
-        id="lvalor"
-        type="number"
-        inputMode="decimal"
-        step="0.01"
-        min="0"
-        value={f.valor}
-        onChange={(e) => setF({ ...f, valor: e.target.value })}
-        required
-      />
+      <input id="lvalor" type="number" inputMode="decimal" step="0.01" min="0" value={f.valor} onChange={(e) => setF({ ...f, valor: e.target.value })} required />
       <label htmlFor="ldesc">Descrição</label>
-      <input
-        id="ldesc"
-        value={f.descricao}
-        onChange={(e) => setF({ ...f, descricao: e.target.value })}
-      />
+      <input id="ldesc" value={f.descricao} onChange={(e) => setF({ ...f, descricao: e.target.value })} />
       <label htmlFor="ldata">Data</label>
-      <input
-        id="ldata"
-        type="date"
-        value={data}
-        onChange={(e) => setData(e.target.value)}
-        required
-      />
+      <input id="ldata" type="date" value={data} onChange={(e) => setData(e.target.value)} required />
       <button type="submit" disabled={salvando}>
         {salvando ? "Salvando..." : "Registrar lançamento"}
       </button>
@@ -307,14 +212,7 @@ function FormLancamento({ vendedores }) {
   );
 }
 
-export default function SaidasClient({
-  produtos,
-  compras,
-  despesas,
-  lancamentos,
-  vendedores,
-  gerente,
-}) {
+export default function SaidasClient({ produtos, compras, despesas, lancamentos, vendedores, gerente }) {
   const [aba, setAba] = useState("compras");
 
   const itensCompras = compras.map((c) => ({
@@ -341,25 +239,13 @@ export default function SaidasClient({
     <>
       {gerente && (
         <div className="segmentos">
-          <button
-            type="button"
-            className={aba === "compras" ? "ativo" : ""}
-            onClick={() => setAba("compras")}
-          >
+          <button type="button" className={aba === "compras" ? "ativo" : ""} onClick={() => setAba("compras")}>
             Compras
           </button>
-          <button
-            type="button"
-            className={aba === "despesas" ? "ativo" : ""}
-            onClick={() => setAba("despesas")}
-          >
+          <button type="button" className={aba === "despesas" ? "ativo" : ""} onClick={() => setAba("despesas")}>
             Despesas
           </button>
-          <button
-            type="button"
-            className={aba === "lancamentos" ? "ativo" : ""}
-            onClick={() => setAba("lancamentos")}
-          >
+          <button type="button" className={aba === "lancamentos" ? "ativo" : ""} onClick={() => setAba("lancamentos")}>
             Lançamentos
           </button>
         </div>
@@ -370,11 +256,7 @@ export default function SaidasClient({
           <FormCompra produtos={produtos} />
           <div className="card">
             <h2>Últimos 30 dias</h2>
-            <ListaExpansivel
-              itens={itensCompras}
-              excluir={excluirCompra}
-              vazio="Nenhuma compra nos últimos 30 dias."
-            />
+            <ListaExpansivel itens={itensCompras} excluir={excluirCompra} vazio="Nenhuma compra nos últimos 30 dias." />
           </div>
         </>
       ) : aba === "lancamentos" ? (
@@ -382,11 +264,7 @@ export default function SaidasClient({
           <FormLancamento vendedores={vendedores} />
           <div className="card">
             <h2>Últimos 30 dias</h2>
-            <ListaExpansivel
-              itens={itensLancamentos}
-              excluir={excluirLancamento}
-              vazio="Nenhum lançamento nos últimos 30 dias."
-            />
+            <ListaExpansivel itens={itensLancamentos} excluir={excluirLancamento} vazio="Nenhum lançamento nos últimos 30 dias." />
           </div>
         </>
       ) : (
@@ -394,11 +272,7 @@ export default function SaidasClient({
           <FormDespesa />
           <div className="card">
             <h2>Últimos 30 dias</h2>
-            <ListaExpansivel
-              itens={itensDespesas}
-              excluir={excluirDespesa}
-              vazio="Nenhuma despesa nos últimos 30 dias."
-            />
+            <ListaExpansivel itens={itensDespesas} excluir={excluirDespesa} vazio="Nenhuma despesa nos últimos 30 dias." />
           </div>
         </>
       )}
