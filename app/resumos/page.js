@@ -36,7 +36,7 @@ export default async function Resumos(props) {
 
   let consultaVendas = supabase
     .from("vendas")
-    .select("data, quantidade, preco_unit, custo_unit, lucro, vendedor_id, produto_id, produtos(nome), perfis(nome)")
+    .select("data, quantidade, preco_unit, custo_unit, lucro, vendedor_id, produto_id, produtos(nome), perfis!vendas_vendedor_id_fkey(nome)")
     .gte("data", de)
     .lte("data", ate)
     .limit(5000);
@@ -517,8 +517,20 @@ export default async function Resumos(props) {
       </div>
 
       {gerente && (
-        <Link href="/log" className="botao-secundario" style={{ display: "block", textAlign: "center" }}>
-          Histórico de alterações
+        <Link href="/log" className="link-cartao">
+          <span className="icone" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 7v5l3 2" />
+            </svg>
+          </span>
+          <span className="texto">
+            <strong>Histórico de alterações</strong>
+            <span>Quem lançou, editou ou apagou — e restaurar</span>
+          </span>
+          <span className="seta" aria-hidden="true">
+            ›
+          </span>
         </Link>
       )}
 

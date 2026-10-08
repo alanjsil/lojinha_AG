@@ -15,7 +15,9 @@ export default async function Vendas() {
     supabase.from("estoque_atual").select("id, nome, unidade, custo, preco, saldo").eq("ativo", true).gt("saldo", 0).order("nome"),
     supabase
       .from("vendas")
-      .select("id, data, quantidade, preco_unit, custo_unit, pagamento, parcelas, lucro, comissao, comissao_socia, produtos(nome, unidade), perfis(nome), parcelas_venda:parcelas(numero, vencimento, valor, comissao)")
+      .select(
+        "id, data, quantidade, preco_unit, custo_unit, pagamento, parcelas, lucro, comissao, comissao_socia, produtos(nome, unidade), perfis!vendas_vendedor_id_fkey(nome), parcelas_venda:parcelas(numero, vencimento, valor, comissao)",
+      )
       .gte("data", desde)
       .order("data", { ascending: false })
       .order("created_at", { ascending: false })

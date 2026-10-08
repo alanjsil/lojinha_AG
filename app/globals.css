@@ -740,3 +740,61 @@ button:disabled {
   padding: 6px 0;
   border-bottom: none;
 }
+
+/* Atalho em cartão com ícone, título, subtítulo e seta (ex.: Histórico de alterações) */
+.link-cartao {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 64px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  background: var(--cartao);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  color: var(--texto);
+  text-decoration: none;
+}
+
+.link-cartao:active {
+  background: var(--primaria-clara);
+}
+
+.link-cartao .icone {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--primaria-clara);
+  color: var(--primaria);
+}
+
+.link-cartao .icone svg {
+  width: 24px;
+  height: 24px;
+}
+
+.link-cartao .texto {
+  flex: 1;
+  min-width: 0;
+}
+
+.link-cartao .texto strong {
+  display: block;
+  font-size: 17px;
+}
+
+.link-cartao .texto span {
+  display: block;
+  font-size: 14px;
+  color: var(--texto-suave);
+}
+
+.link-cartao .seta {
+  flex: none;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--texto-suave);
+}
