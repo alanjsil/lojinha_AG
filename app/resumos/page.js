@@ -6,7 +6,7 @@ import { sair } from "../actions";
 // meta do sócio: sobrar (antes do pró-labore) 20% do lucro bruto
 const META_SOBRA = 0.2;
 
-const PERIODOS = { dia: "Hoje", semana: "7 dias", mes: "Mês" };
+const PERIODOS = { semana: "7 dias", mes: "Mês" };
 
 // o servidor roda em UTC; "hoje" precisa ser o dia de Brasília
 const hojeBR = () => new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
@@ -18,7 +18,6 @@ function mesEscolhido(m, hoje) {
 
 // o mês corrente vai só até hoje; os demais (passados ou futuros) vão até o último dia
 function intervalo(p, hoje, mes) {
-  if (p === "dia") return [hoje, hoje];
   if (p === "semana") return [somarDias(hoje, -6), hoje];
   const fim = ultimoDiaDoMes(mes);
   return [`${mes}-01`, mes === hoje.slice(0, 7) ? hoje : fim];
@@ -440,8 +439,13 @@ export default async function Resumos(props) {
           </ul>
         )}
         {maisVendidos.length > 0 && (
-          <>
-            <h2 style={{ marginTop: 16 }}>Mais vendidos</h2>
+          <details className="detalhe" style={{ marginTop: 16 }}>
+            <summary>
+              <span className="titulo">Mais vendidos</span>
+              <span className="sub">
+                {maisVendidos.length} {maisVendidos.length === 1 ? "produto" : "produtos"}
+              </span>
+            </summary>
             <ul className="lista">
               {maisVendidos.map((m) => (
                 <li key={m.nome}>
@@ -453,7 +457,7 @@ export default async function Resumos(props) {
                 </li>
               ))}
             </ul>
-          </>
+          </details>
         )}
       </div>
 
