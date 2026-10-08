@@ -14,7 +14,7 @@ export default async function Saidas() {
     // sem filtro de data: o último custo de compra pode ser antigo
     supabase.from("compras").select("produto_id, custo_unit").order("data", { ascending: false }).order("created_at", { ascending: false }),
     usuario?.gerente
-      ? supabase.from("lancamentos").select("id, data, tipo, valor, descricao, perfis!lancamentos_vendedor_id_fkey(nome)").gte("data", desde).order("data", { ascending: false }).limit(100)
+      ? supabase.from("lancamentos").select("id, data, tipo, valor, descricao, vendedor_id, perfis!lancamentos_vendedor_id_fkey(nome)").gte("data", desde).order("data", { ascending: false }).limit(100)
       : Promise.resolve({ data: [] }),
     usuario?.gerente ? supabase.from("perfis").select("id, nome").order("nome") : Promise.resolve({ data: [] }),
   ]);
@@ -48,6 +48,7 @@ export default async function Saidas() {
           descricao: l.descricao,
           valor: Number(l.valor),
           vendedor: l.perfis?.nome ?? null,
+          vendedorId: l.vendedor_id,
         }))}
         vendedores={vendedores ?? []}
         gerente={Boolean(usuario?.gerente)}

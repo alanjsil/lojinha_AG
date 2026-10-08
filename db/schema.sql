@@ -83,7 +83,7 @@ begin
       from public.vendas where produto_id = p_produto_id and apagado_em is null
     union all
     select data, created_at, 3, 'E', coalesce(diferenca, 0), null
-      from public.contagens_estoque where produto_id = p_produto_id
+      from public.contagens_estoque where produto_id = p_produto_id and apagado_em is null
     order by data, created_at, ord
   loop
     if r.tipo = 'C' then
@@ -112,7 +112,12 @@ end $$;
 drop trigger if exists depois_de_gravar_compra on compras;
 
 create trigger depois_de_gravar_compra
-after insert or delete or update of apagado_em on compras for each row
+after insert
+or delete
+or update of apagado_em,
+data,
+quantidade,
+custo_unit on compras for each row
 execute function compras_recalcular_custo ();
 
 -- Depois da 1ª compra, o custo do produto passa a ser só o CMP calculado;
@@ -329,6 +334,8 @@ create table if not exists contagens_estoque (
   diferenca numeric(12, 2) generated always as (quantidade_contada - quantidade_sistema) stored,
   observacao text,
   created_by uuid default auth.uid () references perfis (id),
+  apagado_em timestamptz,
+  apagado_por uuid references perfis (id) on delete set null,
   created_at timestamptz not null default now()
 );
 
@@ -377,6 +384,7 @@ select
         contagens_estoque e
       where
         e.produto_id = p.id
+        and e.apagado_em is null
     ),
     0
   ) as saldo
@@ -880,7 +888,8 @@ execute function auditar ();
 drop trigger if exists auditar_contagens on contagens_estoque;
 
 create trigger auditar_contagens
-after insert on contagens_estoque for each row
+after insert
+or update on contagens_estoque for each row
 execute function auditar ();
 
 -- 022: restaurar_registro — desfaz a exclusão lógica (só o gerente).
@@ -898,7 +907,7 @@ begin
   if not public.eh_gerente () then
     raise exception 'Só o gerente pode restaurar.';
   end if;
-  if p_tabela not in ('vendas', 'compras', 'despesas', 'lancamentos') then
+  if p_tabela not in ('vendas', 'compras', 'despesas', 'lancamentos', 'contagens_estoque') then
     raise exception 'Tabela inválida.';
   end if;
 
@@ -928,3 +937,104 @@ from
 
 grant
 execute on function restaurar_registro (text, uuid) to authenticated;
+
+-- 023: contagens com exclusão lógica; gerente edita contagens, compras e lançamentos
+drop trigger if exists antes_de_apagar_contagem on contagens_estoque;
+
+create trigger antes_de_apagar_contagem
+before delete on contagens_estoque for each row
+execute function apagar_suave ();
+
+create policy contagens_ocultar_apagadas on contagens_estoque as restrictive for
+select
+  to authenticated using (apagado_em is null);
+
+-- editar/apagar contagem: só o gerente; editar só data, quantidade contada e observação
+-- (quantidade_sistema é a fotografia do momento; a diferença é recalculada)
+create policy contagens_editar on contagens_estoque
+for update
+  to authenticated using (
+    (
+      select
+        eh_gerente ()
+    )
+  )
+with
+  check (
+    (
+      select
+        eh_gerente ()
+    )
+  );
+
+create policy contagens_apagar on contagens_estoque for delete to authenticated using (
+  (
+    select
+      eh_gerente ()
+  )
+);
+
+revoke
+update on contagens_estoque
+from
+  authenticated;
+
+grant
+update (data, quantidade_contada, observacao) on contagens_estoque to authenticated;
+
+-- 2) Compras e lançamentos: edição só do gerente, em colunas limitadas
+create policy compras_editar on compras
+for update
+  to authenticated using (
+    (
+      select
+        eh_gerente ()
+    )
+  )
+with
+  check (
+    (
+      select
+        eh_gerente ()
+    )
+  );
+
+revoke
+update on compras
+from
+  authenticated;
+
+grant
+update (data, quantidade, custo_unit, fornecedor) on compras to authenticated;
+
+create policy lancamentos_editar on lancamentos
+for update
+  to authenticated using (
+    (
+      select
+        eh_gerente ()
+    )
+  )
+with
+  check (
+    (
+      select
+        eh_gerente ()
+    )
+  );
+
+revoke
+update on lancamentos
+from
+  authenticated;
+
+grant
+update (data, valor, descricao, vendedor_id) on lancamentos to authenticated;
+
+drop trigger if exists depois_de_editar_contagem on contagens_estoque;
+
+create trigger depois_de_editar_contagem
+after update of apagado_em,
+data,
+quantidade_contada on contagens_estoque for each row
+execute function compras_recalcular_custo ();

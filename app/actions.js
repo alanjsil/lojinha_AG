@@ -184,6 +184,33 @@ export async function registrarCompra({ produtoId, quantidade, custo, fornecedor
   });
 }
 
+// Só o gerente edita compra (data, quantidade, custo, fornecedor); o custo médio é refeito por trigger.
+export async function editarCompra({ id, quantidade, custo, fornecedor, data }) {
+  return executar(
+    async (supabase) => {
+      const q = valorPositivo(quantidade, "a quantidade");
+      const c = valorPositivo(custo, "o custo unitário", { permiteZero: true });
+      const { data: antiga, error: erroCompra } = await supabase.from("compras").select("produto_id, quantidade").eq("id", id).single();
+      if (erroCompra || !antiga) falha("Compra não encontrada.");
+
+      // diminuir a compra tira mercadoria do estoque: não pode deixar o saldo negativo
+      const produto = await saldoDoProduto(supabase, antiga.produto_id);
+      const novoSaldo = produto.saldo - Number(antiga.quantidade) + q;
+      if (novoSaldo < 0) falha(`Estoque de ${produto.nome} ficaria negativo (${qtd(novoSaldo)}). Já foi vendido mais do que isso.`);
+
+      const { data: linhas, error } = await supabase
+        .from("compras")
+        .update({ data: dataValida(data), quantidade: q, custo_unit: c, fornecedor: (fornecedor ?? "").trim() || null })
+        .eq("id", id)
+        .select("id");
+      if (error) throw error;
+      if (!linhas?.length) falha("Compra não encontrada ou sem permissão para editar.");
+      atualizarTudo();
+    },
+    { exigeGerente: true },
+  );
+}
+
 export async function excluirCompra(id) {
   return executar(async (supabase) => {
     const { error } = await supabase.from("compras").delete().eq("id", id);
@@ -269,6 +296,26 @@ export async function registrarLancamento({ tipo, valor, data, descricao, vended
   );
 }
 
+// O tipo não muda; vendedor só vale para pagamento de comissão e repasse.
+export async function editarLancamento({ id, valor, data, descricao, vendedorId }) {
+  return executar(
+    async (supabase) => {
+      const v = valorPositivo(valor, "o valor");
+      const { data: atual, error: erroLanc } = await supabase.from("lancamentos").select("tipo").eq("id", id).single();
+      if (erroLanc || !atual) falha("Lançamento não encontrado.");
+      const comVendedor = atual.tipo === "pagamento_comissao" || atual.tipo === "repasse";
+      if (comVendedor && !vendedorId) falha("Escolha o vendedor.");
+      const campos = { data: dataValida(data), valor: v, descricao: (descricao ?? "").trim() || null };
+      if (comVendedor) campos.vendedor_id = vendedorId;
+      const { data: linhas, error } = await supabase.from("lancamentos").update(campos).eq("id", id).select("id");
+      if (error) throw error;
+      if (!linhas?.length) falha("Lançamento não encontrado ou sem permissão para editar.");
+      atualizarTudo();
+    },
+    { exigeGerente: true },
+  );
+}
+
 export async function excluirLancamento(id) {
   return executar(
     async (supabase) => {
@@ -282,7 +329,7 @@ export async function excluirLancamento(id) {
 
 // ---------- Log: restaurar registro apagado ----------
 
-const TABELAS_RESTAURAVEIS = ["vendas", "compras", "despesas", "lancamentos"];
+const TABELAS_RESTAURAVEIS = ["vendas", "compras", "despesas", "lancamentos", "contagens_estoque"];
 
 // A exclusão é lógica (apagado_em); a função do banco desfaz e os triggers refazem parcelas/custo médio.
 export async function restaurarRegistro({ tabela, id }) {
@@ -320,6 +367,48 @@ export async function registrarContagem({ produtoId, quantidade, observacao, dat
     if (error) throw error;
     atualizarTudo();
   });
+}
+
+// Só o gerente edita ou exclui contagem. quantidade_sistema é a fotografia do momento; só a contada muda
+// (a diferença é recalculada). Nenhuma das duas pode deixar o estoque negativo.
+export async function editarContagem({ id, quantidade, observacao, data }) {
+  return executar(
+    async (supabase) => {
+      const contada = valorPositivo(quantidade, "a quantidade contada", { permiteZero: true });
+      const { data: antiga, error: erroContagem } = await supabase.from("contagens_estoque").select("produto_id, quantidade_sistema, diferenca").eq("id", id).single();
+      if (erroContagem || !antiga) falha("Contagem não encontrada.");
+
+      const produto = await saldoDoProduto(supabase, antiga.produto_id);
+      const novoSaldo = produto.saldo - Number(antiga.diferenca) + (contada - Number(antiga.quantidade_sistema));
+      if (novoSaldo < 0) falha(`Estoque de ${produto.nome} ficaria negativo (${qtd(novoSaldo)}).`);
+
+      const { data: linhas, error } = await supabase
+        .from("contagens_estoque")
+        .update({ data: dataValida(data), quantidade_contada: contada, observacao: (observacao ?? "").trim() || null })
+        .eq("id", id)
+        .select("id");
+      if (error) throw error;
+      if (!linhas?.length) falha("Contagem não encontrada ou sem permissão para editar.");
+      atualizarTudo();
+    },
+    { exigeGerente: true },
+  );
+}
+
+export async function excluirContagem(id) {
+  return executar(
+    async (supabase) => {
+      const { data: antiga, error: erroContagem } = await supabase.from("contagens_estoque").select("produto_id, diferenca").eq("id", id).single();
+      if (erroContagem || !antiga) falha("Contagem não encontrada.");
+      const produto = await saldoDoProduto(supabase, antiga.produto_id);
+      const novoSaldo = produto.saldo - Number(antiga.diferenca);
+      if (novoSaldo < 0) falha(`Estoque de ${produto.nome} ficaria negativo (${qtd(novoSaldo)}).`);
+      const { error } = await supabase.from("contagens_estoque").delete().eq("id", id);
+      if (error) throw error;
+      atualizarTudo();
+    },
+    { exigeGerente: true },
+  );
 }
 
 // ---------- Sessão ----------

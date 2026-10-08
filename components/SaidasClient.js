@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { editarDespesa, excluirCompra, excluirDespesa, excluirLancamento, registrarCompra, registrarDespesa, registrarLancamento } from "../app/actions";
+import { editarCompra, editarDespesa, editarLancamento, excluirCompra, excluirDespesa, excluirLancamento, registrarCompra, registrarDespesa, registrarLancamento } from "../app/actions";
 import { brl, dataBR, hoje, qtd } from "../lib/formato";
 import ListaExpansivel from "./ListaExpansivel";
 import useEnvio, { Mensagem } from "./useEnvio";
@@ -197,6 +197,101 @@ function FormEditarDespesa({ despesa, aoFechar }) {
   );
 }
 
+function FormEditarCompra({ compra, aoFechar }) {
+  const { salvando, msg, enviar } = useEnvio();
+  const [f, setF] = useState({
+    quantidade: String(compra.quantidade),
+    custo: String(compra.custo_unit),
+    fornecedor: compra.fornecedor ?? "",
+    data: compra.data,
+  });
+  const set = (campo) => (e) => setF({ ...f, [campo]: e.target.value });
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        enviar(editarCompra, { id: compra.id, ...f }, { textoOk: "Compra atualizada!", aoConcluir: aoFechar });
+      }}
+    >
+      <div className="linha-2">
+        <div>
+          <label htmlFor={`ecq-${compra.id}`}>Quantidade</label>
+          <input id={`ecq-${compra.id}`} type="number" inputMode="decimal" step="any" min="0" value={f.quantidade} onChange={set("quantidade")} required />
+        </div>
+        <div>
+          <label htmlFor={`ecc-${compra.id}`}>Custo unit. (R$)</label>
+          <input id={`ecc-${compra.id}`} type="number" inputMode="decimal" step="0.01" min="0" value={f.custo} onChange={set("custo")} required />
+        </div>
+      </div>
+      <label htmlFor={`ecf-${compra.id}`}>Fornecedor</label>
+      <input id={`ecf-${compra.id}`} value={f.fornecedor} onChange={set("fornecedor")} />
+      <label htmlFor={`ecd-${compra.id}`}>Data</label>
+      <input id={`ecd-${compra.id}`} type="date" value={f.data} onChange={set("data")} required />
+      <p className="sub">O custo do produto é recalculado automaticamente ao salvar.</p>
+      <div className="acoes-item">
+        <button type="button" className="botao-secundario" onClick={aoFechar}>
+          Cancelar
+        </button>
+        <button type="submit" disabled={salvando}>
+          {salvando ? "Salvando..." : "Salvar"}
+        </button>
+      </div>
+      <Mensagem msg={msg} />
+    </form>
+  );
+}
+
+function FormEditarLancamento({ lancamento, vendedores, aoFechar }) {
+  const { salvando, msg, enviar } = useEnvio();
+  const [f, setF] = useState({
+    valor: String(lancamento.valor),
+    descricao: lancamento.descricao ?? "",
+    data: lancamento.data,
+    vendedorId: lancamento.vendedorId ?? "",
+  });
+  const set = (campo) => (e) => setF({ ...f, [campo]: e.target.value });
+  const porVendedor = lancamento.tipo === "pagamento_comissao" || lancamento.tipo === "repasse";
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        enviar(editarLancamento, { id: lancamento.id, ...f }, { textoOk: "Lançamento atualizado!", aoConcluir: aoFechar });
+      }}
+    >
+      {porVendedor && (
+        <>
+          <label htmlFor={`elv-${lancamento.id}`}>Vendedor</label>
+          <select id={`elv-${lancamento.id}`} value={f.vendedorId} onChange={set("vendedorId")} required>
+            <option value="">Escolha...</option>
+            {vendedores.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.nome}
+              </option>
+            ))}
+          </select>
+        </>
+      )}
+      <label htmlFor={`elval-${lancamento.id}`}>Valor (R$)</label>
+      <input id={`elval-${lancamento.id}`} type="number" inputMode="decimal" step="0.01" min="0" value={f.valor} onChange={set("valor")} required />
+      <label htmlFor={`eldesc-${lancamento.id}`}>Descrição</label>
+      <input id={`eldesc-${lancamento.id}`} value={f.descricao} onChange={set("descricao")} />
+      <label htmlFor={`eldata-${lancamento.id}`}>Data</label>
+      <input id={`eldata-${lancamento.id}`} type="date" value={f.data} onChange={set("data")} required />
+      <div className="acoes-item">
+        <button type="button" className="botao-secundario" onClick={aoFechar}>
+          Cancelar
+        </button>
+        <button type="submit" disabled={salvando}>
+          {salvando ? "Salvando..." : "Salvar"}
+        </button>
+      </div>
+      <Mensagem msg={msg} />
+    </form>
+  );
+}
+
 function FormLancamento({ vendedores }) {
   const { salvando, msg, enviar } = useEnvio();
   const [data, setData] = useDataHoje();
@@ -268,6 +363,7 @@ export default function SaidasClient({ produtos, compras, despesas, lancamentos,
     sub: `${dataBR(c.data)} · ${qtd(c.quantidade)} × ${brl(c.custo_unit)}${c.fornecedor ? ` · ${c.fornecedor}` : ""}`,
     valor: brl(c.quantidade * c.custo_unit),
     detalhes: ["Excluir remove a entrada do estoque."],
+    dados: c,
   }));
   const itensDespesas = despesas.map((d) => ({
     id: d.id,
@@ -281,6 +377,7 @@ export default function SaidasClient({ produtos, compras, despesas, lancamentos,
     titulo: TIPOS_LANCAMENTO[l.tipo],
     sub: `${dataBR(l.data)}${l.vendedor ? ` · ${l.vendedor}` : ""}${l.descricao ? ` · ${l.descricao}` : ""}`,
     valor: brl(l.valor),
+    dados: l,
   }));
 
   return (
@@ -304,7 +401,12 @@ export default function SaidasClient({ produtos, compras, despesas, lancamentos,
           <FormCompra produtos={produtos} />
           <div className="card">
             <h2>Últimos 30 dias</h2>
-            <ListaExpansivel itens={itensCompras} excluir={excluirCompra} vazio="Nenhuma compra nos últimos 30 dias." />
+            <ListaExpansivel
+              itens={itensCompras}
+              excluir={excluirCompra}
+              vazio="Nenhuma compra nos últimos 30 dias."
+              renderEditar={gerente ? (item, fechar) => <FormEditarCompra compra={item.dados} aoFechar={fechar} /> : undefined}
+            />
           </div>
         </>
       ) : aba === "lancamentos" ? (
@@ -312,7 +414,12 @@ export default function SaidasClient({ produtos, compras, despesas, lancamentos,
           <FormLancamento vendedores={vendedores} />
           <div className="card">
             <h2>Últimos 30 dias</h2>
-            <ListaExpansivel itens={itensLancamentos} excluir={excluirLancamento} vazio="Nenhum lançamento nos últimos 30 dias." />
+            <ListaExpansivel
+              itens={itensLancamentos}
+              excluir={excluirLancamento}
+              vazio="Nenhum lançamento nos últimos 30 dias."
+              renderEditar={(item, fechar) => <FormEditarLancamento lancamento={item.dados} vendedores={vendedores} aoFechar={fechar} />}
+            />
           </div>
         </>
       ) : (

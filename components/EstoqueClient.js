@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { registrarContagem, salvarProduto } from "../app/actions";
+import { editarContagem, excluirContagem, registrarContagem, salvarProduto } from "../app/actions";
 import { brl, dataBR, hoje, numero, preenchido, qtd } from "../lib/formato";
+import ListaExpansivel from "./ListaExpansivel";
 import useEnvio, { Mensagem } from "./useEnvio";
 
 const VAZIO = {
@@ -39,18 +40,20 @@ function FormProduto({ inicial, aoFechar, gerente, embutido = false }) {
       <input id="nome" value={f.nome} onChange={set("nome")} required />
       <label htmlFor="unidade">Unidade</label>
       <input id="unidade" value={f.unidade} onChange={set("unidade")} placeholder="un, kg, cx..." />
-      <div className="linha-2">
-        <div>
-          <label htmlFor="custo">Custo (R$) *</label>
-          <input id="custo" type="number" inputMode="decimal" step="0.01" min="0" value={f.custo} onChange={set("custo")} disabled={!gerente} required />
-          {gerente && f.id && <p className="sub">Vale só até a 1ª compra; depois o custo passa a ser a média ponderada das compras, calculada automaticamente.</p>}
-        </div>
+      <div className={gerente ? "linha-2" : undefined}>
+        {gerente && (
+          <div>
+            <label htmlFor="custo">Custo (R$) *</label>
+            <input id="custo" type="number" inputMode="decimal" step="0.01" min="0" value={f.custo} onChange={set("custo")} required />
+            {f.id && <p className="sub">Vale só até a 1ª compra; depois o custo passa a ser a média ponderada das compras, calculada automaticamente.</p>}
+          </div>
+        )}
         <div>
           <label htmlFor="preco">Preço (R$) *</label>
           <input id="preco" type="number" inputMode="decimal" step="0.01" min="0" value={f.preco} onChange={set("preco")} disabled={!gerente} required />
         </div>
       </div>
-      {pronto && (
+      {gerente && pronto && (
         <p className={preco < custo ? "info negativo" : "info"}>
           {preco < custo ? "Atenção: preço abaixo do custo. " : ""}Lucro por unidade: {brl(preco - custo)}
         </p>
@@ -137,6 +140,50 @@ function FormContagem({ produtos }) {
   );
 }
 
+// Gerente corrige a contagem: muda a quantidade contada, a observação e a data (a diferença é recalculada)
+function FormEditarContagem({ contagem, aoFechar }) {
+  const { salvando, msg, enviar } = useEnvio();
+  const [f, setF] = useState({
+    quantidade: String(contagem.contada),
+    observacao: contagem.observacao ?? "",
+    data: contagem.data,
+  });
+  const set = (campo) => (e) => setF({ ...f, [campo]: e.target.value });
+  const diferenca = preenchido(f.quantidade) ? numero(f.quantidade) - contagem.sistema : null;
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        enviar(editarContagem, { id: contagem.id, ...f }, { textoOk: "Contagem atualizada!", aoConcluir: aoFechar });
+      }}
+    >
+      <p className="info">O sistema calculava {qtd(contagem.sistema)} na hora da contagem.</p>
+      <label htmlFor={`ecqtd-${contagem.id}`}>Quantidade contada</label>
+      <input id={`ecqtd-${contagem.id}`} type="number" inputMode="decimal" step="any" min="0" value={f.quantidade} onChange={set("quantidade")} required />
+      {diferenca !== null && (
+        <p className={diferenca < 0 ? "info negativo" : diferenca > 0 ? "info positivo" : "info"}>
+          Diferença: {diferenca > 0 ? "+" : ""}
+          {qtd(diferenca)}
+        </p>
+      )}
+      <label htmlFor={`ecobs-${contagem.id}`}>Observação</label>
+      <input id={`ecobs-${contagem.id}`} value={f.observacao} onChange={set("observacao")} />
+      <label htmlFor={`ecdata-${contagem.id}`}>Data</label>
+      <input id={`ecdata-${contagem.id}`} type="date" value={f.data} onChange={set("data")} required />
+      <div className="acoes-item">
+        <button type="button" className="botao-secundario" onClick={aoFechar}>
+          Cancelar
+        </button>
+        <button type="submit" disabled={salvando}>
+          {salvando ? "Salvando..." : "Salvar"}
+        </button>
+      </div>
+      <Mensagem msg={msg} />
+    </form>
+  );
+}
+
 export default function EstoqueClient({ produtos, contagens, gerente }) {
   const [aba, setAba] = useState("produtos");
   const [editando, setEditando] = useState(null);
@@ -214,6 +261,24 @@ export default function EstoqueClient({ produtos, contagens, gerente }) {
             <h2>Últimas contagens</h2>
             {contagens.length === 0 ? (
               <p className="vazio">Nenhuma contagem ainda.</p>
+            ) : gerente ? (
+              <ListaExpansivel
+                itens={contagens.map((c) => ({
+                  id: c.id,
+                  titulo: c.produto,
+                  sub: `${dataBR(c.data)} · sistema ${qtd(c.sistema)} → contado ${qtd(c.contada)}`,
+                  valor: (
+                    <span className={c.diferenca < 0 ? "negativo" : c.diferenca > 0 ? "positivo" : ""}>
+                      {c.diferenca > 0 ? "+" : ""}
+                      {qtd(c.diferenca)}
+                    </span>
+                  ),
+                  detalhes: ["Excluir desfaz o ajuste que esta contagem fez no estoque.", ...(c.observacao ? [`Obs.: ${c.observacao}`] : [])],
+                  dados: c,
+                }))}
+                excluir={excluirContagem}
+                renderEditar={(item, fechar) => <FormEditarContagem contagem={item.dados} aoFechar={fechar} />}
+              />
             ) : (
               <ul className="lista">
                 {contagens.map((c) => (

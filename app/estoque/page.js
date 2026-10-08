@@ -6,7 +6,7 @@ export default async function Estoque() {
   const usuario = await usuarioAtual(supabase);
   const [{ data: produtos }, { data: contagens }] = await Promise.all([
     supabase.from("estoque_atual").select("id, nome, unidade, custo, preco, ativo, saldo").order("nome"),
-    supabase.from("contagens_estoque").select("id, data, quantidade_sistema, quantidade_contada, diferenca, produtos(nome)").order("created_at", { ascending: false }).limit(15),
+    supabase.from("contagens_estoque").select("id, data, quantidade_sistema, quantidade_contada, diferenca, observacao, produtos(nome)").order("created_at", { ascending: false }).limit(15),
   ]);
 
   return (
@@ -22,6 +22,7 @@ export default async function Estoque() {
           sistema: Number(c.quantidade_sistema),
           contada: Number(c.quantidade_contada),
           diferenca: Number(c.diferenca),
+          observacao: c.observacao,
         }))}
       />
     </>
