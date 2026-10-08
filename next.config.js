@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 
 // Cabeçalhos de segurança que valem para toda requisição. A CSP é a exceção: ela precisa de
-// um nonce diferente em cada resposta, então é montada no middleware.js.
+// um nonce diferente em cada resposta, então é montada no proxy.js.
 const cabecalhos = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   // clickjacking: impede que outra página ponha uma tela invisível por cima e clique nas

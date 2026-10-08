@@ -2,7 +2,7 @@ import { createClient, usuarioAtual } from "../../lib/supabase/server";
 import EstoqueClient from "../../components/EstoqueClient";
 
 export default async function Estoque() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const usuario = await usuarioAtual(supabase);
   const [{ data: produtos }, { data: contagens }] = await Promise.all([
     supabase.from("estoque_atual").select("id, nome, unidade, custo, preco, ativo, saldo").order("nome"),

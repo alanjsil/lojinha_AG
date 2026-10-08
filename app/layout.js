@@ -12,7 +12,7 @@ export const metadata = {
   },
 };
 
-// A CSP usa um nonce novo a cada resposta (middleware.js); página pré-renderizada no build
+// A CSP usa um nonce novo a cada resposta (proxy.js); página pré-renderizada no build
 // sairia sem nonce e o navegador bloquearia os scripts, então tudo é renderizado na hora.
 export const dynamic = "force-dynamic";
 

@@ -3,7 +3,7 @@ import { somarDias } from "../../lib/formato";
 import { createClient, usuarioAtual } from "../../lib/supabase/server";
 
 export default async function Saidas() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const usuario = await usuarioAtual(supabase);
   const desde = somarDias(new Date().toLocaleDateString("sv-SE"), -30);
 

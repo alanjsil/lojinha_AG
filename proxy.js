@@ -22,7 +22,7 @@ function csp(nonce) {
 
 // Renova a sessão do Supabase a cada requisição e manda quem não está logado para /login.
 // As Server Actions também conferem o usuário (app/actions.js).
-export async function middleware(req) {
+export async function proxy(req) {
   const nonce = crypto.randomUUID().replace(/-/g, "");
   const politica = csp(nonce);
 

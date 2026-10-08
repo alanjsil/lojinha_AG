@@ -18,6 +18,7 @@
       "CLAUDE.md": true,
       ".env.local": true,
       ".gitignore": true,
+      "vercel.json": true,
       "node_modules": true,
       ".vercelignore": true,
       "opencode.json": true,

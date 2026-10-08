@@ -7,7 +7,7 @@ import { excluirVenda } from "../actions";
 const FORMA = { a_vista: "À Vista", cartao: "Cartão" };
 
 export default async function Vendas() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const usuario = await usuarioAtual(supabase);
 
   const desde = somarDias(new Date().toLocaleDateString("sv-SE"), -6);

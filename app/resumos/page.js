@@ -24,13 +24,14 @@ function intervalo(p, hoje, mes) {
   return [`${mes}-01`, mes === hoje.slice(0, 7) ? hoje : fim];
 }
 
-export default async function Resumos({ searchParams }) {
+export default async function Resumos(props) {
+  const searchParams = await props.searchParams;
   const p = PERIODOS[searchParams?.p] ? searchParams.p : "semana";
   const hoje = hojeBR();
   const mes = mesEscolhido(searchParams?.m, hoje);
   const [de, ate] = intervalo(p, hoje, mes);
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const usuario = await usuarioAtual(supabase);
   const gerente = Boolean(usuario?.gerente);
 

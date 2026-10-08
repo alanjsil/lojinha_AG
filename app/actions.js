@@ -15,11 +15,11 @@ const falha = (msg) => {
   throw new ErroDeNegocio(msg);
 };
 
-// Toda ação confere o login (o middleware não cobre chamadas de Server Action de outra origem)
+// Toda ação confere o login (o proxy não cobre chamadas de Server Action de outra origem)
 // e devolve { ok } ou { ok: false, erro } em vez de estourar exceção na tela.
 async function executar(fn, { exigeGerente = false } = {}) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -282,7 +282,7 @@ export async function registrarContagem({ produtoId, quantidade, observacao, dat
 // ---------- Sessão ----------
 
 export async function sair() {
-  const supabase = createClient();
+  const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/login");
 }
