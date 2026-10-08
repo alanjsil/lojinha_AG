@@ -280,6 +280,25 @@ export async function excluirLancamento(id) {
   );
 }
 
+// ---------- Log: restaurar registro apagado ----------
+
+const TABELAS_RESTAURAVEIS = ["vendas", "compras", "despesas", "lancamentos"];
+
+// A exclusão é lógica (apagado_em); a função do banco desfaz e os triggers refazem parcelas/custo médio.
+export async function restaurarRegistro({ tabela, id }) {
+  return executar(
+    async (supabase) => {
+      if (!TABELAS_RESTAURAVEIS.includes(tabela) || !id) falha("Registro inválido.");
+      const { error } = await supabase.rpc("restaurar_registro", { p_tabela: tabela, p_id: id });
+      if (error?.code === "P0001") falha(error.message);
+      if (error) throw error;
+      atualizarTudo();
+      revalidatePath("/log");
+    },
+    { exigeGerente: true },
+  );
+}
+
 // ---------- Contagem cíclica ----------
 
 // Guarda o que o sistema achava e o que foi contado; a diferença ajusta o estoque.

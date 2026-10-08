@@ -516,6 +516,12 @@ export default async function Resumos(props) {
         </div>
       </div>
 
+      {gerente && (
+        <Link href="/log" className="botao-secundario" style={{ display: "block", textAlign: "center" }}>
+          Histórico de alterações
+        </Link>
+      )}
+
       <div className="card">
         <p className="info" style={{ marginTop: 0 }}>
           Conectado como <strong>{usuario?.nome}</strong> · comissão {qtd(usuario?.comissaoPct ?? 0)}%
