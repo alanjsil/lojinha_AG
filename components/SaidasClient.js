@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { excluirCompra, excluirDespesa, excluirLancamento, registrarCompra, registrarDespesa, registrarLancamento } from "../app/actions";
+import { editarDespesa, excluirCompra, excluirDespesa, excluirLancamento, registrarCompra, registrarDespesa, registrarLancamento } from "../app/actions";
 import { brl, dataBR, hoje, qtd } from "../lib/formato";
 import ListaExpansivel from "./ListaExpansivel";
 import useEnvio, { Mensagem } from "./useEnvio";
@@ -12,6 +12,8 @@ const TIPOS = {
   luz: "Luz",
   internet: "Internet",
   gasolina: "Gasolina",
+  alimentacao: "Alimentação",
+  pedagio: "Pedágio",
   outros: "Outros",
 };
 
@@ -150,6 +152,50 @@ function FormDespesa() {
   );
 }
 
+function FormEditarDespesa({ despesa, aoFechar }) {
+  const { salvando, msg, enviar } = useEnvio();
+  const [f, setF] = useState({
+    tipo: despesa.tipo,
+    valor: String(despesa.valor),
+    descricao: despesa.descricao ?? "",
+    data: despesa.data,
+  });
+  const set = (campo) => (e) => setF({ ...f, [campo]: e.target.value });
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        enviar(editarDespesa, { id: despesa.id, ...f }, { textoOk: "Despesa atualizada!", aoConcluir: aoFechar });
+      }}
+    >
+      <label htmlFor={`etipo-${despesa.id}`}>Tipo</label>
+      <select id={`etipo-${despesa.id}`} value={f.tipo} onChange={set("tipo")}>
+        {Object.entries(TIPOS).map(([v, r]) => (
+          <option key={v} value={v}>
+            {r}
+          </option>
+        ))}
+      </select>
+      <label htmlFor={`evalor-${despesa.id}`}>Valor (R$)</label>
+      <input id={`evalor-${despesa.id}`} type="number" inputMode="decimal" step="0.01" min="0" value={f.valor} onChange={set("valor")} required />
+      <label htmlFor={`edesc-${despesa.id}`}>Descrição</label>
+      <input id={`edesc-${despesa.id}`} value={f.descricao} onChange={set("descricao")} />
+      <label htmlFor={`edata-${despesa.id}`}>Data</label>
+      <input id={`edata-${despesa.id}`} type="date" value={f.data} onChange={set("data")} required />
+      <div className="acoes-item">
+        <button type="button" className="botao-secundario" onClick={aoFechar}>
+          Cancelar
+        </button>
+        <button type="submit" disabled={salvando}>
+          {salvando ? "Salvando..." : "Salvar"}
+        </button>
+      </div>
+      <Mensagem msg={msg} />
+    </form>
+  );
+}
+
 function FormLancamento({ vendedores }) {
   const { salvando, msg, enviar } = useEnvio();
   const [data, setData] = useDataHoje();
@@ -227,6 +273,7 @@ export default function SaidasClient({ produtos, compras, despesas, lancamentos,
     titulo: TIPOS[d.tipo],
     sub: `${dataBR(d.data)}${d.descricao ? ` · ${d.descricao}` : ""}`,
     valor: brl(d.valor),
+    dados: d,
   }));
   const itensLancamentos = lancamentos.map((l) => ({
     id: l.id,
@@ -272,7 +319,12 @@ export default function SaidasClient({ produtos, compras, despesas, lancamentos,
           <FormDespesa />
           <div className="card">
             <h2>Últimos 30 dias</h2>
-            <ListaExpansivel itens={itensDespesas} excluir={excluirDespesa} vazio="Nenhuma despesa nos últimos 30 dias." />
+            <ListaExpansivel
+              itens={itensDespesas}
+              excluir={excluirDespesa}
+              vazio="Nenhuma despesa nos últimos 30 dias."
+              renderEditar={(item, fechar) => <FormEditarDespesa despesa={item.dados} aoFechar={fechar} />}
+            />
           </div>
         </>
       )}

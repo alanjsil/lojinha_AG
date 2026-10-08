@@ -246,7 +246,9 @@ execute function vendas_gerar_parcelas ();
 create table if not exists despesas (
   id uuid primary key default gen_random_uuid(),
   data date not null default current_date,
-  tipo text not null check (tipo in ('aluguel', 'agua', 'luz', 'internet', 'gasolina', 'outros')),
+  tipo text not null check (
+    tipo in ('aluguel', 'agua', 'luz', 'internet', 'gasolina', 'alimentacao', 'pedagio', 'outros')
+  ),
   descricao text,
   valor numeric(12, 2) not null check (valor > 0),
   created_by uuid default auth.uid () references perfis (id),
@@ -573,6 +575,30 @@ create policy despesas_apagar on despesas for delete to authenticated using (
       and papel = 'gerente'
   )
 );
+
+create policy despesas_editar on despesas for update to authenticated using (
+  exists (
+    select
+      1
+    from
+      perfis
+    where
+      id = auth.uid ()
+      and papel = 'gerente'
+  )
+)
+with
+  check (
+    exists (
+      select
+        1
+      from
+        perfis
+      where
+        id = auth.uid ()
+        and papel = 'gerente'
+    )
+  );
 
 -- lançamentos: só gerente
 create policy lancamentos_ver on lancamentos for

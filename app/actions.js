@@ -6,7 +6,7 @@ import { numero, preenchido, qtd } from "../lib/formato";
 import { createClient, usuarioAtual } from "../lib/supabase/server";
 
 const PAGAMENTOS = ["a_vista", "cartao"];
-const TIPOS_DESPESA = ["aluguel", "agua", "luz", "internet", "gasolina", "outros"];
+const TIPOS_DESPESA = ["aluguel", "agua", "luz", "internet", "gasolina", "alimentacao", "pedagio", "outros"];
 const TIPOS_LANCAMENTO = ["pro_labore", "pagamento_comissao", "saque", "aporte", "capital_inicial"];
 const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -206,6 +206,29 @@ export async function registrarDespesa({ tipo, descricao, valor, data }) {
         valor: v,
       });
       if (error) throw error;
+      atualizarTudo();
+    },
+    { exigeGerente: true },
+  );
+}
+
+export async function editarDespesa({ id, tipo, descricao, valor, data }) {
+  return executar(
+    async (supabase) => {
+      if (!TIPOS_DESPESA.includes(tipo)) falha("Escolha o tipo da despesa.");
+      const v = valorPositivo(valor, "o valor");
+      const { data: linhas, error } = await supabase
+        .from("despesas")
+        .update({
+          data: dataValida(data),
+          tipo,
+          descricao: (descricao ?? "").trim() || null,
+          valor: v,
+        })
+        .eq("id", id)
+        .select("id");
+      if (error) throw error;
+      if (!linhas?.length) falha("Despesa não encontrada ou sem permissão para editar.");
       atualizarTudo();
     },
     { exigeGerente: true },
