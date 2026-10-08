@@ -8,8 +8,9 @@ create table if not exists perfis (
   id uuid primary key references auth.users (id) on delete cascade,
   nome text not null,
   comissao_pct numeric(5, 2) not null default 40 check (comissao_pct between 0 and 100),
-  -- gerente vê/cadastra despesas e vê o resumo de todos; vendedor só o próprio. Só o admin muda (SQL/painel).
-  papel text not null default 'vendedor' check (papel in ('gerente', 'vendedor')),
+  -- gerente vê/cadastra despesas e vê o resumo de todos; vendedor só o próprio; socia = vendedor + comissão extra
+  -- sobre as vendas dos outros (018). Só o admin muda (SQL/painel).
+  papel text not null default 'vendedor' check (papel in ('gerente', 'vendedor', 'socia')),
   created_at timestamptz not null default now()
 );
 
@@ -147,6 +148,25 @@ create trigger antes_de_atualizar_produto
 before update on produtos for each row
 execute function produtos_bloquear_custo_manual ();
 
+-- eh_gerente: só o gerente tem acesso administrativo; a sócia segue com acesso de vendedor (018/019)
+create or replace function eh_gerente () returns boolean language sql stable security definer
+set
+  search_path = '' as $$
+  select exists (
+    select 1 from public.perfis
+    where id = (select auth.uid ()) and papel = 'gerente'
+  );
+$$;
+
+revoke
+execute on function eh_gerente ()
+from
+  public,
+  anon;
+
+grant
+execute on function eh_gerente () to authenticated;
+
 -- 4) Vendas: um item por venda. Custo e % de comissão são "fotografados" no
 -- momento da venda (trigger), então mudar o produto depois não altera o histórico.
 create table if not exists vendas (
@@ -168,6 +188,10 @@ create table if not exists vendas (
   lucro numeric(12, 2) generated always as (round((preco_unit - custo_unit) * quantidade, 2)) stored,
   -- comissão = % do lucro; venda no prejuízo não gera comissão negativa
   comissao numeric(12, 2) generated always as (round(greatest((preco_unit - custo_unit) * quantidade, 0) * comissao_pct / 100, 2)) stored,
+  -- 018: a sócia ganha comissão extra (socia_pct do perfil dela) sobre vendas de outros vendedores
+  socia_id uuid,
+  socia_pct numeric(5, 2) not null default 0,
+  comissao_socia numeric(12, 2) generated always as (round(greatest((preco_unit - custo_unit) * quantidade, 0) * socia_pct / 100, 2)) stored,
   created_at timestamptz not null default now()
 );
 
@@ -184,6 +208,15 @@ begin
   new.vendedor_id := coalesce((select auth.uid()), new.vendedor_id);
   new.custo_unit := (select custo from public.produtos where id = new.produto_id);
   new.comissao_pct := (select comissao_pct from public.perfis where id = new.vendedor_id);
+  -- a sócia ganha também sobre as vendas dos outros (as dela já pagam a comissão normal)
+  select id, comissao_pct into new.socia_id, new.socia_pct
+    from public.perfis
+    where papel = 'socia' and id <> new.vendedor_id
+    order by created_at
+    limit 1;
+  if new.socia_id is null then
+    new.socia_pct := 0;
+  end if;
   return new;
 end $$;
 
@@ -203,6 +236,8 @@ create table if not exists parcelas (
   vencimento date not null,
   valor numeric(12, 2) not null,
   comissao numeric(12, 2) not null,
+  comissao_socia numeric(12, 2) not null default 0,
+  socia_id uuid,
   unique (venda_id, numero)
 );
 
@@ -218,16 +253,19 @@ declare
   total numeric := round(new.quantidade * new.preco_unit, 2);
   v_parc numeric := round(total / n, 2);
   c_parc numeric := round(new.comissao / n, 2);
+  s_parc numeric := round(new.comissao_socia / n, 2);
   k int;
 begin
   delete from public.parcelas where venda_id = new.id;
   for k in 1..n loop
-    insert into public.parcelas (venda_id, vendedor_id, numero, vencimento, valor, comissao)
+    insert into public.parcelas (venda_id, vendedor_id, numero, vencimento, valor, comissao, comissao_socia, socia_id)
     values (
       new.id, new.vendedor_id, k,
       (new.data + ((k - 1) * interval '1 month'))::date,
       case when k = n then total - v_parc * (n - 1) else v_parc end,
-      case when k = n then new.comissao - c_parc * (n - 1) else c_parc end
+      case when k = n then new.comissao - c_parc * (n - 1) else c_parc end,
+      case when k = n then new.comissao_socia - s_parc * (n - 1) else s_parc end,
+      new.socia_id
     );
   end loop;
   return null;
@@ -368,7 +406,7 @@ set
     coalesce((select sum(v.quantidade * v.preco_unit) from vendas v where v.data <= ate), 0),
     coalesce((select sum(v.quantidade * v.custo_unit) from vendas v where v.data <= ate), 0),
     coalesce((select sum(v.lucro) from vendas v where v.data <= ate), 0),
-    coalesce((select sum(p.comissao) from parcelas p where p.vencimento <= ate), 0),
+    coalesce((select sum(p.comissao + p.comissao_socia) from parcelas p where p.vencimento <= ate), 0),
     coalesce((select sum(d.valor) from despesas d where d.data <= ate), 0),
     coalesce((select sum(l.valor) from lancamentos l where l.tipo = 'pro_labore' and l.data <= ate), 0),
     coalesce((select sum(l.valor) from lancamentos l where l.tipo = 'capital_inicial' and l.data <= ate), 0),
@@ -377,7 +415,7 @@ set
     coalesce((select sum(l.valor) from lancamentos l where l.tipo = 'pagamento_comissao' and l.data <= ate), 0),
     coalesce((select sum(p.valor) from parcelas p where p.vencimento <= ate), 0),
     coalesce((select sum(c.quantidade * c.custo_unit) from compras c where c.data <= ate), 0)
-  where exists (select 1 from perfis where id = (select auth.uid()) and papel = 'gerente');
+  where (select eh_gerente ());
 $$;
 
 revoke
@@ -479,17 +517,9 @@ for update
       select
         auth.uid ()
     )
-    or exists (
+    or (
       select
-        1
-      from
-        perfis
-      where
-        id = (
-          select
-            auth.uid ()
-        )
-        and papel = 'gerente'
+        eh_gerente ()
     )
   )
 with
@@ -498,17 +528,9 @@ with
       select
         auth.uid ()
     )
-    or exists (
+    or (
       select
-        1
-      from
-        perfis
-      where
-        id = (
-          select
-            auth.uid ()
-        )
-        and papel = 'gerente'
+        eh_gerente ()
     )
   );
 
@@ -541,66 +563,41 @@ from
 create policy despesas_ver on despesas for
 select
   to authenticated using (
-    exists (
+    (
       select
-        1
-      from
-        perfis
-      where
-        id = auth.uid ()
-        and papel = 'gerente'
+        eh_gerente ()
     )
   );
 
 create policy despesas_criar on despesas for insert to authenticated
 with
   check (
-    exists (
+    (
       select
-        1
-      from
-        perfis
-      where
-        id = auth.uid ()
-        and papel = 'gerente'
+        eh_gerente ()
     )
   );
 
 create policy despesas_apagar on despesas for delete to authenticated using (
-  exists (
+  (
     select
-      1
-    from
-      perfis
-    where
-      id = auth.uid ()
-      and papel = 'gerente'
+      eh_gerente ()
   )
 );
 
 create policy despesas_editar on despesas
 for update
   to authenticated using (
-    exists (
+    (
       select
-        1
-      from
-        perfis
-      where
-        id = auth.uid ()
-        and papel = 'gerente'
+        eh_gerente ()
     )
   )
 with
   check (
-    exists (
+    (
       select
-        1
-      from
-        perfis
-      where
-        id = auth.uid ()
-        and papel = 'gerente'
+        eh_gerente ()
     )
   );
 
@@ -618,49 +615,25 @@ select
 create policy lancamentos_ver on lancamentos for
 select
   to authenticated using (
-    exists (
+    (
       select
-        1
-      from
-        perfis
-      where
-        id = (
-          select
-            auth.uid ()
-        )
-        and papel = 'gerente'
+        eh_gerente ()
     )
   );
 
 create policy lancamentos_criar on lancamentos for insert to authenticated
 with
   check (
-    exists (
+    (
       select
-        1
-      from
-        perfis
-      where
-        id = (
-          select
-            auth.uid ()
-        )
-        and papel = 'gerente'
+        eh_gerente ()
     )
   );
 
 create policy lancamentos_apagar on lancamentos for delete to authenticated using (
-  exists (
+  (
     select
-      1
-    from
-      perfis
-    where
-      id = (
-        select
-          auth.uid ()
-      )
-      and papel = 'gerente'
+      eh_gerente ()
   )
 );
 

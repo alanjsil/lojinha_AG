@@ -25,6 +25,8 @@ if (process.env.NODE_ENV === "production") {
 
 const nextConfig = {
   reactStrictMode: true,
+  // só vale no `next dev`: deixa o celular na mesma rede Wi-Fi usar o recarregamento ao vivo
+  allowedDevOrigins: ["192.168.*.*", "10.*.*.*", "172.*.*.*"],
   async headers() {
     return [{ source: "/:path*", headers: cabecalhos }];
   },

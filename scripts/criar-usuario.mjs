@@ -1,6 +1,6 @@
 // Cria um usuário do app (já confirmado, sem e-mail de verificação).
 // Uso: npm run criar-usuario -- "Nome" email@exemplo.com senha-forte [comissao%] [papel]
-// papel: "gerente" ou "vendedor" (padrão). Exige NEXT_PUBLIC_SUPABASE_URL e
+// papel: "gerente", "socia" (vendedor + comissão extra sobre as vendas dos outros) ou "vendedor" (padrão). Exige NEXT_PUBLIC_SUPABASE_URL e
 // SUPABASE_SERVICE_ROLE_KEY no .env.local (projeto da Lojinha!).
 import { createClient } from "@supabase/supabase-js";
 
@@ -9,8 +9,8 @@ if (!nome || !email || !senha) {
   console.error('Uso: npm run criar-usuario -- "Nome" email senha [comissao%] [papel]');
   process.exit(1);
 }
-if (!["gerente", "vendedor"].includes(papel)) {
-  console.error('Papel inválido: use "gerente" ou "vendedor".');
+if (!["gerente", "vendedor", "socia"].includes(papel)) {
+  console.error('Papel inválido: use "gerente", "vendedor" ou "socia".');
   process.exit(1);
 }
 

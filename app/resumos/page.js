@@ -44,8 +44,13 @@ export default async function Resumos(props) {
   if (!gerente) consultaVendas = consultaVendas.eq("vendedor_id", usuario?.id);
 
   // a comissão cai junto com cada parcela: conta no vencimento, não na data da venda
-  let consultaParcelas = supabase.from("parcelas").select("comissao, vendedor_id, perfis(nome)").gte("vencimento", de).lte("vencimento", ate).limit(5000);
-  if (!gerente) consultaParcelas = consultaParcelas.eq("vendedor_id", usuario?.id);
+  let consultaParcelas = supabase.from("parcelas").select("comissao, comissao_socia, socia_id, vendedor_id, perfis(nome)").gte("vencimento", de).lte("vencimento", ate).limit(5000);
+  const socia = usuario?.papel === "socia";
+  // a sócia também vê as parcelas de outros vendedores, só para somar a comissão extra dela
+  if (!gerente) consultaParcelas = socia ? consultaParcelas.or(`vendedor_id.eq.${usuario.id},socia_id.eq.${usuario.id}`) : consultaParcelas.eq("vendedor_id", usuario?.id);
+
+  const { data: socias } = gerente ? await supabase.from("perfis").select("id, nome").eq("papel", "socia") : { data: [] };
+  const nomeSocia = new Map((socias ?? []).map((s) => [s.id, s.nome]));
 
   const [{ data: vendas }, { data: parcelas }, { data: despesas }, { data: lancamentos }, { data: acumuladoLinhas }, { data: anteriorLinhas }, { data: estoque }] = await Promise.all([
     consultaVendas,
@@ -114,7 +119,8 @@ export default async function Resumos(props) {
   }
 
   for (const pc of parcelas ?? []) {
-    const comissao = Number(pc.comissao);
+    const minha = gerente || pc.vendedor_id === usuario?.id;
+    const comissao = minha ? Number(pc.comissao) : 0;
     total.comissoes += comissao;
     const vend = porVendedor.get(pc.vendedor_id) ?? {
       nome: pc.perfis?.nome ?? "-",
@@ -123,8 +129,19 @@ export default async function Resumos(props) {
       lucro: 0,
       comissao: 0,
     };
-    vend.comissao += comissao;
-    porVendedor.set(pc.vendedor_id, vend);
+    if (minha) {
+      vend.comissao += comissao;
+      porVendedor.set(pc.vendedor_id, vend);
+    }
+
+    // comissão extra da sócia sobre a venda de outro vendedor (só o gerente e a própria sócia enxergam)
+    const extra = gerente || socia ? Number(pc.comissao_socia ?? 0) : 0;
+    if (extra > 0 && pc.socia_id) {
+      total.comissoes += extra;
+      const s = porVendedor.get(pc.socia_id) ?? { nome: nomeSocia.get(pc.socia_id) ?? "-", n: 0, vendas: 0, lucro: 0, comissao: 0 };
+      s.comissao += extra;
+      porVendedor.set(pc.socia_id, s);
+    }
   }
 
   const totalDespesas = (despesas ?? []).reduce((s, d) => s + Number(d.valor), 0);

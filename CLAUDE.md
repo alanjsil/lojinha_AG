@@ -33,7 +33,11 @@ Campos `type="number"` só aceitam ponto decimal: preencha com `String(valor)`, 
 - Resumos (gerente) tem o card "Acumulado até <fim do período>" via função `resumo_acumulado(ate)` (mig. 012):
   **saldo = caixa real**: recebido (parcelas vencidas) + capital inicial + aportes − compras − despesas − saques − pró-labore − comissões pagas.
   Aparece em destaque no topo e na "Movimentação de caixa" (saldo anterior = `resumo_acumulado(de − 1 dia)`; passa de um período para o outro). Mig. 013/014 acrescentaram `recebido`, `compras` e `capital_inicial`.
-- Dois papéis (`perfis.papel`): **gerente** vê e cadastra despesas e vê o resumo de todos os vendedores;
+- Papel **socia** (mig. 018, ex.: Glasi): tem acesso de **vendedor** (despesas/lançamentos/resumo geral seguem só do gerente, `eh_gerente()`; mig. 019) e **sempre ganha comissão**:
+  além da comissão normal nas próprias vendas, recebe `comissao_pct` do perfil dela sobre o lucro das vendas de **todos os outros** vendedores,
+  como adicional (não sai da comissão do vendedor). Fotografada na venda (`socia_id`, `socia_pct`, `comissao_socia`), parcelada em `parcelas.comissao_socia`,
+  somada em Comissões/lucro líquido/caixa e listada no Resumos como a comissão dela. Vendas anteriores à 018 não têm comissão de sócia. Uma sócia só (a mais antiga).
+- Dois papéis básicos (`perfis.papel`): **gerente** vê e cadastra despesas e vê o resumo de todos os vendedores;
   **vendedor** não acessa despesas (aba some em Saídas, Server Action recusa) e no resumo só vê as
   próprias vendas/comissão (sem despesas, lucro líquido ou comparativo entre vendedores). Só o admin
   altera `papel`/`comissao_pct` (SQL/painel ou `--` do `criar-usuario`).
@@ -44,7 +48,7 @@ Campos `type="number"` só aceitam ponto decimal: preencha com `String(valor)`, 
 - Auth: Supabase Auth (e-mail/senha), sessão por cookie (`@supabase/ssr`). Dados pelo servidor, com o
   usuário logado, sob RLS (`lib/supabase/server.js`, Server Actions em `app/actions.js`).
 - Projeto Supabase da Lojinha: ref `modldgphwfzjarydzolx` (o mesmo de `NEXT_PUBLIC_SUPABASE_URL` em `.env.local`).
-- Schema em `db/schema.sql` (estado atual completo); mudanças em `db/migracoes/NNN_*.sql` (001–017), sempre
+- Schema em `db/schema.sql` (estado atual completo); mudanças em `db/migracoes/NNN_*.sql` (001–018), sempre
   refletidas no schema. O banco aplica a partir da 003 pelo histórico do Supabase; confira com o MCP
   (`list_migrations`) antes de numerar a próxima. Funções de trigger têm `execute` revogado de
   anon/authenticated; funções que chamam outras revogadas precisam ser `security definer`.

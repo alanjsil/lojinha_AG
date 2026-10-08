@@ -15,7 +15,7 @@ export default async function Vendas() {
     supabase.from("estoque_atual").select("id, nome, unidade, custo, preco, saldo").eq("ativo", true).gt("saldo", 0).order("nome"),
     supabase
       .from("vendas")
-      .select("id, data, quantidade, preco_unit, custo_unit, pagamento, parcelas, lucro, comissao, produtos(nome, unidade), perfis(nome), parcelas_venda:parcelas(numero, vencimento, valor, comissao)")
+      .select("id, data, quantidade, preco_unit, custo_unit, pagamento, parcelas, lucro, comissao, comissao_socia, produtos(nome, unidade), perfis(nome), parcelas_venda:parcelas(numero, vencimento, valor, comissao)")
       .gte("data", desde)
       .order("data", { ascending: false })
       .order("created_at", { ascending: false })
@@ -39,6 +39,7 @@ export default async function Vendas() {
       `Vendedor: ${v.perfis?.nome ?? "-"}`,
       `Custo unit.: ${brl(v.custo_unit)}`,
       `Lucro: ${brl(v.lucro)} · Comissão: ${brl(v.comissao)}`,
+      ...((usuario?.gerente || usuario?.papel === "socia") && Number(v.comissao_socia) > 0 ? [`Comissão da sócia: ${brl(v.comissao_socia)}`] : []),
       ...(v.parcelas > 1
         ? [...(v.parcelas_venda ?? [])].sort((a, b) => a.numero - b.numero).map((p) => `${p.numero}/${v.parcelas} · ${dataBR(p.vencimento)} · ${brl(p.valor)} · comissão ${brl(p.comissao)}`)
         : []),
