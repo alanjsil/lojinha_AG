@@ -487,15 +487,31 @@ create policy produtos_ver on produtos for
 select
   to authenticated using (true);
 
+-- 026: só o gerente cadastra e edita produtos (nome, unidade, ativo, custo, preço)
 create policy produtos_criar on produtos for insert to authenticated
 with
-  check (true);
+  check (
+    (
+      select
+        eh_gerente ()
+    )
+  );
 
 create policy produtos_editar on produtos
 for update
-  to authenticated using (true)
+  to authenticated using (
+    (
+      select
+        eh_gerente ()
+    )
+  )
 with
-  check (true);
+  check (
+    (
+      select
+        eh_gerente ()
+    )
+  );
 
 create policy compras_ver on compras for
 select

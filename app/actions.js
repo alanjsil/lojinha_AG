@@ -140,28 +140,25 @@ export async function excluirVenda(id) {
 
 // Custo e preço são obrigatórios: sem os dois o produto não é salvo.
 export async function salvarProduto({ id, nome, unidade, custo, preco, ativo = true }) {
-  return executar(async (supabase) => {
-    const gerente = Boolean((await usuarioAtual(supabase))?.gerente);
-    if (!gerente && !id) falha("Só o gerente pode cadastrar produtos.");
-    const n = (nome ?? "").trim();
-    if (!n) falha("Informe o nome do produto.");
-    const campos = {
-      nome: n,
-      unidade: (unidade ?? "").trim() || "un",
-      ativo: Boolean(ativo),
-    };
-    // Só o gerente altera custo e preço do produto; para o vendedor os valores enviados são ignorados
-    // (na venda ele ainda ajusta o preço cobrado, que é outro campo).
-    if (gerente) {
-      campos.custo = valorPositivo(custo, "o custo", { permiteZero: true });
-      campos.preco = valorPositivo(preco, "o preço");
-    }
+  return executar(
+    async (supabase) => {
+      const n = (nome ?? "").trim();
+      if (!n) falha("Informe o nome do produto.");
+      const campos = {
+        nome: n,
+        unidade: (unidade ?? "").trim() || "un",
+        ativo: Boolean(ativo),
+        custo: valorPositivo(custo, "o custo", { permiteZero: true }),
+        preco: valorPositivo(preco, "o preço"),
+      };
 
-    const { error } = id ? await supabase.from("produtos").update(campos).eq("id", id) : await supabase.from("produtos").insert(campos);
-    if (error?.code === "23505") falha("Já existe um produto com esse nome.");
-    if (error) throw error;
-    atualizarTudo();
-  });
+      const { error } = id ? await supabase.from("produtos").update(campos).eq("id", id) : await supabase.from("produtos").insert(campos);
+      if (error?.code === "23505") falha("Já existe um produto com esse nome.");
+      if (error) throw error;
+      atualizarTudo();
+    },
+    { exigeGerente: true },
+  );
 }
 
 // ---------- Compras (entrada de estoque) ----------

@@ -221,8 +221,9 @@ export default function EstoqueClient({ produtos, contagens, gerente }) {
                   ) : (
                     <li
                       key={p.id}
-                      className="editavel"
+                      className={gerente ? "editavel" : undefined}
                       onClick={() =>
+                        gerente &&
                         setEditando({
                           id: p.id,
                           nome: p.nome,
