@@ -16,7 +16,7 @@ export default async function Vendas() {
     supabase
       .from("vendas")
       .select(
-        "id, data, quantidade, preco_unit, custo_unit, pagamento, parcelas, lucro, comissao, comissao_socia, produtos(nome, unidade), perfis!vendas_vendedor_id_fkey(nome), parcelas_venda:parcelas(numero, vencimento, valor, comissao)",
+        "id, data, quantidade, preco_unit, custo_unit, pagamento, parcelas, obs, lucro, comissao, comissao_socia, produtos(nome, unidade), perfis!vendas_vendedor_id_fkey(nome), parcelas_venda:parcelas(numero, vencimento, valor, comissao)",
       )
       .gte("data", desde)
       .order("data", { ascending: false })
@@ -36,9 +36,11 @@ export default async function Vendas() {
       preco: String(v.preco_unit),
       pagamento: v.pagamento,
       parcelas: String(v.parcelas),
+      obs: v.obs ?? "",
     },
     detalhes: [
       `Vendedor: ${v.perfis?.nome ?? "-"}`,
+      ...(v.obs ? [`Obs: ${v.obs}`] : []),
       `Custo unit.: ${brl(v.custo_unit)}`,
       `Lucro: ${brl(v.lucro)} · Comissão: ${brl(v.comissao)}`,
       ...((usuario?.gerente || usuario?.papel === "socia") && Number(v.comissao_socia) > 0 ? [`Comissão da sócia: ${brl(v.comissao_socia)}`] : []),

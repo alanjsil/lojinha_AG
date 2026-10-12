@@ -69,7 +69,7 @@ function atualizarTudo() {
 
 // ---------- Vendas ----------
 
-export async function registrarVenda({ produtoId, quantidade, preco, pagamento, parcelas, data }) {
+export async function registrarVenda({ produtoId, quantidade, preco, pagamento, parcelas, data, obs }) {
   return executar(async (supabase) => {
     if (!produtoId) falha("Escolha o produto.");
     const q = valorPositivo(quantidade, "a quantidade");
@@ -88,13 +88,14 @@ export async function registrarVenda({ produtoId, quantidade, preco, pagamento, 
       preco_unit: p,
       pagamento,
       parcelas: nParcelas,
+      obs: (obs ?? "").trim() || null,
     });
     if (error) throw error;
     atualizarTudo();
   });
 }
 
-export async function editarVenda({ id, quantidade, preco, pagamento, parcelas, data }) {
+export async function editarVenda({ id, quantidade, preco, pagamento, parcelas, data, obs }) {
   return executar(async (supabase) => {
     const q = valorPositivo(quantidade, "a quantidade");
     const p = valorPositivo(preco, "o preço");
@@ -117,6 +118,7 @@ export async function editarVenda({ id, quantidade, preco, pagamento, parcelas, 
         preco_unit: p,
         pagamento,
         parcelas: nParcelas,
+        obs: (obs ?? "").trim() || null,
       })
       .eq("id", id)
       .select("id");

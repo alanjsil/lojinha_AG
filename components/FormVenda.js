@@ -18,6 +18,7 @@ export default function FormVenda({ produtos, comissaoPct }) {
   const [pagamento, setPagamento] = useState("a_vista");
   const [parcelas, setParcelas] = useState("1");
   const [data, setData] = useState("");
+  const [obs, setObs] = useState("");
 
   // data local só no navegador (o servidor roda em UTC)
   useEffect(() => setData(hoje()), []);
@@ -43,7 +44,7 @@ export default function FormVenda({ produtos, comissaoPct }) {
     e.preventDefault();
     await enviar(
       registrarVenda,
-      { produtoId, quantidade, preco, pagamento, parcelas: nParcelas, data },
+      { produtoId, quantidade, preco, pagamento, parcelas: nParcelas, data, obs },
       {
         textoOk: "Venda registrada!",
         aoConcluir: () => {
@@ -51,6 +52,7 @@ export default function FormVenda({ produtos, comissaoPct }) {
           setQuantidade("1");
           setPreco("");
           setParcelas("1");
+          setObs("");
         },
       },
     );
@@ -119,6 +121,9 @@ export default function FormVenda({ produtos, comissaoPct }) {
 
       <label htmlFor="data">Data</label>
       <input id="data" type="date" value={data} onChange={(e) => setData(e.target.value)} required />
+
+      <label htmlFor="obs">Obs (opcional)</label>
+      <input id="obs" type="text" maxLength={200} value={obs} onChange={(e) => setObs(e.target.value)} />
 
       {valido && (
         <div className="resumo-venda">

@@ -112,9 +112,7 @@ end $$;
 drop trigger if exists depois_de_gravar_compra on compras;
 
 create trigger depois_de_gravar_compra
-after insert
-or delete
-or update of apagado_em,
+after insert or delete or update of apagado_em,
 data,
 quantidade,
 custo_unit on compras for each row
@@ -185,6 +183,8 @@ create table if not exists vendas (
   socia_id uuid,
   socia_pct numeric(5, 2) not null default 0,
   comissao_socia numeric(12, 2) generated always as (round(greatest((preco_unit - custo_unit) * quantidade, 0) * socia_pct / 100, 2)) stored,
+  -- 024: observação opcional
+  obs text,
   apagado_em timestamptz,
   apagado_por uuid references perfis (id) on delete set null,
   created_at timestamptz not null default now()
@@ -548,7 +548,7 @@ from
   authenticated;
 
 grant
-update (data, quantidade, preco_unit, pagamento, parcelas) on vendas to authenticated;
+update (data, quantidade, preco_unit, pagamento, parcelas, obs) on vendas to authenticated;
 
 -- parcelas: só leitura para o app; quem grava é o trigger
 alter table parcelas enable row level security;
@@ -888,8 +888,7 @@ execute function auditar ();
 drop trigger if exists auditar_contagens on contagens_estoque;
 
 create trigger auditar_contagens
-after insert
-or update on contagens_estoque for each row
+after insert or update on contagens_estoque for each row
 execute function auditar ();
 
 -- 022: restaurar_registro — desfaz a exclusão lógica (só o gerente).

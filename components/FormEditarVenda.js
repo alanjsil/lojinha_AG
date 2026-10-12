@@ -35,6 +35,8 @@ export default function FormEditarVenda({ venda, aoFechar }) {
       </div>
       <label htmlFor={`edata-${venda.id}`}>Data</label>
       <input id={`edata-${venda.id}`} type="date" value={f.data} onChange={set("data")} required />
+      <label htmlFor={`eobs-${venda.id}`}>Obs (opcional)</label>
+      <input id={`eobs-${venda.id}`} type="text" maxLength={200} value={f.obs} onChange={set("obs")} />
       <label>Pagamento</label>
       <div className="segmentos" style={{ marginBottom: 0 }}>
         {FORMAS.map(([valor, rotulo]) => (
