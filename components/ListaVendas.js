@@ -3,6 +3,21 @@
 import FormEditarVenda from "./FormEditarVenda";
 import ListaExpansivel from "./ListaExpansivel";
 
+// item.dados: uma entrada por item da venda (vários itens = vários formulários de edição)
 export default function ListaVendas({ itens, excluir }) {
-  return <ListaExpansivel itens={itens} excluir={excluir} vazio="Nenhuma venda nos últimos 7 dias." renderEditar={(item, fechar) => <FormEditarVenda venda={item.dados} aoFechar={fechar} />} />;
+  return (
+    <ListaExpansivel
+      itens={itens}
+      excluir={excluir}
+      vazio="Nenhuma venda nos últimos 7 dias."
+      renderEditar={(item, fechar) =>
+        item.dados.map((d) => (
+          <div key={d.id}>
+            {item.dados.length > 1 && <p className="titulo">{d.nome}</p>}
+            <FormEditarVenda venda={d} aoFechar={fechar} />
+          </div>
+        ))
+      }
+    />
+  );
 }

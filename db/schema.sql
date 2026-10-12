@@ -185,10 +185,16 @@ create table if not exists vendas (
   comissao_socia numeric(12, 2) generated always as (round(greatest((preco_unit - custo_unit) * quantidade, 0) * socia_pct / 100, 2)) stored,
   -- 024: observação opcional
   obs text,
+  -- 027: liga os itens lançados na mesma venda (null = venda de um item só)
+  grupo_id uuid,
   apagado_em timestamptz,
   apagado_por uuid references perfis (id) on delete set null,
   created_at timestamptz not null default now()
 );
+
+create index if not exists vendas_grupo on vendas (grupo_id)
+where
+  grupo_id is not null;
 
 create index if not exists vendas_data on vendas (data);
 

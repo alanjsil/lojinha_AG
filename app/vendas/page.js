@@ -16,7 +16,7 @@ export default async function Vendas() {
     supabase
       .from("vendas")
       .select(
-        "id, data, quantidade, preco_unit, custo_unit, pagamento, parcelas, obs, lucro, comissao, comissao_socia, produtos(nome, unidade), perfis!vendas_vendedor_id_fkey(nome), parcelas_venda:parcelas(numero, vencimento, valor, comissao)",
+        "id, grupo_id, data, quantidade, preco_unit, custo_unit, pagamento, parcelas, obs, lucro, comissao, comissao_socia, produtos(nome, unidade), perfis!vendas_vendedor_id_fkey(nome), parcelas_venda:parcelas(numero, vencimento, valor, comissao)",
       )
       .gte("data", desde)
       .order("data", { ascending: false })
@@ -24,31 +24,63 @@ export default async function Vendas() {
       .limit(50),
   ]);
 
-  const itens = (vendas ?? []).map((v) => ({
+  const mostraSocia = usuario?.gerente || usuario?.papel === "socia";
+  const dadosDe = (v) => ({
     id: v.id,
-    titulo: v.produtos?.nome ?? "Produto",
-    sub: `${dataBR(v.data)} · ${qtd(v.quantidade)} × ${brl(v.preco_unit)} · ${FORMA[v.pagamento]}${v.parcelas > 1 ? ` ${v.parcelas}x` : ""}`,
-    valor: brl(v.quantidade * v.preco_unit),
-    dados: {
-      id: v.id,
-      data: v.data,
-      quantidade: String(v.quantidade),
-      preco: String(v.preco_unit),
-      pagamento: v.pagamento,
-      parcelas: String(v.parcelas),
-      obs: v.obs ?? "",
-    },
-    detalhes: [
-      `Vendedor: ${v.perfis?.nome ?? "-"}`,
-      ...(v.obs ? [`Obs: ${v.obs}`] : []),
-      `Custo unit.: ${brl(v.custo_unit)}`,
-      `Lucro: ${brl(v.lucro)} · Comissão: ${brl(v.comissao)}`,
-      ...((usuario?.gerente || usuario?.papel === "socia") && Number(v.comissao_socia) > 0 ? [`Comissão da sócia: ${brl(v.comissao_socia)}`] : []),
-      ...(v.parcelas > 1
-        ? [...(v.parcelas_venda ?? [])].sort((a, b) => a.numero - b.numero).map((p) => `${p.numero}/${v.parcelas} · ${dataBR(p.vencimento)} · ${brl(p.valor)} · comissão ${brl(p.comissao)}`)
-        : []),
-    ],
-  }));
+    data: v.data,
+    quantidade: String(v.quantidade),
+    preco: String(v.preco_unit),
+    pagamento: v.pagamento,
+    parcelas: String(v.parcelas),
+    obs: v.obs ?? "",
+  });
+  const detalhesDe = (v) => [
+    `Custo unit.: ${brl(v.custo_unit)}`,
+    `Lucro: ${brl(v.lucro)} · Comissão: ${brl(v.comissao)}`,
+    ...(mostraSocia && Number(v.comissao_socia) > 0 ? [`Comissão da sócia: ${brl(v.comissao_socia)}`] : []),
+    ...(v.parcelas > 1
+      ? [...(v.parcelas_venda ?? [])].sort((a, b) => a.numero - b.numero).map((p) => `${p.numero}/${v.parcelas} · ${dataBR(p.vencimento)} · ${brl(p.valor)} · comissão ${brl(p.comissao)}`)
+      : []),
+  ];
+  const pagamentoDe = (v) => `${FORMA[v.pagamento]}${v.parcelas > 1 ? ` ${v.parcelas}x` : ""}`;
+
+  // itens da mesma venda (mesmo grupo_id) viram um cartão só, na posição do mais recente
+  const grupos = new Map();
+  for (const v of vendas ?? []) {
+    const chave = v.grupo_id ?? v.id;
+    if (!grupos.has(chave)) grupos.set(chave, []);
+    grupos.get(chave).push(v);
+  }
+
+  const itens = [...grupos.entries()].map(([chave, vs]) => {
+    const v = vs[0];
+    if (vs.length === 1) {
+      return {
+        id: v.id,
+        titulo: v.produtos?.nome ?? "Produto",
+        sub: `${dataBR(v.data)} · ${qtd(v.quantidade)} × ${brl(v.preco_unit)} · ${pagamentoDe(v)}`,
+        valor: brl(v.quantidade * v.preco_unit),
+        dados: [dadosDe(v)],
+        detalhes: [`Vendedor: ${v.perfis?.nome ?? "-"}`, ...(v.obs ? [`Obs: ${v.obs}`] : []), ...detalhesDe(v)],
+      };
+    }
+    const total = vs.reduce((t, x) => t + x.quantidade * x.preco_unit, 0);
+    const lucro = vs.reduce((t, x) => t + Number(x.lucro), 0);
+    const comissao = vs.reduce((t, x) => t + Number(x.comissao), 0);
+    return {
+      id: chave,
+      titulo: `${v.produtos?.nome ?? "Produto"} + ${vs.length - 1} ${vs.length === 2 ? "item" : "itens"}`,
+      sub: `${dataBR(v.data)} · ${vs.length} itens · ${pagamentoDe(v)}`,
+      valor: brl(total),
+      dados: vs.map((x) => ({ ...dadosDe(x), nome: x.produtos?.nome ?? "Produto" })),
+      detalhes: [
+        `Vendedor: ${v.perfis?.nome ?? "-"}`,
+        ...(v.obs ? [`Obs: ${v.obs}`] : []),
+        `Lucro: ${brl(lucro)} · Comissão: ${brl(comissao)}`,
+        ...vs.map((x) => `• ${x.produtos?.nome ?? "Produto"}: ${qtd(x.quantidade)} × ${brl(x.preco_unit)} = ${brl(x.quantidade * x.preco_unit)} (lucro ${brl(x.lucro)})`),
+      ],
+    };
+  });
 
   return (
     <>

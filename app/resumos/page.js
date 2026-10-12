@@ -36,7 +36,7 @@ export default async function Resumos(props) {
 
   let consultaVendas = supabase
     .from("vendas")
-    .select("data, quantidade, preco_unit, custo_unit, lucro, vendedor_id, produto_id, produtos(nome), perfis!vendas_vendedor_id_fkey(nome)")
+    .select("grupo_id, data, quantidade, preco_unit, custo_unit, lucro, vendedor_id, produto_id, produtos(nome), perfis!vendas_vendedor_id_fkey(nome)")
     .gte("data", de)
     .lte("data", ate)
     .limit(5000);
@@ -182,7 +182,7 @@ export default async function Resumos(props) {
   const margemLiquida = total.vendas > 0 ? liquido / total.vendas : 0;
   const margemMinima = total.vendas > 0 ? custosFixos / total.vendas : 0;
   const pontoEquilibrio = margemContrib > 0 ? custosFixos / margemContrib : null;
-  const nVendas = vendas?.length ?? 0;
+  const nVendas = new Set((vendas ?? []).map((v, i) => v.grupo_id ?? `i${i}`)).size;
   const ticketMedio = nVendas > 0 ? total.vendas / nVendas : 0;
   const margemPotencial = estoqueVenda > 0 ? (estoqueVenda - estoqueCusto) / estoqueVenda : 0;
   // meta: sobra = vendas × margem contrib − despesas = META × vendas × margem bruta

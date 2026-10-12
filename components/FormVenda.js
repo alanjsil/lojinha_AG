@@ -12,6 +12,7 @@ const FORMAS = [
 
 export default function FormVenda({ produtos, comissaoPct }) {
   const { salvando, msg, enviar, limpar } = useEnvio();
+  const [lote, setLote] = useState([]); // itens já adicionados à venda
   const [produtoId, setProdutoId] = useState("");
   const [quantidade, setQuantidade] = useState("1");
   const [preco, setPreco] = useState("");
@@ -34,23 +35,40 @@ export default function FormVenda({ produtos, comissaoPct }) {
 
   const q = numero(quantidade);
   const pr = numero(preco);
-  const valido = produto && preenchido(quantidade) && preenchido(preco) && q > 0 && pr > 0;
-  const total = valido ? q * pr : 0;
-  const lucro = valido ? (pr - produto.custo) * q : 0;
-  const comissao = Math.max(lucro, 0) * (comissaoPct / 100);
+  const itemValido = Boolean(produto) && preenchido(quantidade) && preenchido(preco) && q > 0 && pr > 0;
+  const atual = itemValido ? { produtoId, quantidade, preco, nome: produto.nome, unidade: produto.unidade, q, pr, custo: produto.custo } : null;
+  // venda = itens do lote + o que está nos campos
+  const itens = atual ? [...lote, atual] : lote;
+  const valido = itens.length > 0;
+  const total = itens.reduce((t, i) => t + i.q * i.pr, 0);
+  const lucro = itens.reduce((t, i) => t + (i.pr - i.custo) * i.q, 0);
+  // comissão por item: prejuízo de um item não abate o lucro de outro
+  const comissao = itens.reduce((t, i) => t + Math.max((i.pr - i.custo) * i.q, 0), 0) * (comissaoPct / 100);
   const nParcelas = pagamento === "cartao" ? Number(parcelas) : 1;
+
+  function limparItem() {
+    setProdutoId("");
+    setQuantidade("1");
+    setPreco("");
+  }
+
+  function adicionarItem() {
+    if (!atual) return;
+    setLote([...lote, atual]);
+    limparItem();
+    limpar();
+  }
 
   async function enviarVenda(e) {
     e.preventDefault();
     await enviar(
       registrarVenda,
-      { produtoId, quantidade, preco, pagamento, parcelas: nParcelas, data, obs },
+      { itens: itens.map(({ produtoId, quantidade, preco }) => ({ produtoId, quantidade, preco })), pagamento, parcelas: nParcelas, data, obs },
       {
-        textoOk: "Venda registrada!",
+        textoOk: itens.length > 1 ? `Venda registrada (${itens.length} itens)!` : "Venda registrada!",
         aoConcluir: () => {
-          setProdutoId("");
-          setQuantidade("1");
-          setPreco("");
+          setLote([]);
+          limparItem();
           setParcelas("1");
           setObs("");
         },
@@ -68,8 +86,27 @@ export default function FormVenda({ produtos, comissaoPct }) {
 
   return (
     <form className="card" onSubmit={enviarVenda}>
-      <label htmlFor="produto">Produto</label>
-      <select id="produto" value={produtoId} onChange={(e) => escolher(e.target.value)} required>
+      {lote.length > 0 && (
+        <ul className="lista" style={{ marginBottom: 12 }}>
+          {lote.map((i, idx) => (
+            <li key={idx}>
+              <div>
+                <div className="titulo">{i.nome}</div>
+                <div className="sub">
+                  {qtd(i.q)} {i.unidade} × {brl(i.pr)}
+                </div>
+              </div>
+              <div className="valor">{brl(i.q * i.pr)}</div>
+              <button type="button" className="botao-secundario" onClick={() => setLote(lote.filter((_, j) => j !== idx))} aria-label={`Remover ${i.nome}`}>
+                Remover
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <label htmlFor="produto">{lote.length > 0 ? "Outro item" : "Produto"}</label>
+      <select id="produto" value={produtoId} onChange={(e) => escolher(e.target.value)} required={lote.length === 0}>
         <option value="">Escolha...</option>
         {produtos.map((p) => (
           <option key={p.id} value={p.id}>
@@ -81,13 +118,17 @@ export default function FormVenda({ produtos, comissaoPct }) {
       <div className="linha-2">
         <div>
           <label htmlFor="qtd">Quantidade</label>
-          <input id="qtd" type="number" inputMode="decimal" step="any" min="0" value={quantidade} onChange={(e) => setQuantidade(e.target.value)} required />
+          <input id="qtd" type="number" inputMode="decimal" step="any" min="0" value={quantidade} onChange={(e) => setQuantidade(e.target.value)} required={lote.length === 0} />
         </div>
         <div>
           <label htmlFor="preco">Preço unit. (R$)</label>
-          <input id="preco" type="number" inputMode="decimal" step="0.01" min="0" value={preco} onChange={(e) => setPreco(e.target.value)} required />
+          <input id="preco" type="number" inputMode="decimal" step="0.01" min="0" value={preco} onChange={(e) => setPreco(e.target.value)} required={lote.length === 0} />
         </div>
       </div>
+
+      <button type="button" className="botao-secundario" disabled={!itemValido} onClick={adicionarItem}>
+        + Adicionar outro item
+      </button>
 
       <label>Pagamento</label>
       <div className="segmentos" style={{ marginBottom: 0 }}>
@@ -144,12 +185,18 @@ export default function FormVenda({ produtos, comissaoPct }) {
               A comissão cai junto com as parcelas: {brl(comissao / nParcelas)} por mês, durante {nParcelas} meses.
             </span>
           )}
-          {pr < produto.custo && <span className="negativo">Atenção: preço abaixo do custo ({brl(produto.custo)}).</span>}
+          {itens
+            .filter((i) => i.pr < i.custo)
+            .map((i, idx) => (
+              <span key={idx} className="negativo">
+                Atenção: {i.nome} abaixo do custo ({brl(i.custo)}).
+              </span>
+            ))}
         </div>
       )}
 
       <button type="submit" disabled={salvando || !valido}>
-        {salvando ? "Salvando..." : "Registrar venda"}
+        {salvando ? "Salvando..." : itens.length > 1 ? `Registrar venda (${itens.length} itens)` : "Registrar venda"}
       </button>
       <Mensagem msg={msg} />
     </form>

@@ -8,6 +8,7 @@ import { createClient, usuarioAtual } from "../lib/supabase/server";
 const PAGAMENTOS = ["a_vista", "cartao"];
 const TIPOS_DESPESA = ["aluguel", "agua", "luz", "internet", "gasolina", "alimentacao", "pedagio", "outros"];
 const TIPOS_LANCAMENTO = ["pro_labore", "pagamento_comissao", "saque", "aporte", "capital_inicial", "repasse"];
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
 
 class ErroDeNegocio extends Error {}
@@ -69,27 +70,44 @@ function atualizarTudo() {
 
 // ---------- Vendas ----------
 
-export async function registrarVenda({ produtoId, quantidade, preco, pagamento, parcelas, data, obs }) {
+// itens: [{ produtoId, quantidade, preco }]; pagamento, parcelas, data e obs valem para a venda toda.
+// Cada item vira uma linha em `vendas`, ligadas por grupo_id quando há mais de um.
+export async function registrarVenda({ itens, pagamento, parcelas, data, obs }) {
   return executar(async (supabase) => {
-    if (!produtoId) falha("Escolha o produto.");
-    const q = valorPositivo(quantidade, "a quantidade");
-    const p = valorPositivo(preco, "o preço");
+    if (!Array.isArray(itens) || itens.length === 0) falha("Adicione ao menos um item.");
+    if (itens.length > 30) falha("Itens demais numa venda (máximo 30).");
     if (!PAGAMENTOS.includes(pagamento)) falha("Escolha a forma de pagamento.");
     const nParcelas = parcelasValidas(pagamento, parcelas);
 
-    const produto = await saldoDoProduto(supabase, produtoId);
-    if (!produto.ativo) falha("Este produto está inativo.");
-    if (q > produto.saldo) falha(`Estoque insuficiente de ${produto.nome}: restam ${qtd(produto.saldo)}.`);
-
-    const { error } = await supabase.from("vendas").insert({
-      data: dataValida(data),
-      produto_id: produtoId,
-      quantidade: q,
-      preco_unit: p,
-      pagamento,
-      parcelas: nParcelas,
-      obs: (obs ?? "").trim() || null,
+    const linhas = itens.map((i) => {
+      if (!i.produtoId) falha("Escolha o produto.");
+      return { produtoId: i.produtoId, q: valorPositivo(i.quantidade, "a quantidade"), p: valorPositivo(i.preco, "o preço") };
     });
+
+    // o mesmo produto pode aparecer em mais de um item: o saldo vale para a soma
+    const pedido = new Map();
+    for (const l of linhas) pedido.set(l.produtoId, (pedido.get(l.produtoId) ?? 0) + l.q);
+    for (const [produtoId, q] of pedido) {
+      const produto = await saldoDoProduto(supabase, produtoId);
+      if (!produto.ativo) falha(`${produto.nome} está inativo.`);
+      if (q > produto.saldo) falha(`Estoque insuficiente de ${produto.nome}: restam ${qtd(produto.saldo)}.`);
+    }
+
+    const grupoId = linhas.length > 1 ? crypto.randomUUID() : null;
+    const dataVenda = dataValida(data);
+    // um único insert: ou entram todos os itens, ou nenhum
+    const { error } = await supabase.from("vendas").insert(
+      linhas.map((l) => ({
+        data: dataVenda,
+        produto_id: l.produtoId,
+        quantidade: l.q,
+        preco_unit: l.p,
+        pagamento,
+        parcelas: nParcelas,
+        obs: (obs ?? "").trim() || null,
+        grupo_id: grupoId,
+      })),
+    );
     if (error) throw error;
     atualizarTudo();
   });
@@ -128,9 +146,11 @@ export async function editarVenda({ id, quantidade, preco, pagamento, parcelas, 
   });
 }
 
+// `id` é o de uma venda ou o grupo_id de uma venda com vários itens (apaga todos os itens)
 export async function excluirVenda(id) {
   return executar(async (supabase) => {
-    const { error } = await supabase.from("vendas").delete().eq("id", id);
+    if (!UUID.test(id ?? "")) falha("Venda inválida.");
+    const { error } = await supabase.from("vendas").delete().or(`id.eq.${id},grupo_id.eq.${id}`);
     if (error) throw error;
     atualizarTudo();
   });
