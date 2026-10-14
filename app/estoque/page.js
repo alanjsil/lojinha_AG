@@ -11,7 +11,6 @@ export default async function Estoque() {
 
   return (
     <>
-      <h1>Estoque</h1>
       <EstoqueClient
         gerente={Boolean(usuario?.gerente)}
         produtos={(produtos ?? []).map((p) => ({ ...p, custo: Number(p.custo), preco: Number(p.preco), saldo: Number(p.saldo) }))}

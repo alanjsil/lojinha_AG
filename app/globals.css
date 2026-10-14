@@ -58,6 +58,33 @@ h1 {
   margin: 8px 0 16px;
 }
 
+.titulo-linha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0 16px;
+}
+
+.titulo-linha h1 {
+  margin: 0;
+}
+
+.titulo-linha .filtro-chip {
+  width: auto;
+  margin: 0;
+  min-height: 44px;
+  padding: 8px 14px;
+  font-size: 16px;
+  background: #e8e6e1;
+  color: var(--texto);
+}
+
+.titulo-linha .filtro-chip.ativo {
+  background: var(--texto);
+  color: #fff;
+}
+
 h2 {
   font-size: 20px;
   margin: 0 0 12px;

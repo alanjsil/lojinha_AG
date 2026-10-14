@@ -171,6 +171,25 @@ from
 grant
 execute on function eh_gerente () to authenticated;
 
+create or replace function eh_resumo_completo () returns boolean language sql stable security definer
+set
+  search_path = '' as $$
+  select exists (
+    select 1 from public.perfis
+    where id = (select auth.uid ()) and papel in ('gerente', 'socia')
+  );
+$$;
+
+revoke
+execute on function eh_resumo_completo ()
+from
+  public,
+  anon;
+
+grant
+execute on function eh_resumo_completo () to authenticated;
+
+
 -- 4) Vendas: um item por venda. Custo e % de comissão são "fotografados" no
 -- momento da venda (trigger), então mudar o produto depois não altera o histórico.
 create table if not exists vendas (
@@ -442,7 +461,7 @@ set
     coalesce((select sum(l.valor) from lancamentos l where l.tipo = 'pagamento_comissao' and l.data <= ate and l.apagado_em is null), 0),
     coalesce((select sum(p.valor) from parcelas p where p.vencimento <= ate), 0),
     coalesce((select sum(c.quantidade * c.custo_unit) from compras c where c.data <= ate and c.apagado_em is null), 0)
-  where (select eh_gerente ());
+  where (select eh_resumo_completo ());
 $$;
 
 revoke
@@ -679,6 +698,25 @@ create policy lancamentos_apagar on lancamentos for delete to authenticated usin
       eh_gerente ()
   )
 );
+
+-- 028: a sócia lê despesas e lançamentos (só leitura)
+create policy despesas_ver_socia on despesas for
+select
+  to authenticated using (
+    (
+      select
+        eh_resumo_completo ()
+    )
+  );
+
+create policy lancamentos_ver_socia on lancamentos for
+select
+  to authenticated using (
+    (
+      select
+        eh_resumo_completo ()
+    )
+  );
 
 create policy contagens_ver on contagens_estoque for
 select

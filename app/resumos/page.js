@@ -32,7 +32,9 @@ export default async function Resumos(props) {
 
   const supabase = await createClient();
   const usuario = await usuarioAtual(supabase);
-  const gerente = Boolean(usuario?.gerente);
+  const ehGerente = Boolean(usuario?.gerente);
+  // a sócia vê o Resumos completo (como o gerente); só o link do Log fica restrito ao gerente (mig. 028)
+  const gerente = ehGerente || usuario?.papel === "socia";
 
   let consultaVendas = supabase
     .from("vendas")
@@ -69,11 +71,15 @@ export default async function Resumos(props) {
         .select("valor, comissao, comissao_socia, socia_id, vendedor_id, perfis(nome)")
         .lte("vencimento", ate < hoje ? ate : hoje)
         .limit(10000);
-      if (gerente) return q;
+      if (ehGerente) return q;
       // a sócia também precisa das parcelas dos outros, só para somar a comissão extra dela
       return socia ? q.or(`vendedor_id.eq.${usuario.id},socia_id.eq.${usuario.id}`) : q.eq("vendedor_id", usuario?.id);
     })(),
-    supabase.from("lancamentos").select("tipo, valor, vendedor_id, perfis!lancamentos_vendedor_id_fkey(nome)").in("tipo", ["repasse", "pagamento_comissao"]).lte("data", ate).limit(10000),
+    (() => {
+      const q = supabase.from("lancamentos").select("tipo, valor, vendedor_id, perfis!lancamentos_vendedor_id_fkey(nome)").in("tipo", ["repasse", "pagamento_comissao"]).lte("data", ate).limit(10000);
+      // a sócia vê só o próprio repasse (a RLS de leitura dela abrange todos os lançamentos, mig. 028)
+      return ehGerente ? q : q.eq("vendedor_id", usuario?.id);
+    })(),
   ]);
   const emMaos = new Map();
   const linhaMaos = (id, nome) => {
@@ -82,7 +88,7 @@ export default async function Resumos(props) {
     return m;
   };
   for (const pc of parcelasAcum ?? []) {
-    if (gerente || pc.vendedor_id === usuario?.id) {
+    if (ehGerente || pc.vendedor_id === usuario?.id) {
       const m = linhaMaos(pc.vendedor_id, pc.perfis?.nome);
       m.recebido += Number(pc.valor);
       m.comissao += Number(pc.comissao);
@@ -286,7 +292,7 @@ export default async function Resumos(props) {
 
       {maos.length > 0 && (
         <div className="card">
-          <h2>{gerente ? "Dinheiro com os vendedores" : "Seu repasse"}</h2>
+          <h2>{ehGerente ? "Dinheiro com os vendedores" : "Seu repasse"}</h2>
           <ul className="lista">
             {maos.map((m) => {
               const pendente = m.recebido - m.entregue;
@@ -296,7 +302,7 @@ export default async function Resumos(props) {
               return (
                 <li key={m.nome}>
                   <div>
-                    <div className="titulo">{gerente ? m.nome : "Pendente de entrega"}</div>
+                    <div className="titulo">{ehGerente ? m.nome : "Pendente de entrega"}</div>
                     <div className="sub">
                       recebido {brl(m.recebido)} · entregue {brl(m.entregue)}
                     </div>
@@ -537,7 +543,7 @@ export default async function Resumos(props) {
         </div>
       </div>
 
-      {gerente && (
+      {ehGerente && (
         <Link href="/log" className="link-cartao">
           <span className="icone" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -6,6 +6,8 @@ import { brl, dataBR, hoje, numero, preenchido, qtd } from "../lib/formato";
 import ListaExpansivel from "./ListaExpansivel";
 import useEnvio, { Mensagem } from "./useEnvio";
 
+const CHAVE_OCULTAR_ZERADOS = "estoque-ocultar-zerados";
+
 const VAZIO = {
   id: null,
   nome: "",
@@ -187,9 +189,29 @@ function FormEditarContagem({ contagem, aoFechar }) {
 export default function EstoqueClient({ produtos, contagens, gerente }) {
   const [aba, setAba] = useState("produtos");
   const [editando, setEditando] = useState(null);
+  const [ocultarZerados, setOcultarZerados] = useState(false);
+  useEffect(() => {
+    try {
+      setOcultarZerados(localStorage.getItem(CHAVE_OCULTAR_ZERADOS) === "1");
+    } catch {}
+  }, []);
+  function alternarZerados() {
+    const novo = !ocultarZerados;
+    setOcultarZerados(novo);
+    try {
+      localStorage.setItem(CHAVE_OCULTAR_ZERADOS, novo ? "1" : "0");
+    } catch {}
+  }
+  const visiveis = ocultarZerados ? produtos.filter((p) => p.saldo > 0 || editando?.id === p.id) : produtos;
 
   return (
     <>
+      <div className="titulo-linha">
+        <h1>Estoque</h1>
+        <button type="button" className={`filtro-chip ${ocultarZerados ? "ativo" : ""}`} aria-pressed={ocultarZerados} onClick={alternarZerados}>
+          {ocultarZerados ? "Mostrar zerados" : "Ocultar zerados"}
+        </button>
+      </div>
       <div className="segmentos">
         <button type="button" className={aba === "produtos" ? "ativo" : ""} onClick={() => setAba("produtos")}>
           Produtos
@@ -209,11 +231,11 @@ export default function EstoqueClient({ produtos, contagens, gerente }) {
             </button>
           ) : null}
           <div className="card">
-            {produtos.length === 0 ? (
-              <p className="vazio">Nenhum produto cadastrado.</p>
+            {visiveis.length === 0 ? (
+              <p className="vazio">{produtos.length === 0 ? "Nenhum produto cadastrado." : "Nenhum produto com saldo."}</p>
             ) : (
               <ul className="lista">
-                {produtos.map((p) =>
+                {visiveis.map((p) =>
                   editando?.id === p.id ? (
                     <li key={p.id} className="editando">
                       <FormProduto key={p.id} inicial={editando} gerente={gerente} aoFechar={() => setEditando(null)} embutido />
