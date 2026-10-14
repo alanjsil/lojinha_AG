@@ -320,7 +320,7 @@ export default async function Resumos(props) {
         </div>
       )}
 
-      {gerente && (
+      {ehGerente && (
         <div className="card">
           <h2>02 · Resultado</h2>
           <ul className="lista">
@@ -517,31 +517,33 @@ export default async function Resumos(props) {
         </div>
       )}
 
-      <div className="card">
-        <h2>07 · Demonstrativo</h2>
-        <div className="tabela-rolagem">
-          <table className="tabela">
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th>Valor</th>
-                <th>% receita</th>
-                <th>% lucro</th>
-              </tr>
-            </thead>
-            <tbody>
-              {linhasDre.map((l) => (
-                <tr key={l.item} className={l.forte ? "forte" : ""}>
-                  <td>{l.item}</td>
-                  <td className={l.valor < 0 ? "negativo" : ""}>{brl(l.valor)}</td>
-                  <td>{pct(l.valor, total.vendas)}</td>
-                  <td>{l.semPctLucro ? "–" : pct(l.valor, total.lucro)}</td>
+      {ehGerente && (
+        <div className="card">
+          <h2>07 · Demonstrativo</h2>
+          <div className="tabela-rolagem">
+            <table className="tabela">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Valor</th>
+                  <th>% receita</th>
+                  <th>% lucro</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {linhasDre.map((l) => (
+                  <tr key={l.item} className={l.forte ? "forte" : ""}>
+                    <td>{l.item}</td>
+                    <td className={l.valor < 0 ? "negativo" : ""}>{brl(l.valor)}</td>
+                    <td>{pct(l.valor, total.vendas)}</td>
+                    <td>{l.semPctLucro ? "–" : pct(l.valor, total.lucro)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
       {ehGerente && (
         <Link href="/log" className="link-cartao">
