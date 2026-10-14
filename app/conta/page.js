@@ -27,7 +27,11 @@ export default async function Conta() {
           Loja
         </Link>
       </header>
-      <ContaClient usuario={{ nome: usuario?.nome ?? "", telefone: usuario?.telefone ?? "", email: usuario?.email ?? "" }} pedidos={(pedidos ?? []).map((p) => ({ ...p, total: Number(p.total) }))} whatsapp={process.env.WHATSAPP_LOJA ?? ""}>
+      <ContaClient
+        usuario={{ nome: usuario?.nome ?? "", telefone: usuario?.telefone ?? "", email: usuario?.email ?? "" }}
+        pedidos={(pedidos ?? []).map((p) => ({ ...p, total: Number(p.total) }))}
+        whatsapp={process.env.WHATSAPP_LOJA ?? ""}
+      >
         <AtivarAvisos chavePublica={process.env.VAPID_PUBLIC_KEY ?? ""} texto="Receba um aviso aqui quando o seu pedido for confirmado, ficar pronto ou for entregue." />
       </ContaClient>
     </div>

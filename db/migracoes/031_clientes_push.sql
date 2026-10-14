@@ -4,7 +4,6 @@
 -- Agora o cadastro aberto cria papel 'cliente'; o papel da equipe só vem do app_metadata, que só o admin
 -- grava (scripts/criar-usuario.mjs). Uma policy RESTRICTIVE por tabela (soma-se às existentes com AND)
 -- tira do cliente todo acesso aos dados da equipe; ele só enxerga o próprio perfil e os próprios pedidos.
-
 -- 1) Perfil: papel cliente (padrão do cadastro aberto) e telefone (WhatsApp)
 alter table perfis
 drop constraint if exists perfis_papel_check;
@@ -71,25 +70,153 @@ grant
 execute on function eh_equipe () to authenticated;
 
 -- 2) Cliente fora dos dados da equipe (RESTRICTIVE: vale junto com as policies que já existem)
-create policy so_equipe on produtos as restrictive for all to authenticated using ((select eh_equipe ())) with check ((select eh_equipe ()));
-create policy so_equipe on categorias as restrictive for all to authenticated using ((select eh_equipe ())) with check ((select eh_equipe ()));
-create policy so_equipe on compras as restrictive for all to authenticated using ((select eh_equipe ())) with check ((select eh_equipe ()));
-create policy so_equipe on vendas as restrictive for all to authenticated using ((select eh_equipe ())) with check ((select eh_equipe ()));
-create policy so_equipe on parcelas as restrictive for all to authenticated using ((select eh_equipe ())) with check ((select eh_equipe ()));
-create policy so_equipe on despesas as restrictive for all to authenticated using ((select eh_equipe ())) with check ((select eh_equipe ()));
-create policy so_equipe on lancamentos as restrictive for all to authenticated using ((select eh_equipe ())) with check ((select eh_equipe ()));
-create policy so_equipe on contagens_estoque as restrictive for all to authenticated using ((select eh_equipe ())) with check ((select eh_equipe ()));
-create policy so_equipe on log_auditoria as restrictive for all to authenticated using ((select eh_equipe ())) with check ((select eh_equipe ()));
-
--- perfis: cliente vê/edita só o próprio; a equipe vê todos (listas de vendedores filtram papel)
-create policy so_equipe_ou_proprio on perfis as restrictive for all to authenticated using (
-  (select eh_equipe ())
-  or id = (select auth.uid ())
+create policy so_equipe on produtos as restrictive for all to authenticated using (
+  (
+    select
+      eh_equipe ()
+  )
 )
 with
   check (
-    (select eh_equipe ())
-    or id = (select auth.uid ())
+    (
+      select
+        eh_equipe ()
+    )
+  );
+
+create policy so_equipe on categorias as restrictive for all to authenticated using (
+  (
+    select
+      eh_equipe ()
+  )
+)
+with
+  check (
+    (
+      select
+        eh_equipe ()
+    )
+  );
+
+create policy so_equipe on compras as restrictive for all to authenticated using (
+  (
+    select
+      eh_equipe ()
+  )
+)
+with
+  check (
+    (
+      select
+        eh_equipe ()
+    )
+  );
+
+create policy so_equipe on vendas as restrictive for all to authenticated using (
+  (
+    select
+      eh_equipe ()
+  )
+)
+with
+  check (
+    (
+      select
+        eh_equipe ()
+    )
+  );
+
+create policy so_equipe on parcelas as restrictive for all to authenticated using (
+  (
+    select
+      eh_equipe ()
+  )
+)
+with
+  check (
+    (
+      select
+        eh_equipe ()
+    )
+  );
+
+create policy so_equipe on despesas as restrictive for all to authenticated using (
+  (
+    select
+      eh_equipe ()
+  )
+)
+with
+  check (
+    (
+      select
+        eh_equipe ()
+    )
+  );
+
+create policy so_equipe on lancamentos as restrictive for all to authenticated using (
+  (
+    select
+      eh_equipe ()
+  )
+)
+with
+  check (
+    (
+      select
+        eh_equipe ()
+    )
+  );
+
+create policy so_equipe on contagens_estoque as restrictive for all to authenticated using (
+  (
+    select
+      eh_equipe ()
+  )
+)
+with
+  check (
+    (
+      select
+        eh_equipe ()
+    )
+  );
+
+create policy so_equipe on log_auditoria as restrictive for all to authenticated using (
+  (
+    select
+      eh_equipe ()
+  )
+)
+with
+  check (
+    (
+      select
+        eh_equipe ()
+    )
+  );
+
+-- perfis: cliente vê/edita só o próprio; a equipe vê todos (listas de vendedores filtram papel)
+create policy so_equipe_ou_proprio on perfis as restrictive for all to authenticated using (
+  (
+    select
+      eh_equipe ()
+  )
+  or id = (
+    select
+      auth.uid ()
+  )
+)
+with
+  check (
+    (
+      select
+        eh_equipe ()
+    )
+    or id = (
+      select
+        auth.uid ()
+    )
   );
 
 -- 3) Pedido: dono (cliente logado), andamento e quando mudou
@@ -119,15 +246,31 @@ update (status, status_em) on pedidos to authenticated;
 create policy so_equipe_ou_dono on pedidos as restrictive for
 select
   to authenticated using (
-    (select eh_equipe ())
-    or cliente_id = (select auth.uid ())
+    (
+      select
+        eh_equipe ()
+    )
+    or cliente_id = (
+      select
+        auth.uid ()
+    )
   );
 
 create policy so_equipe_atende on pedidos as restrictive
 for update
-  to authenticated using ((select eh_equipe ()))
+  to authenticated using (
+    (
+      select
+        eh_equipe ()
+    )
+  )
 with
-  check ((select eh_equipe ()));
+  check (
+    (
+      select
+        eh_equipe ()
+    )
+  );
 
 -- criar_pedido: cliente logado fica como dono do pedido (o resto é igual à 030)
 create or replace function criar_pedido (p_nome text, p_telefone text, p_obs text, p_itens jsonb) returns jsonb language plpgsql security definer
@@ -239,13 +382,28 @@ alter table push_inscricoes enable row level security;
 
 create policy push_proprias_ver on push_inscricoes for
 select
-  to authenticated using (usuario_id = (select auth.uid ()));
+  to authenticated using (
+    usuario_id = (
+      select
+        auth.uid ()
+    )
+  );
 
 create policy push_proprias_criar on push_inscricoes for insert to authenticated
 with
-  check (usuario_id = (select auth.uid ()));
+  check (
+    usuario_id = (
+      select
+        auth.uid ()
+    )
+  );
 
-create policy push_proprias_apagar on push_inscricoes for delete to authenticated using (usuario_id = (select auth.uid ()));
+create policy push_proprias_apagar on push_inscricoes for delete to authenticated using (
+  usuario_id = (
+    select
+      auth.uid ()
+  )
+);
 
 revoke all on push_inscricoes
 from

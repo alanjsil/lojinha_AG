@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { salvarDados, sairDaConta } from "../app/conta/actions";
+import { sairDaConta, salvarDados } from "../app/conta/actions";
 import { brl, qtd } from "../lib/formato";
 import { ETAPAS, formatarTelefone, linkWhatsApp, STATUS_PEDIDO } from "../lib/pedido";
 import useEnvio, { Mensagem } from "./useEnvio";

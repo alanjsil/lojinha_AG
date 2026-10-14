@@ -2,7 +2,6 @@
 -- O Auth grava o app_metadata DEPOIS do insert em auth.users, então o criar_perfil da 031 nasce "cliente";
 -- estes gatilhos acertam o perfil quando o app_metadata chega, e o app_metadata quando o admin muda o papel no perfil.
 -- Só o admin escreve qualquer um dos dois (perfis.papel não tem grant de update para o app; app_metadata só com service role).
-
 -- app_metadata (painel do Supabase / criar-usuario) → perfil
 create or replace function papel_do_auth () returns trigger language plpgsql security definer
 set
@@ -19,10 +18,7 @@ end $$;
 drop trigger if exists ao_mudar_app_metadata on auth.users;
 
 create trigger ao_mudar_app_metadata
-after update of raw_app_meta_data on auth.users for each row
-when (
-  old.raw_app_meta_data ->> 'papel' is distinct from new.raw_app_meta_data ->> 'papel'
-)
+after update of raw_app_meta_data on auth.users for each row when (old.raw_app_meta_data ->> 'papel' is distinct from new.raw_app_meta_data ->> 'papel')
 execute function papel_do_auth ();
 
 -- perfil (SQL do admin) → app_metadata
@@ -39,8 +35,7 @@ end $$;
 drop trigger if exists ao_mudar_papel on perfis;
 
 create trigger ao_mudar_papel
-after update of papel on perfis for each row
-when (old.papel is distinct from new.papel)
+after update of papel on perfis for each row when (old.papel is distinct from new.papel)
 execute function papel_para_auth ();
 
 revoke

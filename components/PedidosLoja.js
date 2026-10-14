@@ -73,7 +73,13 @@ export default function PedidosLoja({ pedidos }) {
                   </a>
                 </p>
                 {ACAO[proximoStatus(p.status)] && (
-                  <button type="button" disabled={salvando} onClick={() => enviar(atualizarPedido, { id: p.id, status: proximoStatus(p.status) }, { textoOk: `Pedido nº ${p.numero}: ${STATUS_PEDIDO[proximoStatus(p.status)].toLowerCase()}.` })}>
+                  <button
+                    type="button"
+                    disabled={salvando}
+                    onClick={() =>
+                      enviar(atualizarPedido, { id: p.id, status: proximoStatus(p.status) }, { textoOk: `Pedido nº ${p.numero}: ${STATUS_PEDIDO[proximoStatus(p.status)].toLowerCase()}.` })
+                    }
+                  >
                     {salvando ? "Salvando..." : ACAO[proximoStatus(p.status)]}
                   </button>
                 )}

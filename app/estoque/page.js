@@ -1,5 +1,5 @@
-import { createClient, usuarioAtual } from "../../lib/supabase/server";
 import EstoqueClient from "../../components/EstoqueClient";
+import { createClient, usuarioAtual } from "../../lib/supabase/server";
 
 export default async function Estoque() {
   const supabase = await createClient();

@@ -16,7 +16,10 @@ export async function salvarDados({ nome, telefone }) {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return { ok: false, erro: "Sessão expirada. Entre novamente." };
-    const { error } = await supabase.from("perfis").update({ nome: n, telefone: soDigitos(telefone) }).eq("id", user.id);
+    const { error } = await supabase
+      .from("perfis")
+      .update({ nome: n, telefone: soDigitos(telefone) })
+      .eq("id", user.id);
     if (error) throw error;
     revalidatePath("/conta");
     revalidatePath("/");

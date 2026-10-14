@@ -1,7 +1,6 @@
 -- 030: vitrine pública (sem login) e pedidos feitos pelos clientes.
 -- O anon não lê nenhuma tabela: só chama vitrine() e criar_pedido(), que expõem o mínimo
 -- (sem custo nem saldo numérico) e recalculam o preço pelo banco.
-
 -- Pedido da loja: cliente monta o carrinho, o pedido cai aqui e o vendedor lança a venda depois.
 create table if not exists pedidos (
   id uuid primary key default gen_random_uuid(),

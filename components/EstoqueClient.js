@@ -136,12 +136,7 @@ function FormCategoria({ inicial, aoFechar, embutido = false }) {
           {salvando ? "Salvando..." : "Salvar"}
         </button>
       </div>
-      {f.id && (
-        <BotaoExcluir
-          texto="Excluir categoria"
-          onConfirmar={() => enviar(excluirCategoria, f.id, { aoConcluir: aoFechar, textoOk: "Categoria excluída." })}
-        />
-      )}
+      {f.id && <BotaoExcluir texto="Excluir categoria" onConfirmar={() => enviar(excluirCategoria, f.id, { aoConcluir: aoFechar, textoOk: "Categoria excluída." })} />}
       <Mensagem msg={msg} />
     </form>
   );
@@ -171,11 +166,7 @@ function AbaCategorias({ categorias, produtos }) {
                   <FormCategoria inicial={editando} aoFechar={() => setEditando(null)} embutido />
                 </li>
               ) : (
-                <li
-                  key={c.id}
-                  className="editavel"
-                  onClick={() => setEditando({ id: c.id, nome: c.nome, ordem: String(c.ordem), fotoUrl: c.foto_url ?? "", ativo: c.ativo })}
-                >
+                <li key={c.id} className="editavel" onClick={() => setEditando({ id: c.id, nome: c.nome, ordem: String(c.ordem), fotoUrl: c.foto_url ?? "", ativo: c.ativo })}>
                   <Miniatura url={c.foto_url} nome={c.nome} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="titulo">

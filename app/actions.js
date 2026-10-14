@@ -150,10 +150,7 @@ export async function atualizarPedido({ id, status }) {
     if (!ped) falha("Pedido não encontrado.");
     if (!mudancaValida(ped.status, status)) falha(ped.status === "entregue" ? "Pedido já entregue: exclua a venda para desfazer." : "Mudança de situação inválida.");
     const agora = new Date().toISOString();
-    const campos =
-      status === "novo"
-        ? { status, status_em: agora, atendido_por: null, atendido_em: null, venda_ref: null }
-        : { status, status_em: agora, atendido_por: user.id, atendido_em: agora };
+    const campos = status === "novo" ? { status, status_em: agora, atendido_por: null, atendido_em: null, venda_ref: null } : { status, status_em: agora, atendido_por: user.id, atendido_em: agora };
     // .eq no status antigo: dois vendedores mexendo ao mesmo tempo não atropelam um ao outro
     const { data: salvos, error } = await supabase.from("pedidos").update(campos).eq("id", id).eq("status", ped.status).select("id");
     if (error) throw error;

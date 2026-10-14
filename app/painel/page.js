@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import PainelClient from "../../components/PainelClient";
 import { somarDias } from "../../lib/formato";
-import { indicadores, PERIODOS_PAINEL, periodoPainel, resumoEstoque, seriePorTempo, somarPor } from "../../lib/painel";
+import { indicadores, periodoPainel, PERIODOS_PAINEL, resumoEstoque, seriePorTempo, somarPor } from "../../lib/painel";
 import { createClient, usuarioAtual } from "../../lib/supabase/server";
 
 export const metadata = { title: "Painel — Lojinha A&G" };
