@@ -6,7 +6,7 @@ import { sair } from "../actions";
 // meta do sócio: sobrar (antes do pró-labore) 20% do lucro bruto
 const META_SOBRA = 0.2;
 
-const PERIODOS = { semana: "7 dias", mes: "Mês" };
+const PERIODOS = { mes: "Mês", semana: "7 dias" };
 
 // o servidor roda em UTC; "hoje" precisa ser o dia de Brasília
 const hojeBR = () => new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
@@ -25,7 +25,7 @@ function intervalo(p, hoje, mes) {
 
 export default async function Resumos(props) {
   const searchParams = await props.searchParams;
-  const p = PERIODOS[searchParams?.p] ? searchParams.p : "semana";
+  const p = PERIODOS[searchParams?.p] ? searchParams.p : "mes";
   const hoje = hojeBR();
   const mes = mesEscolhido(searchParams?.m, hoje);
   const [de, ate] = intervalo(p, hoje, mes);
@@ -66,21 +66,35 @@ export default async function Resumos(props) {
     (() => {
       const q = supabase
         .from("parcelas")
-        .select("valor, vendedor_id, perfis(nome)")
+        .select("valor, comissao, comissao_socia, socia_id, vendedor_id, perfis(nome)")
         .lte("vencimento", ate < hoje ? ate : hoje)
         .limit(10000);
-      return gerente ? q : q.eq("vendedor_id", usuario?.id);
+      if (gerente) return q;
+      // a sócia também precisa das parcelas dos outros, só para somar a comissão extra dela
+      return socia ? q.or(`vendedor_id.eq.${usuario.id},socia_id.eq.${usuario.id}`) : q.eq("vendedor_id", usuario?.id);
     })(),
-    supabase.from("lancamentos").select("valor, vendedor_id, perfis!lancamentos_vendedor_id_fkey(nome)").eq("tipo", "repasse").lte("data", ate).limit(10000),
+    supabase.from("lancamentos").select("tipo, valor, vendedor_id, perfis!lancamentos_vendedor_id_fkey(nome)").in("tipo", ["repasse", "pagamento_comissao"]).lte("data", ate).limit(10000),
   ]);
   const emMaos = new Map();
   const linhaMaos = (id, nome) => {
-    const m = emMaos.get(id) ?? { nome: nome ?? "-", recebido: 0, entregue: 0 };
+    const m = emMaos.get(id) ?? { nome: nome ?? "-", recebido: 0, entregue: 0, comissao: 0, comissaoPaga: 0 };
     emMaos.set(id, m);
     return m;
   };
-  for (const pc of parcelasAcum ?? []) linhaMaos(pc.vendedor_id, pc.perfis?.nome).recebido += Number(pc.valor);
-  for (const r of repassesAcum ?? []) linhaMaos(r.vendedor_id, r.perfis?.nome).entregue += Number(r.valor);
+  for (const pc of parcelasAcum ?? []) {
+    if (gerente || pc.vendedor_id === usuario?.id) {
+      const m = linhaMaos(pc.vendedor_id, pc.perfis?.nome);
+      m.recebido += Number(pc.valor);
+      m.comissao += Number(pc.comissao);
+    }
+    const extra = Number(pc.comissao_socia ?? 0);
+    if (extra > 0 && pc.socia_id) linhaMaos(pc.socia_id, nomeSocia.get(pc.socia_id) ?? usuario?.nome).comissao += extra;
+  }
+  for (const r of repassesAcum ?? []) {
+    const m = linhaMaos(r.vendedor_id, r.perfis?.nome);
+    if (r.tipo === "repasse") m.entregue += Number(r.valor);
+    else m.comissaoPaga += Number(r.valor);
+  }
   const maos = [...emMaos.values()].sort((a, b) => b.recebido - b.entregue - (a.recebido - a.entregue));
 
   const total = { vendas: 0, custo: 0, lucro: 0, comissoes: 0 };
@@ -276,6 +290,9 @@ export default async function Resumos(props) {
           <ul className="lista">
             {maos.map((m) => {
               const pendente = m.recebido - m.entregue;
+              // limpo = pendente sem a comissão do vendedor que ainda não foi paga (já está com ele)
+              const aReceber = m.comissao - m.comissaoPaga;
+              const limpo = pendente - aReceber;
               return (
                 <li key={m.nome}>
                   <div>
@@ -283,8 +300,12 @@ export default async function Resumos(props) {
                     <div className="sub">
                       recebido {brl(m.recebido)} · entregue {brl(m.entregue)}
                     </div>
+                    <div className="sub">comissão a receber {brl(aReceber)}</div>
                   </div>
-                  <div className={`valor ${pendente > 0 ? "negativo" : ""}`}>{brl(pendente)}</div>
+                  <div className={`valor ${pendente > 0 ? "negativo" : ""}`}>
+                    {brl(pendente)}
+                    <div className="sub">Limpo {brl(limpo)}</div>
+                  </div>
                 </li>
               );
             })}

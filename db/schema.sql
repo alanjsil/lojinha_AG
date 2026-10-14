@@ -109,6 +109,19 @@ begin
   perform pg_catalog.set_config('app.recalculando_cmp', 'off', true);
 end $$;
 
+-- security definer: o trigger roda como o usuário logado, que não pode executar recalcular_custo_medio (mig. 004)
+create or replace function compras_recalcular_custo () returns trigger language plpgsql security definer
+set
+  search_path = '' as $$
+begin
+  if tg_op = 'DELETE' then
+    perform public.recalcular_custo_medio(old.produto_id);
+    return old;
+  end if;
+  perform public.recalcular_custo_medio(new.produto_id);
+  return new;
+end $$;
+
 drop trigger if exists depois_de_gravar_compra on compras;
 
 create trigger depois_de_gravar_compra
