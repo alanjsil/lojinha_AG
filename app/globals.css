@@ -1318,3 +1318,82 @@ button:disabled {
 .acoes-item > a {
   margin-top: 12px;
 }
+
+/* ---------- Conta do cliente ---------- */
+
+.link-simples {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  margin-top: 8px;
+  color: var(--primaria);
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.botao-claro {
+  background: var(--primaria-clara);
+  color: var(--primaria);
+}
+
+.botao-claro:active {
+  background: #c3d1ff;
+}
+
+/* Recebido → Confirmado → Pronto → Entregue */
+.andamento {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  margin: 12px 0;
+  padding: 0;
+  font-size: 12px;
+  text-align: center;
+  color: var(--texto-suave);
+}
+
+.andamento li {
+  padding-top: 10px;
+  border-top: 4px solid #e3e1dc;
+}
+
+.andamento li.feito {
+  border-top-color: var(--verde);
+  color: var(--texto);
+}
+
+.andamento li[aria-current="step"] {
+  font-weight: 700;
+}
+
+.selo-status {
+  display: inline-block;
+  margin: 12px 0;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.selo-status.cancelado {
+  background: var(--vermelho-claro);
+  color: var(--vermelho);
+}
+
+.selo-status.novo {
+  background: #fff3cd;
+  color: #7a5b00;
+}
+
+.selo-status.confirmado {
+  background: var(--primaria-clara);
+  color: var(--primaria);
+}
+
+.selo-status.pronto {
+  background: var(--verde-claro);
+  color: var(--verde-escuro);
+}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { rotaPublica } from "../lib/rotas";
+import { rotaCliente, rotaPublica } from "../lib/rotas";
 
 const icone = (d) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -39,7 +39,7 @@ const links = [
 // Navegação em abas fixas no rodapé: é onde o polegar alcança no celular
 export default function BottomNav() {
   const pathname = usePathname();
-  if (rotaPublica(pathname)) return null; // vitrine/login/offline: não tem para onde navegar
+  if (rotaPublica(pathname) || rotaCliente(pathname)) return null; // vitrine/login/offline: não tem para onde navegar
 
   return (
     <nav className="bottom-nav">

@@ -56,13 +56,28 @@ registrado por `components/RegistrarSW.js` só em produção. `sw.js` fica fora 
   Fotos no bucket público `fotos` (só o gerente envia; até 2 MB): o navegador reduz para WebP 800px (`lib/imagem.js`)
   e a Server Action `enviarFoto` sobe; `foto_url` só aceita endereço desse bucket. O CSP libera `img-src` para o Supabase.
 - **Vitrine pública (mig. 030):** `/` (`app/(loja)/page.js`) abre sem login; rotas públicas em `lib/rotas.js` (`/`, `/login`,
-  `/offline`, que aceitam POST para a Server Action). O anon não lê tabela nenhuma: só as RPCs `vitrine()` (ativos de categoria
+  `/cadastro`, `/offline`, que aceitam POST para a Server Action). O anon não lê tabela nenhuma: só as RPCs `vitrine()` (ativos de categoria
   ativa, preço, foto e `esgotado`, nunca custo nem saldo) e `criar_pedido()` (security definer: refaz preço pelo banco, recusa
   esgotado/acima do saldo/repetido, limita 3 pedidos por telefone e 30 no total a cada 10 min; erro `P0001` = mensagem para o cliente).
   Carrinho no `localStorage` do cliente (`lib/pedido.js`); depois de gravar, abre o `wa.me` do `WHATSAPP_LOJA` (variável de
-  ambiente do servidor; vazia = só grava). `pedidos` (status `novo|atendido|cancelado`): a equipe lê e só altera status/atendimento
-  (grants por coluna). Em Vendas, "Pedidos da loja" → `/vendas?pedido=<id>` abre o `FormVenda` preenchido; `registrarVenda({ pedidoId })`
-  marca o pedido como atendido com `venda_ref` (grupo_id ou id da venda); `atualizarPedido` cancela/reabre (atendido não volta).
+  ambiente do servidor; vazia = só grava). `pedidos` (status `novo → confirmado → pronto → entregue`, ou `cancelado`; regras em
+  `mudancaValida`/`proximoStatus` de `lib/pedido.js`): a equipe lê e só altera status/atendimento (grants por coluna). Em Vendas,
+  "Pedidos da loja" mostra os abertos com o botão do próximo passo; "Lançar venda" → `/vendas?pedido=<id>` abre o `FormVenda`
+  preenchido e `registrarVenda({ pedidoId })` marca **entregue** com `venda_ref` (grupo_id ou id da venda) — entregue só sai por aí,
+  para o estoque baixar; `atualizarPedido` confirma/marca pronto/cancela/reabre (entregue não volta: exclua a venda).
+- **Cliente com conta (mig. 031/032):** papel `cliente` em `perfis` (padrão do cadastro aberto em `/cadastro`; nome + WhatsApp + e-mail +
+  senha). O papel vive em dois lugares, sincronizados por gatilho: `perfis.papel` (RLS/telas) e `app_metadata.papel` do Auth (o
+  `proxy.js` lê do `getUser()` sem consultar o banco; `ehEquipe()`/`inicioDe()` de `lib/rotas.js`). Só o admin muda papel (script,
+  painel do Supabase ou SQL em `perfis`); `user_metadata` é do usuário e nunca vale para papel. Cada tabela da equipe tem uma policy
+  **RESTRICTIVE `so_equipe`** (`eh_equipe()`), então tabela nova da equipe precisa ganhar a sua; o cliente só vê o próprio perfil e os
+  pedidos com `cliente_id` dele. Proxy: cliente fica em `/`, `/conta` e telas públicas; equipe não usa `/conta`. `executar()` de
+  `app/actions.js` recusa quem não é da equipe; as ações do cliente ficam em `app/conta`, `app/loja` e `app/push`. Listas de
+  vendedores filtram `papel in PAPEIS_EQUIPE`. Pedido feito logado guarda `cliente_id` (a vitrine preenche nome/WhatsApp do perfil).
+- **Push (Web Push/VAPID):** `push_inscricoes` (uma por aparelho, endpoint único). `components/AtivarAvisos.js` pede permissão,
+  inscreve no `pushManager` do `sw.js` e grava pela Server Action `ativarAvisos`; o envio (`lib/push.js`, `web-push`) usa a
+  service role (`lib/supabase/admin.js`, `server-only`) e roda em `after()` para não atrasar a resposta. Pedido novo → toda a equipe;
+  mudança de status → o cliente dono. Inscrição 404/410 é apagada. Variáveis: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`,
+  `VAPID_SUBJECT` e `SUPABASE_SERVICE_ROLE_KEY` (sem elas, simplesmente não avisa). iPhone só recebe com o app instalado (iOS 16.4+).
 
 ## Banco e auth
 
@@ -70,13 +85,13 @@ registrado por `components/RegistrarSW.js` só em produção. `sw.js` fica fora 
 - Auth: Supabase Auth (e-mail/senha), sessão por cookie (`@supabase/ssr`). Dados pelo servidor, com o
   usuário logado, sob RLS (`lib/supabase/server.js`, Server Actions em `app/actions.js`).
 - Projeto Supabase da Lojinha: ref `modldgphwfzjarydzolx` (o mesmo de `NEXT_PUBLIC_SUPABASE_URL` em `.env.local`).
-- Schema em `db/schema.sql` (estado atual completo); mudanças em `db/migracoes/NNN_*.sql` (001–030), sempre
+- Schema em `db/schema.sql` (estado atual completo); mudanças em `db/migracoes/NNN_*.sql` (001–032), sempre
   refletidas no schema. O banco aplica a partir da 003 pelo histórico do Supabase; confira com o MCP
   (`list_migrations`) antes de numerar a próxima. Funções de trigger têm `execute` revogado de
   anon/authenticated; funções que chamam outras revogadas precisam ser `security definer`.
 - **Edição pelo gerente (mig. 023):** custo de produto só o gerente vê/edita no cadastro (Estoque); contagens (`contagens_estoque`, agora com exclusão lógica) e compras/lançamentos (Saídas) são editáveis pelo gerente em colunas limitadas (contagem: data/contada/observação; compra: data/quantidade/custo/fornecedor; lançamento: data/valor/descrição/vendedor), com checagem na Server Action para não deixar o estoque negativo; editar compra/contagem refaz o custo médio por trigger.
 - **Exclusão lógica + log (mig. 021):** `vendas`, `compras`, `despesas` e `lancamentos` nunca são apagadas de verdade: o trigger `apagar_suave` transforma o `DELETE` em `apagado_em`/`apagado_por`, e uma policy restritiva esconde as apagadas do app (o código do app continua usando `.delete()`). Efeitos derivados reagem: compra apagada/restaurada refaz o custo médio, venda apagada perde as parcelas (restaurar regera), `estoque_atual` e `resumo_acumulado` filtram `apagado_em is null`. Restaurar: tela `/log` (gerente, link no fim de Resumos) chama a Server Action `restaurarRegistro` → RPC `restaurar_registro` (mig. 022, security definer; venda só volta se houver saldo em estoque); apagar de verdade exige desligar o trigger. `log_auditoria` (só o gerente lê; o app não escreve) guarda criou/editou/apagou/restaurou com `antes`/`depois` via trigger `auditar` em vendas, compras, despesas, lançamentos, produtos, contagens e categorias (edição guarda só as colunas alteradas; recálculo automático do custo médio não é logado). Como `apagado_por` liga essas tabelas a `perfis` uma 2ª vez, embed do PostgREST precisa de hint: `perfis!vendas_vendedor_id_fkey(nome)` (sem ele a consulta falha e a lista vem vazia). Query nova que ignora a RLS (função `security definer`) precisa filtrar `apagado_em is null`.
-- Usuários: `npm run criar-usuario -- "Nome" email senha [comissao] [papel]` (papel: gerente|vendedor, padrão vendedor).
+- Usuários da equipe: `npm run criar-usuario -- "Nome" email senha [comissao] [papel]` (papel: gerente|vendedor|socia, padrão vendedor; grava o papel no `app_metadata`). Cliente se cadastra sozinho em `/cadastro`.
 
 ## Qualidade
 

@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
-import { rotaPublica } from "./lib/rotas";
+import { ehEquipe, inicioDe, rotaCliente, rotaPublica } from "./lib/rotas";
 function csp(nonce) {
   const dev = process.env.NODE_ENV !== "production";
   return [
@@ -62,9 +62,23 @@ export async function proxy(req) {
     redir.headers.set("Content-Security-Policy", politica);
     return redir;
   }
-  if (user && naTelaLogin) {
+  // logado: login/cadastro levam ao início de cada um; cliente fica na vitrine e na própria conta,
+  // equipe não usa a área do cliente (a RLS do banco barra o cliente de qualquer forma)
+  const foraDoLugar =
+    user &&
+    (naTelaLogin ||
+      pathname === "/cadastro" ||
+      (!ehEquipe(user) && !rotaPublica(pathname) && !rotaCliente(pathname)) ||
+      (ehEquipe(user) && rotaCliente(pathname)));
+  if (foraDoLugar) {
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      const negado = new NextResponse("Sem acesso", { status: 403 });
+      negado.headers.set("Content-Security-Policy", politica);
+      return negado;
+    }
     const url = req.nextUrl.clone();
-    url.pathname = "/vendas";
+    url.pathname = inicioDe(user);
+    url.search = "";
     const redir = NextResponse.redirect(url);
     gravados.forEach(({ name, value, options }) => redir.cookies.set(name, value, options));
     redir.headers.set("Content-Security-Policy", politica);

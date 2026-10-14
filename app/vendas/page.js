@@ -1,8 +1,10 @@
 import Link from "next/link";
+import AtivarAvisos from "../../components/AtivarAvisos";
 import FormVenda from "../../components/FormVenda";
 import ListaVendas from "../../components/ListaVendas";
 import PedidosLoja from "../../components/PedidosLoja";
 import { brl, dataBR, qtd, somarDias } from "../../lib/formato";
+import { ABERTOS } from "../../lib/pedido";
 import { createClient, usuarioAtual } from "../../lib/supabase/server";
 import { excluirVenda } from "../actions";
 
@@ -26,7 +28,7 @@ export default async function Vendas({ searchParams }) {
       .order("data", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(50),
-    supabase.from("pedidos").select("id, numero, criado_em, cliente_nome, cliente_telefone, obs, itens, total").eq("status", "novo").order("criado_em").limit(50),
+    supabase.from("pedidos").select("id, numero, criado_em, status, cliente_id, cliente_nome, cliente_telefone, obs, itens, total").in("status", ABERTOS).order("criado_em").limit(50),
   ]);
   const pedido = pedidoId ? ((pedidos ?? []).find((p) => p.id === pedidoId) ?? null) : null;
 
@@ -101,7 +103,7 @@ export default async function Vendas({ searchParams }) {
       ) : (
         <h1>Nova venda</h1>
       )}
-      {pedidoId && !pedido && <p className="alerta">Esse pedido já foi atendido ou cancelado.</p>}
+      {pedidoId && !pedido && <p className="alerta">Esse pedido já foi entregue ou cancelado.</p>}
       <FormVenda
         key={pedido?.id ?? "nova"}
         pedido={pedido}
@@ -117,6 +119,7 @@ export default async function Vendas({ searchParams }) {
         <h2>Últimos 7 dias</h2>
         <ListaVendas itens={itens} excluir={excluirVenda} />
       </div>
+      {!pedido && <AtivarAvisos chavePublica={process.env.VAPID_PUBLIC_KEY ?? ""} texto="Receba um aviso neste aparelho quando chegar um pedido novo da loja." />}
     </>
   );
 }

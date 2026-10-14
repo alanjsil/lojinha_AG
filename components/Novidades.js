@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { NOVIDADES, novidadesPendentes } from "../lib/novidades";
-import { rotaPublica } from "../lib/rotas";
+import { rotaCliente, rotaPublica } from "../lib/rotas";
 
 const CHAVE = "novidades-vista";
 
@@ -20,7 +20,7 @@ export default function Novidades() {
     setPendentes(novidadesPendentes(NOVIDADES, vista));
   }, []);
 
-  if (rotaPublica(pathname) || !pendentes.length) return null;
+  if (rotaPublica(pathname) || rotaCliente(pathname) || !pendentes.length) return null;
 
   function fechar() {
     try {

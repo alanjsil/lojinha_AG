@@ -65,3 +65,26 @@ test("mensagem e link do WhatsApp", () => {
   assert.equal(linkWhatsApp("(51) 99999-0000", "a b"), "https://wa.me/5551999990000?text=a%20b");
   assert.equal(linkWhatsApp("+55 51 99999-0000", "a"), "https://wa.me/5551999990000?text=a");
 });
+
+test("andamento do pedido", async () => {
+  const { proximoStatus, mudancaValida, avisoStatus } = await import("../lib/pedido.js");
+  assert.equal(proximoStatus("novo"), "confirmado");
+  assert.equal(proximoStatus("pronto"), "entregue");
+  assert.equal(proximoStatus("entregue"), null);
+  assert.equal(proximoStatus("cancelado"), null);
+  assert.equal(mudancaValida("novo", "pronto"), true);
+  assert.equal(mudancaValida("pronto", "confirmado"), false);
+  assert.equal(mudancaValida("entregue", "cancelado"), false);
+  assert.equal(mudancaValida("confirmado", "cancelado"), true);
+  assert.equal(mudancaValida("cancelado", "novo"), true);
+  assert.equal(mudancaValida("cancelado", "entregue"), false);
+  assert.equal(avisoStatus(7, "pronto").titulo, "Pedido nº 7: pronto");
+});
+
+test("telefone formatado", async () => {
+  const { formatarTelefone } = await import("../lib/pedido.js");
+  assert.equal(formatarTelefone("54988881234"), "(54) 98888-1234");
+  assert.equal(formatarTelefone("5554988881234"), "(54) 98888-1234");
+  assert.equal(formatarTelefone("5432221111"), "(54) 3222-1111");
+  assert.equal(formatarTelefone(""), "");
+});

@@ -1,7 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+import { brl } from "../../lib/formato";
 import { MAX_ITENS } from "../../lib/pedido";
+import { avisarEquipe } from "../../lib/push";
 import { createClient } from "../../lib/supabase/server";
 
 // Pedido da vitrine: aberto a quem não tem login (o cliente). Não confia em nada do navegador:
@@ -22,6 +25,15 @@ export async function criarPedido({ nome, telefone, obs, carrinho }) {
     if (error?.code === "P0001") return { ok: false, erro: error.message };
     if (error) throw error;
     revalidatePath("/vendas");
+    // depois da resposta: o cliente não espera o envio dos avisos
+    after(() =>
+      avisarEquipe({
+        titulo: `Novo pedido nº ${data.numero}`,
+        corpo: `${String(nome ?? "").trim()} · ${data.itens.length} ${data.itens.length === 1 ? "item" : "itens"} · ${brl(data.total)}`,
+        url: "/vendas",
+        tag: `pedido-${data.numero}`,
+      }),
+    );
     return { ok: true, pedido: data };
   } catch (e) {
     console.error(e);

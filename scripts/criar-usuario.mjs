@@ -23,18 +23,17 @@ const { data, error } = await admin.auth.admin.createUser({
   password: senha,
   email_confirm: true,
   user_metadata: { nome },
+  // papel da equipe só no app_metadata (o usuário não consegue alterar); sem ele, o cadastro vira cliente (mig. 031)
+  app_metadata: { papel },
 });
 if (error) {
   console.error("Erro:", error.message);
   process.exit(1);
 }
 
-// o gatilho cria o perfil com 40%/vendedor; ajusta se foi pedido outro valor
-const ajustes = {};
+// o gatilho cria o perfil com o papel do app_metadata e 40%; ajusta a comissão se foi pedido outro valor
+const ajustes = { papel };
 if (Number(comissao) !== 40) ajustes.comissao_pct = Number(comissao);
-if (papel !== "vendedor") ajustes.papel = papel;
-if (Object.keys(ajustes).length > 0) {
-  const { error: e2 } = await admin.from("perfis").update(ajustes).eq("id", data.user.id);
-  if (e2) console.error("Usuário criado, mas falhou ao ajustar perfil:", e2.message);
-}
+const { error: e2 } = await admin.from("perfis").update(ajustes).eq("id", data.user.id);
+if (e2) console.error("Usuário criado, mas falhou ao ajustar perfil:", e2.message);
 console.log(`Usuário criado: ${nome} <${email}> (comissão ${comissao}%, papel ${papel})`);

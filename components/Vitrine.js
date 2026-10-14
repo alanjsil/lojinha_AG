@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { criarPedido } from "../app/loja/actions";
 import { agruparPorCategoria } from "../lib/categorias";
 import { brl } from "../lib/formato";
-import { limparCarrinho, linkWhatsApp, MAX_POR_ITEM, mensagemPedido, mudarQuantidade, resumoCarrinho, telefoneValido } from "../lib/pedido";
+import { formatarTelefone, limparCarrinho, linkWhatsApp, MAX_POR_ITEM, mensagemPedido, mudarQuantidade, resumoCarrinho, telefoneValido } from "../lib/pedido";
 
 const CHAVE_CARRINHO = "loja-carrinho";
 const CHAVE_CLIENTE = "loja-cliente";
@@ -55,7 +55,7 @@ function Quantidade({ valor, aoMudar, nome }) {
   );
 }
 
-export default function Vitrine({ produtos, logado, whatsapp, erro }) {
+export default function Vitrine({ produtos, visitante, whatsapp, erro }) {
   const [carrinho, setCarrinho] = useState({});
   const [cliente, setCliente] = useState({ nome: "", telefone: "", obs: "" });
   const [busca, setBusca] = useState("");
@@ -67,8 +67,10 @@ export default function Vitrine({ produtos, logado, whatsapp, erro }) {
   // carrinho e dados do cliente ficam no aparelho; o que esgotou desde a última visita sai
   useEffect(() => {
     setCarrinho(limparCarrinho(ler(CHAVE_CARRINHO, {}), produtos));
-    setCliente((c) => ({ ...c, ...ler(CHAVE_CLIENTE, {}), obs: "" }));
-  }, [produtos]);
+    // cliente com conta: nome e WhatsApp do cadastro; sem conta: o que ficou salvo no aparelho
+    const doCadastro = visitante && !visitante.equipe && visitante.nome ? { nome: visitante.nome, telefone: formatarTelefone(visitante.telefone) } : {};
+    setCliente((c) => ({ ...c, ...ler(CHAVE_CLIENTE, {}), ...doCadastro, obs: "" }));
+  }, [produtos, visitante]);
 
   function mudar(id, q) {
     setCarrinho((atual) => {
@@ -123,8 +125,8 @@ export default function Vitrine({ produtos, logado, whatsapp, erro }) {
         {/* eslint-disable-next-line @next/next/no-img-element -- ícone local */}
         <img src="/icons/icon-192.png" alt="" className="loja-logo" />
         <strong>Lojinha A&amp;G</strong>
-        <Link href={logado ? "/vendas" : "/login"} className="loja-entrar">
-          {logado ? "Abrir app" : "Entrar"}
+        <Link href={!visitante ? "/login" : visitante.equipe ? "/vendas" : "/conta"} className="loja-entrar">
+          {!visitante ? "Entrar" : visitante.equipe ? "Abrir app" : "Minha conta"}
         </Link>
       </header>
 
@@ -253,11 +255,22 @@ export default function Vitrine({ produtos, logado, whatsapp, erro }) {
             <h2>Pedido nº {enviado.numero} recebido!</h2>
             <p className="info">
               {enviado.link ? "Se o WhatsApp não abriu sozinho, toque no botão abaixo para mandar o pedido para a loja." : "A loja já recebeu o seu pedido e vai entrar em contato."}
+              {!visitante ? " Crie uma conta para acompanhar os próximos pedidos e receber avisos no celular." : !visitante.equipe ? " Acompanhe o andamento em Minha conta." : ""}
             </p>
             {enviado.link && (
               <a className="botao-whatsapp" href={enviado.link}>
-                Abrir o WhatsApp
+                Chamar a loja no WhatsApp
               </a>
+            )}
+            {visitante && !visitante.equipe && (
+              <Link href="/conta" className="botao-link-cheio">
+                Acompanhar o pedido
+              </Link>
+            )}
+            {!visitante && (
+              <Link href="/cadastro" className="botao-link-cheio botao-claro">
+                Criar minha conta
+              </Link>
             )}
             <button type="button" className="botao-secundario" onClick={() => setEnviado(null)}>
               Voltar à loja

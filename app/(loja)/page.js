@@ -1,5 +1,6 @@
 import Vitrine from "../../components/Vitrine";
-import { createClient } from "../../lib/supabase/server";
+import { ehEquipe } from "../../lib/rotas";
+import { createClient, usuarioAtual } from "../../lib/supabase/server";
 
 // Link que vai para os clientes: precisa ficar bonito quando colado no WhatsApp
 export const metadata = {
@@ -17,13 +18,14 @@ export const metadata = {
 // Vitrine pública (sem login). Os produtos vêm da função vitrine(), que não expõe custo nem saldo.
 export default async function Inicio() {
   const supabase = await createClient();
-  const [
-    {
-      data: { user },
-    },
-    { data: produtos, error },
-  ] = await Promise.all([supabase.auth.getUser(), supabase.rpc("vitrine")]);
+  const [usuario, { data: produtos, error }] = await Promise.all([usuarioAtual(supabase), supabase.rpc("vitrine")]);
   if (error) console.error(error);
+  const {
+    data: { user },
+  } = usuario ? await supabase.auth.getUser() : { data: { user: null } };
 
-  return <Vitrine logado={Boolean(user)} whatsapp={process.env.WHATSAPP_LOJA ?? ""} erro={Boolean(error)} produtos={(produtos ?? []).map((p) => ({ ...p, preco: Number(p.preco) }))} />;
+  // equipe: botão "Abrir app"; cliente: "Minha conta" e o carrinho já com nome e WhatsApp dele
+  const visitante = !usuario ? null : ehEquipe(user) ? { equipe: true } : { equipe: false, nome: usuario.nome, telefone: usuario.telefone };
+
+  return <Vitrine visitante={visitante} whatsapp={process.env.WHATSAPP_LOJA ?? ""} erro={Boolean(error)} produtos={(produtos ?? []).map((p) => ({ ...p, preco: Number(p.preco) }))} />;
 }

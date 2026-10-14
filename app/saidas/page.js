@@ -1,5 +1,6 @@
 import SaidasClient from "../../components/SaidasClient";
 import { somarDias } from "../../lib/formato";
+import { PAPEIS_EQUIPE } from "../../lib/rotas";
 import { createClient, usuarioAtual } from "../../lib/supabase/server";
 
 export default async function Saidas() {
@@ -16,7 +17,7 @@ export default async function Saidas() {
     usuario?.gerente
       ? supabase.from("lancamentos").select("id, data, tipo, valor, descricao, vendedor_id, perfis!lancamentos_vendedor_id_fkey(nome)").gte("data", desde).order("data", { ascending: false }).limit(100)
       : Promise.resolve({ data: [] }),
-    usuario?.gerente ? supabase.from("perfis").select("id, nome").order("nome") : Promise.resolve({ data: [] }),
+    usuario?.gerente ? supabase.from("perfis").select("id, nome").in("papel", PAPEIS_EQUIPE).order("nome") : Promise.resolve({ data: [] }),
   ]);
 
   const ultimoCusto = {};

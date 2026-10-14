@@ -2,7 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { numero, preenchido, qtd } from "../lib/formato";
+import { ABERTOS, avisoStatus, mudancaValida } from "../lib/pedido";
+import { avisarCliente } from "../lib/push";
+import { ehEquipe } from "../lib/rotas";
 import { createClient, usuarioAtual } from "../lib/supabase/server";
 
 const PAGAMENTOS = ["a_vista", "cartao"];
@@ -26,6 +30,8 @@ async function executar(fn, { exigeGerente = false } = {}) {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) falha("Sessão expirada. Entre novamente.");
+    // ações deste arquivo são da equipe; cliente tem as dele em app/conta e app/loja (a RLS também barra)
+    if (!ehEquipe(user)) falha("Sem acesso.");
     if (exigeGerente) {
       const usuario = await usuarioAtual(supabase);
       if (!usuario?.gerente) falha("Só o gerente pode fazer isso.");
@@ -73,15 +79,16 @@ function atualizarTudo() {
 
 // itens: [{ produtoId, quantidade, preco }]; pagamento, parcelas, data e obs valem para a venda toda.
 // Cada item vira uma linha em `vendas`, ligadas por grupo_id quando há mais de um.
-// pedidoId: venda lançada a partir de um pedido da loja (vitrine); o pedido fica "atendido" e ligado à venda.
+// pedidoId: venda lançada a partir de um pedido da loja (vitrine); o pedido fica "entregue" e ligado à venda.
 export async function registrarVenda({ itens, pagamento, parcelas, data, obs, pedidoId }) {
   return executar(async (supabase, user) => {
     if (!Array.isArray(itens) || itens.length === 0) falha("Adicione ao menos um item.");
+    let ped = null;
     if (pedidoId) {
       if (!UUID.test(pedidoId)) falha("Pedido inválido.");
-      const { data: ped } = await supabase.from("pedidos").select("status").eq("id", pedidoId).single();
+      ({ data: ped } = await supabase.from("pedidos").select("numero, status, cliente_id").eq("id", pedidoId).single());
       if (!ped) falha("Pedido não encontrado.");
-      if (ped.status !== "novo") falha("Este pedido já foi atendido ou cancelado.");
+      if (!ABERTOS.includes(ped.status)) falha("Este pedido já foi entregue ou cancelado.");
     }
     if (itens.length > 30) falha("Itens demais numa venda (máximo 30).");
     if (!PAGAMENTOS.includes(pagamento)) falha("Escolha a forma de pagamento.");
@@ -120,28 +127,40 @@ export async function registrarVenda({ itens, pagamento, parcelas, data, obs, pe
       )
       .select("id");
     if (error) throw error;
-    if (pedidoId) {
-      // a venda já entrou; se marcar o pedido falhar, ele só continua aparecendo como novo
+    if (ped) {
+      // a venda já entrou; se marcar o pedido falhar, ele só continua aberto na lista
+      const agora = new Date().toISOString();
       const { error: erroPedido } = await supabase
         .from("pedidos")
-        .update({ status: "atendido", venda_ref: grupoId ?? gravadas?.[0]?.id ?? null, atendido_por: user.id, atendido_em: new Date().toISOString() })
+        .update({ status: "entregue", status_em: agora, venda_ref: grupoId ?? gravadas?.[0]?.id ?? null, atendido_por: user.id, atendido_em: agora })
         .eq("id", pedidoId);
       if (erroPedido) console.error(erroPedido);
+      else after(() => avisarCliente(ped.cliente_id, { ...avisoStatus(ped.numero, "entregue"), url: "/conta", tag: `pedido-${ped.numero}` }));
     }
     atualizarTudo();
   });
 }
 
-// Cancela um pedido da loja (cliente desistiu, pedido de teste...) ou o reabre como novo
+// Andamento do pedido da loja: confirmado → pronto → entregue, cancelar, ou reabrir um cancelado.
+// O cliente com conta recebe o aviso no celular.
 export async function atualizarPedido({ id, status }) {
   return executar(async (supabase, user) => {
     if (!UUID.test(id ?? "")) falha("Pedido inválido.");
-    if (!["novo", "cancelado"].includes(status)) falha("Situação inválida.");
-    const campos = status === "cancelado" ? { status, atendido_por: user.id, atendido_em: new Date().toISOString() } : { status, atendido_por: null, atendido_em: null, venda_ref: null };
-    const { data: salvos, error } = await supabase.from("pedidos").update(campos).eq("id", id).neq("status", "atendido").select("id");
+    const { data: ped } = await supabase.from("pedidos").select("numero, status, cliente_id").eq("id", id).single();
+    if (!ped) falha("Pedido não encontrado.");
+    if (!mudancaValida(ped.status, status)) falha(ped.status === "entregue" ? "Pedido já entregue: exclua a venda para desfazer." : "Mudança de situação inválida.");
+    const agora = new Date().toISOString();
+    const campos =
+      status === "novo"
+        ? { status, status_em: agora, atendido_por: null, atendido_em: null, venda_ref: null }
+        : { status, status_em: agora, atendido_por: user.id, atendido_em: agora };
+    // .eq no status antigo: dois vendedores mexendo ao mesmo tempo não atropelam um ao outro
+    const { data: salvos, error } = await supabase.from("pedidos").update(campos).eq("id", id).eq("status", ped.status).select("id");
     if (error) throw error;
-    if (!salvos?.length) falha("Pedido já atendido: exclua a venda para desfazer.");
+    if (!salvos?.length) falha("O pedido mudou enquanto você mexia. Atualize a tela.");
+    after(() => avisarCliente(ped.cliente_id, { ...avisoStatus(ped.numero, status), url: "/conta", tag: `pedido-${ped.numero}` }));
     revalidatePath("/vendas");
+    revalidatePath("/conta");
   });
 }
 
