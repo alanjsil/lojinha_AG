@@ -1,16 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import { rotaPublica } from "./lib/rotas";
-
-// Content-Security-Policy com nonce por resposta (o Next injeta scripts inline para hidratar o React).
-// O app só fala com o Supabase pelo servidor, então o navegador só precisa conectar em si mesmo.
 function csp(nonce) {
   const dev = process.env.NODE_ENV !== "production";
   return [
     "default-src 'self'",
     `script-src 'nonce-${nonce}' 'strict-dynamic'${dev ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data:",
+    `img-src 'self' data: blob: ${process.env.NEXT_PUBLIC_SUPABASE_URL}`,
     "font-src 'self'",
     `connect-src 'self'${dev ? " ws: wss:" : ""}`,
     "form-action 'self'",
@@ -20,13 +17,9 @@ function csp(nonce) {
     ...(dev ? [] : ["upgrade-insecure-requests"]),
   ].join("; ");
 }
-
-// Renova a sessão do Supabase a cada requisição e manda quem não está logado para /login.
-// As Server Actions também conferem o usuário (app/actions.js).
 export async function proxy(req) {
   const nonce = crypto.randomUUID().replace(/-/g, "");
   const politica = csp(nonce);
-
   const seguir = () => {
     const cabecalhos = new Headers(req.headers);
     cabecalhos.set("x-nonce", nonce);
@@ -35,10 +28,8 @@ export async function proxy(req) {
     res.headers.set("Content-Security-Policy", politica);
     return res;
   };
-
   let res = seguir();
   const gravados = [];
-
   const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
     cookies: {
       getAll: () => req.cookies.getAll(),
@@ -52,15 +43,11 @@ export async function proxy(req) {
       },
     },
   });
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
   const { pathname } = req.nextUrl;
   const naTelaLogin = pathname === "/login";
-
-  // vitrine, login e offline abrem sem login (inclusive o POST da Server Action do pedido)
   if (!user && !rotaPublica(pathname)) {
     if (req.method !== "GET" && req.method !== "HEAD") {
       const negado = new NextResponse("Login necessário", { status: 401 });
@@ -75,7 +62,6 @@ export async function proxy(req) {
     redir.headers.set("Content-Security-Policy", politica);
     return redir;
   }
-
   if (user && naTelaLogin) {
     const url = req.nextUrl.clone();
     url.pathname = "/vendas";
@@ -84,11 +70,6 @@ export async function proxy(req) {
     redir.headers.set("Content-Security-Policy", politica);
     return redir;
   }
-
   return res;
 }
-
-// tudo, menos os arquivos do próprio Next, os ícones e o service worker
-export const config = {
-  matcher: ["/((?!_next/|icons/|manifest.webmanifest|icon.png|apple-icon.png|sw.js).*)"],
-};
+export const config = { matcher: ["/((?!_next/|icons/|manifest.webmanifest|icon.png|apple-icon.png|sw.js).*)"] };

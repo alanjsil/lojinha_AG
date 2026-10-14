@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { editarContagem, excluirContagem, registrarContagem, salvarProduto } from "../app/actions";
+import { editarContagem, excluirCategoria, excluirContagem, registrarContagem, salvarCategoria, salvarProduto } from "../app/actions";
+import { agruparPorCategoria } from "../lib/categorias";
 import { brl, dataBR, hoje, numero, preenchido, qtd } from "../lib/formato";
+import BotaoExcluir from "./BotaoExcluir";
+import CampoFoto from "./CampoFoto";
 import ListaExpansivel from "./ListaExpansivel";
 import useEnvio, { Mensagem } from "./useEnvio";
 
@@ -15,9 +18,14 @@ const VAZIO = {
   custo: "",
   preco: "",
   ativo: true,
+  categoriaId: "",
+  fotoUrl: "",
+  descricao: "",
 };
 
-function FormProduto({ inicial, aoFechar, gerente, embutido = false }) {
+const CATEGORIA_VAZIA = { id: null, nome: "", ordem: "", fotoUrl: "", ativo: true };
+
+function FormProduto({ inicial, aoFechar, gerente, categorias, embutido = false }) {
   const { salvando, msg, enviar } = useEnvio();
   const [f, setF] = useState(inicial);
   const set = (campo) => (e) => setF({ ...f, [campo]: e.target.value });
@@ -60,10 +68,26 @@ function FormProduto({ inicial, aoFechar, gerente, embutido = false }) {
           {preco < custo ? "Atenção: preço abaixo do custo. " : ""}Lucro por unidade: {brl(preco - custo)}
         </p>
       )}
+      {gerente && (
+        <>
+          <label htmlFor="categoria">Categoria</label>
+          <select id="categoria" value={f.categoriaId} onChange={set("categoriaId")}>
+            <option value="">Sem categoria (Outros)</option>
+            {categorias.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nome}
+              </option>
+            ))}
+          </select>
+          <CampoFoto valor={f.fotoUrl} aoMudar={(fotoUrl) => setF((atual) => ({ ...atual, fotoUrl }))} />
+          <label htmlFor="descricao">Descrição na loja (opcional)</label>
+          <textarea id="descricao" rows={2} maxLength={500} value={f.descricao} onChange={set("descricao")} />
+        </>
+      )}
       {f.id && (
         <label className="chk">
           <input type="checkbox" checked={f.ativo} onChange={(e) => setF({ ...f, ativo: e.target.checked })} />
-          Ativo (aparece nas vendas)
+          Ativo (aparece nas vendas e na loja)
         </label>
       )}
       <button type="submit" disabled={salvando || !pronto}>
@@ -75,6 +99,112 @@ function FormProduto({ inicial, aoFechar, gerente, embutido = false }) {
       <Mensagem msg={msg} />
     </form>
   );
+}
+
+// Categoria da loja: nome, ordem na vitrine e foto. Abre no lugar do item (ou no topo, se for nova).
+function FormCategoria({ inicial, aoFechar, embutido = false }) {
+  const { salvando, msg, enviar } = useEnvio();
+  const [f, setF] = useState(inicial);
+  const set = (campo) => (e) => setF({ ...f, [campo]: e.target.value });
+  const sufixo = f.id ?? "nova";
+
+  return (
+    <form
+      className={embutido ? "form-inline" : "card"}
+      onSubmit={(e) => {
+        e.preventDefault();
+        enviar(salvarCategoria, f, { aoConcluir: aoFechar, textoOk: "Categoria salva!" });
+      }}
+    >
+      {!embutido && <h2>Nova categoria</h2>}
+      <label htmlFor={`catnome-${sufixo}`}>Nome</label>
+      <input id={`catnome-${sufixo}`} value={f.nome} onChange={set("nome")} maxLength={60} required />
+      <label htmlFor={`catordem-${sufixo}`}>Ordem na loja</label>
+      <input id={`catordem-${sufixo}`} type="number" inputMode="numeric" step="1" min="0" max="999" value={f.ordem} onChange={set("ordem")} placeholder="0 = primeiro" />
+      <CampoFoto valor={f.fotoUrl} pasta="categorias" aoMudar={(fotoUrl) => setF((atual) => ({ ...atual, fotoUrl }))} />
+      {f.id && (
+        <label className="chk">
+          <input type="checkbox" checked={f.ativo} onChange={(e) => setF({ ...f, ativo: e.target.checked })} />
+          Ativa (aparece na loja)
+        </label>
+      )}
+      <div className="acoes-item">
+        <button type="button" className="botao-secundario" onClick={aoFechar}>
+          Cancelar
+        </button>
+        <button type="submit" disabled={salvando || !f.nome.trim()}>
+          {salvando ? "Salvando..." : "Salvar"}
+        </button>
+      </div>
+      {f.id && (
+        <BotaoExcluir
+          texto="Excluir categoria"
+          onConfirmar={() => enviar(excluirCategoria, f.id, { aoConcluir: aoFechar, textoOk: "Categoria excluída." })}
+        />
+      )}
+      <Mensagem msg={msg} />
+    </form>
+  );
+}
+
+function AbaCategorias({ categorias, produtos }) {
+  const [editando, setEditando] = useState(null);
+  const contagem = (id) => produtos.filter((p) => p.categoria_id === id).length;
+
+  return (
+    <>
+      {editando && !editando.id ? (
+        <FormCategoria inicial={editando} aoFechar={() => setEditando(null)} />
+      ) : (
+        <button type="button" style={{ marginTop: 0, marginBottom: 16 }} onClick={() => setEditando(CATEGORIA_VAZIA)}>
+          Nova categoria
+        </button>
+      )}
+      <div className="card">
+        {categorias.length === 0 ? (
+          <p className="vazio">Nenhuma categoria. Sem categoria, os produtos aparecem em &quot;Outros&quot; na loja.</p>
+        ) : (
+          <ul className="lista">
+            {categorias.map((c) =>
+              editando?.id === c.id ? (
+                <li key={c.id} className="editando">
+                  <FormCategoria inicial={editando} aoFechar={() => setEditando(null)} embutido />
+                </li>
+              ) : (
+                <li
+                  key={c.id}
+                  className="editavel"
+                  onClick={() => setEditando({ id: c.id, nome: c.nome, ordem: String(c.ordem), fotoUrl: c.foto_url ?? "", ativo: c.ativo })}
+                >
+                  <Miniatura url={c.foto_url} nome={c.nome} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="titulo">
+                      {c.nome}
+                      {!c.ativo && " (inativa)"}
+                    </div>
+                    <div className="sub">Ordem {c.ordem}</div>
+                  </div>
+                  <div className="valor">{contagem(c.id)} prod.</div>
+                </li>
+              ),
+            )}
+          </ul>
+        )}
+        <p className="info">Excluir uma categoria não apaga os produtos: eles passam para &quot;Outros&quot;.</p>
+      </div>
+    </>
+  );
+}
+
+function Miniatura({ url, nome }) {
+  if (!url)
+    return (
+      <span className="miniatura vazia" aria-hidden="true">
+        {nome.trim()[0]?.toUpperCase() ?? "?"}
+      </span>
+    );
+  // eslint-disable-next-line @next/next/no-img-element -- foto já reduzida no envio
+  return <img src={url} alt="" className="miniatura" loading="lazy" />;
 }
 
 function FormContagem({ produtos }) {
@@ -186,7 +316,7 @@ function FormEditarContagem({ contagem, aoFechar }) {
   );
 }
 
-export default function EstoqueClient({ produtos, contagens, gerente }) {
+export default function EstoqueClient({ produtos, categorias, contagens, gerente }) {
   const [aba, setAba] = useState("produtos");
   const [editando, setEditando] = useState(null);
   const [ocultarZerados, setOcultarZerados] = useState(false);
@@ -203,6 +333,48 @@ export default function EstoqueClient({ produtos, contagens, gerente }) {
     } catch {}
   }
   const visiveis = ocultarZerados ? produtos.filter((p) => p.saldo > 0 || editando?.id === p.id) : produtos;
+  // sem nenhuma categoria cadastrada a lista continua corrida, como antes
+  const grupos = categorias.length ? agruparPorCategoria(visiveis, categorias) : [{ id: null, nome: null, produtos: visiveis }];
+
+  const itemProduto = (p) =>
+    editando?.id === p.id ? (
+      <li key={p.id} className="editando">
+        <FormProduto key={p.id} inicial={editando} gerente={gerente} categorias={categorias} aoFechar={() => setEditando(null)} embutido />
+      </li>
+    ) : (
+      <li
+        key={p.id}
+        className={gerente ? "editavel" : undefined}
+        onClick={() =>
+          gerente &&
+          setEditando({
+            id: p.id,
+            nome: p.nome,
+            unidade: p.unidade,
+            custo: String(p.custo),
+            preco: String(p.preco),
+            ativo: p.ativo,
+            categoriaId: p.categoria_id ?? "",
+            fotoUrl: p.foto_url ?? "",
+            descricao: p.descricao ?? "",
+          })
+        }
+      >
+        {p.foto_url && <Miniatura url={p.foto_url} nome={p.nome} />}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="titulo">
+            {p.nome}
+            {!p.ativo && " (inativo)"}
+          </div>
+          <div className="sub">
+            Custo {brl(p.custo)} · Preço {brl(p.preco)}
+          </div>
+        </div>
+        <div className={`valor ${p.saldo <= 0 ? "negativo" : ""}`}>
+          {qtd(p.saldo)} {p.unidade}
+        </div>
+      </li>
+    );
 
   return (
     <>
@@ -219,63 +391,49 @@ export default function EstoqueClient({ produtos, contagens, gerente }) {
         <button type="button" className={aba === "contagem" ? "ativo" : ""} onClick={() => setAba("contagem")}>
           Contagem
         </button>
+        {gerente && (
+          <button type="button" className={aba === "categorias" ? "ativo" : ""} onClick={() => setAba("categorias")}>
+            Categorias
+          </button>
+        )}
       </div>
 
       {aba === "produtos" && (
         <>
           {editando && !editando.id ? (
-            <FormProduto key={editando.id ?? "novo"} inicial={editando} gerente={gerente} aoFechar={() => setEditando(null)} />
+            <FormProduto key={editando.id ?? "novo"} inicial={editando} gerente={gerente} categorias={categorias} aoFechar={() => setEditando(null)} />
           ) : gerente ? (
             <button type="button" style={{ marginTop: 0, marginBottom: 16 }} onClick={() => setEditando(VAZIO)}>
               Novo produto
             </button>
           ) : null}
-          <div className="card">
-            {visiveis.length === 0 ? (
+          {visiveis.length === 0 ? (
+            <div className="card">
               <p className="vazio">{produtos.length === 0 ? "Nenhum produto cadastrado." : "Nenhum produto com saldo."}</p>
-            ) : (
-              <ul className="lista">
-                {visiveis.map((p) =>
-                  editando?.id === p.id ? (
-                    <li key={p.id} className="editando">
-                      <FormProduto key={p.id} inicial={editando} gerente={gerente} aoFechar={() => setEditando(null)} embutido />
-                    </li>
-                  ) : (
-                    <li
-                      key={p.id}
-                      className={gerente ? "editavel" : undefined}
-                      onClick={() =>
-                        gerente &&
-                        setEditando({
-                          id: p.id,
-                          nome: p.nome,
-                          unidade: p.unidade,
-                          custo: String(p.custo),
-                          preco: String(p.preco),
-                          ativo: p.ativo,
-                        })
-                      }
-                    >
-                      <div>
-                        <div className="titulo">
-                          {p.nome}
-                          {!p.ativo && " (inativo)"}
-                        </div>
-                        <div className="sub">
-                          Custo {brl(p.custo)} · Preço {brl(p.preco)}
-                        </div>
-                      </div>
-                      <div className={`valor ${p.saldo <= 0 ? "negativo" : ""}`}>
-                        {qtd(p.saldo)} {p.unidade}
-                      </div>
-                    </li>
-                  ),
-                )}
-              </ul>
-            )}
-          </div>
+            </div>
+          ) : (
+            grupos.map((g) =>
+              g.nome === null ? (
+                <div className="card" key="todos">
+                  <ul className="lista">{g.produtos.map(itemProduto)}</ul>
+                </div>
+              ) : (
+                // seção retrátil por categoria; o navegador lembra aberta/fechada enquanto a tela não recarrega
+                <details className="card grupo-categoria" key={g.id ?? "outros"} open>
+                  <summary>
+                    <Miniatura url={g.foto_url} nome={g.nome} />
+                    <span className="titulo">{g.nome}</span>
+                    <span className="sub">{g.produtos.length}</span>
+                  </summary>
+                  <ul className="lista">{g.produtos.map(itemProduto)}</ul>
+                </details>
+              ),
+            )
+          )}
         </>
       )}
+
+      {aba === "categorias" && gerente && <AbaCategorias categorias={categorias} produtos={produtos} />}
 
       {aba === "contagem" && (
         <>

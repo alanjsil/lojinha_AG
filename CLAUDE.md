@@ -12,6 +12,16 @@ campos ≥ 52px com fonte ≥ 16px, botões de largura total, cartões em vez de
 Edição acontece **no próprio item** da lista (toque abre o formulário no lugar do item, como em
 `EstoqueClient`, ou os detalhes/excluir em `ListaExpansivel`), não num formulário no topo da página.
 Campos `type="number"` só aceitam ponto decimal: preencha com `String(valor)`, nunca com vírgula.
+Carregamento = skeleton: cada rota tem `loading.js` montado com as peças de `components/Skeleton.js`.
+
+**PC (≥ 1024px):** as abas viram menu lateral (CSS em `globals.css`); o item Painel (`so-pc`) só aparece no PC.
+`/painel` (gerente e sócia; vendedor vai para Resumos) é a única tela larga (`.content:has(.painel)`, 1200px):
+contas puras em `lib/painel.js`, geometria em `lib/graficos.js`, gráficos SVG sem biblioteca em `components/Graficos.js`
+(cores validadas: azul `#2a78d6` = série 1, laranja `#eb6834` = série 2). Função não passa de server para client:
+a página calcula e entrega só dados ao `PainelClient`.
+
+**PWA:** `app/manifest.js` + `public/sw.js` (navegação pela rede, `/offline` sem conexão; cache só de `/_next/static` e ícones),
+registrado por `components/RegistrarSW.js` só em produção. `sw.js` fica fora do matcher do `proxy.js`.
 
 ## Regras de negócio
 
@@ -41,6 +51,18 @@ Campos `type="number"` só aceitam ponto decimal: preencha com `String(valor)`, 
   **vendedor** não acessa despesas (aba some em Saídas, Server Action recusa) e no resumo só vê as
   próprias vendas/comissão (sem despesas, lucro líquido ou comparativo entre vendedores). Só o admin
   altera `papel`/`comissao_pct` (SQL/painel ou `--` do `criar-usuario`).
+- **Categorias e fotos (mig. 029):** `categorias` (nome, ordem, foto, ativo; só o gerente cadastra, aba Categorias no Estoque)
+  e `produtos.categoria_id`/`foto_url`/`descricao` (sem categoria = "Outros"; excluir a categoria solta os produtos).
+  Fotos no bucket público `fotos` (só o gerente envia; até 2 MB): o navegador reduz para WebP 800px (`lib/imagem.js`)
+  e a Server Action `enviarFoto` sobe; `foto_url` só aceita endereço desse bucket. O CSP libera `img-src` para o Supabase.
+- **Vitrine pública (mig. 030):** `/` (`app/(loja)/page.js`) abre sem login; rotas públicas em `lib/rotas.js` (`/`, `/login`,
+  `/offline`, que aceitam POST para a Server Action). O anon não lê tabela nenhuma: só as RPCs `vitrine()` (ativos de categoria
+  ativa, preço, foto e `esgotado`, nunca custo nem saldo) e `criar_pedido()` (security definer: refaz preço pelo banco, recusa
+  esgotado/acima do saldo/repetido, limita 3 pedidos por telefone e 30 no total a cada 10 min; erro `P0001` = mensagem para o cliente).
+  Carrinho no `localStorage` do cliente (`lib/pedido.js`); depois de gravar, abre o `wa.me` do `WHATSAPP_LOJA` (variável de
+  ambiente do servidor; vazia = só grava). `pedidos` (status `novo|atendido|cancelado`): a equipe lê e só altera status/atendimento
+  (grants por coluna). Em Vendas, "Pedidos da loja" → `/vendas?pedido=<id>` abre o `FormVenda` preenchido; `registrarVenda({ pedidoId })`
+  marca o pedido como atendido com `venda_ref` (grupo_id ou id da venda); `atualizarPedido` cancela/reabre (atendido não volta).
 
 ## Banco e auth
 
@@ -48,12 +70,12 @@ Campos `type="number"` só aceitam ponto decimal: preencha com `String(valor)`, 
 - Auth: Supabase Auth (e-mail/senha), sessão por cookie (`@supabase/ssr`). Dados pelo servidor, com o
   usuário logado, sob RLS (`lib/supabase/server.js`, Server Actions em `app/actions.js`).
 - Projeto Supabase da Lojinha: ref `modldgphwfzjarydzolx` (o mesmo de `NEXT_PUBLIC_SUPABASE_URL` em `.env.local`).
-- Schema em `db/schema.sql` (estado atual completo); mudanças em `db/migracoes/NNN_*.sql` (001–027), sempre
+- Schema em `db/schema.sql` (estado atual completo); mudanças em `db/migracoes/NNN_*.sql` (001–030), sempre
   refletidas no schema. O banco aplica a partir da 003 pelo histórico do Supabase; confira com o MCP
   (`list_migrations`) antes de numerar a próxima. Funções de trigger têm `execute` revogado de
   anon/authenticated; funções que chamam outras revogadas precisam ser `security definer`.
 - **Edição pelo gerente (mig. 023):** custo de produto só o gerente vê/edita no cadastro (Estoque); contagens (`contagens_estoque`, agora com exclusão lógica) e compras/lançamentos (Saídas) são editáveis pelo gerente em colunas limitadas (contagem: data/contada/observação; compra: data/quantidade/custo/fornecedor; lançamento: data/valor/descrição/vendedor), com checagem na Server Action para não deixar o estoque negativo; editar compra/contagem refaz o custo médio por trigger.
-- **Exclusão lógica + log (mig. 021):** `vendas`, `compras`, `despesas` e `lancamentos` nunca são apagadas de verdade: o trigger `apagar_suave` transforma o `DELETE` em `apagado_em`/`apagado_por`, e uma policy restritiva esconde as apagadas do app (o código do app continua usando `.delete()`). Efeitos derivados reagem: compra apagada/restaurada refaz o custo médio, venda apagada perde as parcelas (restaurar regera), `estoque_atual` e `resumo_acumulado` filtram `apagado_em is null`. Restaurar: tela `/log` (gerente, link no fim de Resumos) chama a Server Action `restaurarRegistro` → RPC `restaurar_registro` (mig. 022, security definer; venda só volta se houver saldo em estoque); apagar de verdade exige desligar o trigger. `log_auditoria` (só o gerente lê; o app não escreve) guarda criou/editou/apagou/restaurou com `antes`/`depois` via trigger `auditar` em vendas, compras, despesas, lançamentos, produtos e contagens (edição guarda só as colunas alteradas; recálculo automático do custo médio não é logado). Como `apagado_por` liga essas tabelas a `perfis` uma 2ª vez, embed do PostgREST precisa de hint: `perfis!vendas_vendedor_id_fkey(nome)` (sem ele a consulta falha e a lista vem vazia). Query nova que ignora a RLS (função `security definer`) precisa filtrar `apagado_em is null`.
+- **Exclusão lógica + log (mig. 021):** `vendas`, `compras`, `despesas` e `lancamentos` nunca são apagadas de verdade: o trigger `apagar_suave` transforma o `DELETE` em `apagado_em`/`apagado_por`, e uma policy restritiva esconde as apagadas do app (o código do app continua usando `.delete()`). Efeitos derivados reagem: compra apagada/restaurada refaz o custo médio, venda apagada perde as parcelas (restaurar regera), `estoque_atual` e `resumo_acumulado` filtram `apagado_em is null`. Restaurar: tela `/log` (gerente, link no fim de Resumos) chama a Server Action `restaurarRegistro` → RPC `restaurar_registro` (mig. 022, security definer; venda só volta se houver saldo em estoque); apagar de verdade exige desligar o trigger. `log_auditoria` (só o gerente lê; o app não escreve) guarda criou/editou/apagou/restaurou com `antes`/`depois` via trigger `auditar` em vendas, compras, despesas, lançamentos, produtos, contagens e categorias (edição guarda só as colunas alteradas; recálculo automático do custo médio não é logado). Como `apagado_por` liga essas tabelas a `perfis` uma 2ª vez, embed do PostgREST precisa de hint: `perfis!vendas_vendedor_id_fkey(nome)` (sem ele a consulta falha e a lista vem vazia). Query nova que ignora a RLS (função `security definer`) precisa filtrar `apagado_em is null`.
 - Usuários: `npm run criar-usuario -- "Nome" email senha [comissao] [papel]` (papel: gerente|vendedor, padrão vendedor).
 
 ## Qualidade

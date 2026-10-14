@@ -29,9 +29,9 @@ export function SkelCartao({ linhas = 3 }) {
   );
 }
 
-export function SkelKpis({ n = 4 }) {
+export function SkelKpis({ n = 4, className = "" }) {
   return (
-    <div className="kpis">
+    <div className={`kpis ${className}`}>
       {Array.from({ length: n }, (_, i) => (
         <div className="kpi" key={i}>
           <Bloco altura={14} largura="60%" style={{ marginBottom: 8 }} />

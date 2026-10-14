@@ -10,6 +10,7 @@ const TIPOS_DESPESA = ["aluguel", "agua", "luz", "internet", "gasolina", "alimen
 const TIPOS_LANCAMENTO = ["pro_labore", "pagamento_comissao", "saque", "aporte", "capital_inicial", "repasse"];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
+const BUCKET_FOTOS = "fotos";
 
 class ErroDeNegocio extends Error {}
 const falha = (msg) => {
@@ -29,8 +30,8 @@ async function executar(fn, { exigeGerente = false } = {}) {
       const usuario = await usuarioAtual(supabase);
       if (!usuario?.gerente) falha("Só o gerente pode fazer isso.");
     }
-    await fn(supabase, user);
-    return { ok: true };
+    const extra = await fn(supabase, user);
+    return { ok: true, ...extra };
   } catch (e) {
     if (e instanceof ErroDeNegocio) return { ok: false, erro: e.message };
     console.error(e);
@@ -72,9 +73,16 @@ function atualizarTudo() {
 
 // itens: [{ produtoId, quantidade, preco }]; pagamento, parcelas, data e obs valem para a venda toda.
 // Cada item vira uma linha em `vendas`, ligadas por grupo_id quando há mais de um.
-export async function registrarVenda({ itens, pagamento, parcelas, data, obs }) {
-  return executar(async (supabase) => {
+// pedidoId: venda lançada a partir de um pedido da loja (vitrine); o pedido fica "atendido" e ligado à venda.
+export async function registrarVenda({ itens, pagamento, parcelas, data, obs, pedidoId }) {
+  return executar(async (supabase, user) => {
     if (!Array.isArray(itens) || itens.length === 0) falha("Adicione ao menos um item.");
+    if (pedidoId) {
+      if (!UUID.test(pedidoId)) falha("Pedido inválido.");
+      const { data: ped } = await supabase.from("pedidos").select("status").eq("id", pedidoId).single();
+      if (!ped) falha("Pedido não encontrado.");
+      if (ped.status !== "novo") falha("Este pedido já foi atendido ou cancelado.");
+    }
     if (itens.length > 30) falha("Itens demais numa venda (máximo 30).");
     if (!PAGAMENTOS.includes(pagamento)) falha("Escolha a forma de pagamento.");
     const nParcelas = parcelasValidas(pagamento, parcelas);
@@ -96,20 +104,44 @@ export async function registrarVenda({ itens, pagamento, parcelas, data, obs }) 
     const grupoId = linhas.length > 1 ? crypto.randomUUID() : null;
     const dataVenda = dataValida(data);
     // um único insert: ou entram todos os itens, ou nenhum
-    const { error } = await supabase.from("vendas").insert(
-      linhas.map((l) => ({
-        data: dataVenda,
-        produto_id: l.produtoId,
-        quantidade: l.q,
-        preco_unit: l.p,
-        pagamento,
-        parcelas: nParcelas,
-        obs: (obs ?? "").trim() || null,
-        grupo_id: grupoId,
-      })),
-    );
+    const { data: gravadas, error } = await supabase
+      .from("vendas")
+      .insert(
+        linhas.map((l) => ({
+          data: dataVenda,
+          produto_id: l.produtoId,
+          quantidade: l.q,
+          preco_unit: l.p,
+          pagamento,
+          parcelas: nParcelas,
+          obs: (obs ?? "").trim() || null,
+          grupo_id: grupoId,
+        })),
+      )
+      .select("id");
     if (error) throw error;
+    if (pedidoId) {
+      // a venda já entrou; se marcar o pedido falhar, ele só continua aparecendo como novo
+      const { error: erroPedido } = await supabase
+        .from("pedidos")
+        .update({ status: "atendido", venda_ref: grupoId ?? gravadas?.[0]?.id ?? null, atendido_por: user.id, atendido_em: new Date().toISOString() })
+        .eq("id", pedidoId);
+      if (erroPedido) console.error(erroPedido);
+    }
     atualizarTudo();
+  });
+}
+
+// Cancela um pedido da loja (cliente desistiu, pedido de teste...) ou o reabre como novo
+export async function atualizarPedido({ id, status }) {
+  return executar(async (supabase, user) => {
+    if (!UUID.test(id ?? "")) falha("Pedido inválido.");
+    if (!["novo", "cancelado"].includes(status)) falha("Situação inválida.");
+    const campos = status === "cancelado" ? { status, atendido_por: user.id, atendido_em: new Date().toISOString() } : { status, atendido_por: null, atendido_em: null, venda_ref: null };
+    const { data: salvos, error } = await supabase.from("pedidos").update(campos).eq("id", id).neq("status", "atendido").select("id");
+    if (error) throw error;
+    if (!salvos?.length) falha("Pedido já atendido: exclua a venda para desfazer.");
+    revalidatePath("/vendas");
   });
 }
 
@@ -158,24 +190,96 @@ export async function excluirVenda(id) {
 
 // ---------- Produtos ----------
 
+// só aceita foto do nosso bucket (a vitrine pública mostra o endereço gravado aqui)
+function fotoValida(url) {
+  const u = (url ?? "").trim();
+  if (!u) return null;
+  if (!u.startsWith(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${BUCKET_FOTOS}/`)) falha("Foto inválida.");
+  return u;
+}
+
 // Custo e preço são obrigatórios: sem os dois o produto não é salvo.
-export async function salvarProduto({ id, nome, unidade, custo, preco, ativo = true }) {
+export async function salvarProduto({ id, nome, unidade, custo, preco, ativo = true, categoriaId, fotoUrl, descricao }) {
   return executar(
     async (supabase) => {
       const n = (nome ?? "").trim();
       if (!n) falha("Informe o nome do produto.");
+      const desc = (descricao ?? "").trim();
+      if (desc.length > 500) falha("Descrição longa demais (máximo 500 letras).");
+      if (categoriaId && !UUID.test(categoriaId)) falha("Categoria inválida.");
       const campos = {
         nome: n,
         unidade: (unidade ?? "").trim() || "un",
         ativo: Boolean(ativo),
         custo: valorPositivo(custo, "o custo", { permiteZero: true }),
         preco: valorPositivo(preco, "o preço"),
+        categoria_id: categoriaId || null,
+        foto_url: fotoValida(fotoUrl),
+        descricao: desc || null,
       };
 
       const { error } = id ? await supabase.from("produtos").update(campos).eq("id", id) : await supabase.from("produtos").insert(campos);
       if (error?.code === "23505") falha("Já existe um produto com esse nome.");
       if (error) throw error;
       atualizarTudo();
+    },
+    { exigeGerente: true },
+  );
+}
+
+// ---------- Categorias e fotos (vitrine) ----------
+
+export async function salvarCategoria({ id, nome, ordem, fotoUrl, ativo = true }) {
+  return executar(
+    async (supabase) => {
+      const n = (nome ?? "").trim();
+      if (!n) falha("Informe o nome da categoria.");
+      if (n.length > 60) falha("Nome longo demais (máximo 60 letras).");
+      const o = preenchido(ordem) ? Number(ordem) : 0;
+      if (!Number.isInteger(o) || o < 0 || o > 999) falha("Ordem inválida (0 a 999).");
+      const campos = { nome: n, ordem: o, foto_url: fotoValida(fotoUrl), ativo: Boolean(ativo) };
+
+      const { error } = id ? await supabase.from("categorias").update(campos).eq("id", id) : await supabase.from("categorias").insert(campos);
+      if (error?.code === "23505") falha("Já existe uma categoria com esse nome.");
+      if (error) throw error;
+      atualizarTudo();
+      revalidatePath("/");
+    },
+    { exigeGerente: true },
+  );
+}
+
+// os produtos da categoria ficam sem categoria ("Outros")
+export async function excluirCategoria(id) {
+  return executar(
+    async (supabase) => {
+      if (!UUID.test(id ?? "")) falha("Categoria inválida.");
+      const { error } = await supabase.from("categorias").delete().eq("id", id);
+      if (error) throw error;
+      atualizarTudo();
+      revalidatePath("/");
+    },
+    { exigeGerente: true },
+  );
+}
+
+const TIPOS_FOTO = { "image/webp": "webp", "image/jpeg": "jpg", "image/png": "png" };
+
+// Recebe a foto já reduzida no navegador (lib/imagem.js) e devolve o endereço público no bucket.
+export async function enviarFoto(formData) {
+  return executar(
+    async (supabase) => {
+      const arquivo = formData?.get?.("foto");
+      if (!arquivo || typeof arquivo === "string") falha("Escolha uma foto.");
+      const ext = TIPOS_FOTO[arquivo.type];
+      if (!ext) falha("Formato de foto não aceito (use JPG, PNG ou WebP).");
+      if (arquivo.size > 2 * 1024 * 1024) falha("Foto grande demais (máximo 2 MB).");
+      const pasta = formData.get("pasta") === "categorias" ? "categorias" : "produtos";
+      const caminho = `${pasta}/${crypto.randomUUID()}.${ext}`;
+
+      const { error } = await supabase.storage.from(BUCKET_FOTOS).upload(caminho, arquivo, { contentType: arquivo.type, cacheControl: "31536000" });
+      if (error) throw error;
+      return { url: supabase.storage.from(BUCKET_FOTOS).getPublicUrl(caminho).data.publicUrl };
     },
     { exigeGerente: true },
   );

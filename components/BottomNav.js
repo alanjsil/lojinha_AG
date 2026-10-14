@@ -27,6 +27,13 @@ const links = [
     label: "Resumos",
     icone: icone("M4 20V10M10 20V4M16 20v-7M22 20H2"),
   },
+  // só no PC (classe so-pc); vendedor que abrir cai no Resumos
+  {
+    href: "/painel",
+    label: "Painel",
+    icone: icone("M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z"),
+    className: "so-pc",
+  },
 ];
 
 // Navegação em abas fixas no rodapé: é onde o polegar alcança no celular
@@ -37,7 +44,7 @@ export default function BottomNav() {
   return (
     <nav className="bottom-nav">
       {links.map((link) => (
-        <Link key={link.href} href={link.href} className={pathname.startsWith(link.href) ? "active" : ""}>
+        <Link key={link.href} href={link.href} className={[link.className, pathname.startsWith(link.href) ? "active" : ""].filter(Boolean).join(" ")}>
           {link.icone}
           {link.label}
         </Link>

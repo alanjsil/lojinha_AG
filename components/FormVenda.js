@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { registrarVenda } from "../app/actions";
 import { brl, hoje, numero, preenchido, qtd } from "../lib/formato";
@@ -10,16 +11,28 @@ const FORMAS = [
   ["cartao", "Cartão"],
 ];
 
-export default function FormVenda({ produtos, comissaoPct }) {
+// itens de um pedido da loja já no lote, com o preço do pedido (o vendedor ainda pode remover)
+function loteDoPedido(pedido, produtos) {
+  if (!pedido) return [];
+  return pedido.itens.flatMap((i) => {
+    const p = produtos.find((x) => x.id === i.produto_id);
+    if (!p) return [];
+    return [{ produtoId: p.id, quantidade: String(i.quantidade), preco: String(i.preco), nome: p.nome, unidade: p.unidade, q: Number(i.quantidade), pr: Number(i.preco), custo: p.custo }];
+  });
+}
+
+export default function FormVenda({ produtos, comissaoPct, pedido = null }) {
+  const router = useRouter();
   const { salvando, msg, enviar, limpar } = useEnvio();
-  const [lote, setLote] = useState([]); // itens já adicionados à venda
+  const [lote, setLote] = useState(() => loteDoPedido(pedido, produtos)); // itens já adicionados à venda
+  const faltando = pedido ? pedido.itens.filter((i) => !produtos.some((p) => p.id === i.produto_id)) : [];
   const [produtoId, setProdutoId] = useState("");
   const [quantidade, setQuantidade] = useState("1");
   const [preco, setPreco] = useState("");
   const [pagamento, setPagamento] = useState("a_vista");
   const [parcelas, setParcelas] = useState("1");
   const [data, setData] = useState("");
-  const [obs, setObs] = useState("");
+  const [obs, setObs] = useState(pedido ? `Pedido nº ${pedido.numero} · ${pedido.cliente_nome}`.slice(0, 200) : "");
 
   // data local só no navegador (o servidor roda em UTC)
   useEffect(() => setData(hoje()), []);
@@ -63,7 +76,7 @@ export default function FormVenda({ produtos, comissaoPct }) {
     e.preventDefault();
     await enviar(
       registrarVenda,
-      { itens: itens.map(({ produtoId, quantidade, preco }) => ({ produtoId, quantidade, preco })), pagamento, parcelas: nParcelas, data, obs },
+      { itens: itens.map(({ produtoId, quantidade, preco }) => ({ produtoId, quantidade, preco })), pagamento, parcelas: nParcelas, data, obs, pedidoId: pedido?.id },
       {
         textoOk: itens.length > 1 ? `Venda registrada (${itens.length} itens)!` : "Venda registrada!",
         aoConcluir: () => {
@@ -71,6 +84,7 @@ export default function FormVenda({ produtos, comissaoPct }) {
           limparItem();
           setParcelas("1");
           setObs("");
+          if (pedido) router.replace("/vendas"); // sai do modo pedido
         },
       },
     );
@@ -86,6 +100,16 @@ export default function FormVenda({ produtos, comissaoPct }) {
 
   return (
     <form className="card" onSubmit={enviarVenda}>
+      {pedido && (
+        <p className="info" style={{ marginTop: 0 }}>
+          Lançando o <strong>pedido nº {pedido.numero}</strong> de {pedido.cliente_nome}. Confira itens, preço e pagamento antes de registrar.
+        </p>
+      )}
+      {faltando.map((i) => (
+        <p key={i.produto_id} className="alerta">
+          {i.nome} está sem estoque ou inativo e ficou fora da venda.
+        </p>
+      ))}
       {lote.length > 0 && (
         <ul className="lista" style={{ marginBottom: 12 }}>
           {lote.map((i, idx) => (

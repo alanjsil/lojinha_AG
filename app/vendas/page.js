@@ -1,17 +1,21 @@
+import Link from "next/link";
 import FormVenda from "../../components/FormVenda";
 import ListaVendas from "../../components/ListaVendas";
+import PedidosLoja from "../../components/PedidosLoja";
 import { brl, dataBR, qtd, somarDias } from "../../lib/formato";
 import { createClient, usuarioAtual } from "../../lib/supabase/server";
 import { excluirVenda } from "../actions";
 
 const FORMA = { a_vista: "À Vista", cartao: "Cartão" };
 
-export default async function Vendas() {
+// ?pedido=<id>: o formulário abre com os itens de um pedido da loja (vitrine)
+export default async function Vendas({ searchParams }) {
+  const { pedido: pedidoId } = await searchParams;
   const supabase = await createClient();
   const usuario = await usuarioAtual(supabase);
 
   const desde = somarDias(new Date().toLocaleDateString("sv-SE"), -6);
-  const [{ data: produtos }, { data: vendas }] = await Promise.all([
+  const [{ data: produtos }, { data: vendas }, { data: pedidos }] = await Promise.all([
     supabase.from("estoque_atual").select("id, nome, unidade, custo, preco, saldo").eq("ativo", true).gt("saldo", 0).order("nome"),
     supabase
       .from("vendas")
@@ -22,7 +26,9 @@ export default async function Vendas() {
       .order("data", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(50),
+    supabase.from("pedidos").select("id, numero, criado_em, cliente_nome, cliente_telefone, obs, itens, total").eq("status", "novo").order("criado_em").limit(50),
   ]);
+  const pedido = pedidoId ? ((pedidos ?? []).find((p) => p.id === pedidoId) ?? null) : null;
 
   const mostraSocia = usuario?.gerente || usuario?.papel === "socia";
   const dadosDe = (v) => ({
@@ -84,8 +90,21 @@ export default async function Vendas() {
 
   return (
     <>
-      <h1>Nova venda</h1>
+      {!pedido && <PedidosLoja pedidos={(pedidos ?? []).map((p) => ({ ...p, total: Number(p.total) }))} />}
+      {pedido ? (
+        <div className="titulo-linha">
+          <h1>Pedido nº {pedido.numero}</h1>
+          <Link href="/vendas" className="filtro-chip link-chip">
+            Voltar
+          </Link>
+        </div>
+      ) : (
+        <h1>Nova venda</h1>
+      )}
+      {pedidoId && !pedido && <p className="alerta">Esse pedido já foi atendido ou cancelado.</p>}
       <FormVenda
+        key={pedido?.id ?? "nova"}
+        pedido={pedido}
         produtos={(produtos ?? []).map((p) => ({
           ...p,
           custo: Number(p.custo),
