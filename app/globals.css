@@ -825,3 +825,37 @@ button:disabled {
   line-height: 1;
   color: var(--texto-suave);
 }
+
+/* ---------- Esqueleto de carregamento (loading.js) ---------- */
+
+.skel {
+  display: block;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #e6e5e1 25%, #f1f0ed 50%, #e6e5e1 75%);
+  background-size: 200% 100%;
+  animation: skel-brilho 1.2s ease-in-out infinite;
+}
+
+@keyframes skel-brilho {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skel {
+    animation: none;
+  }
+}
+
+.skel-segmentos {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 16px;
+  border-radius: 10px;
+  background: #e8e6e1;
+}

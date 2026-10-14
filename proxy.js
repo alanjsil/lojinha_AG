@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
+import { rotaPublica } from "./lib/rotas";
 
 // Content-Security-Policy com nonce por resposta (o Next injeta scripts inline para hidratar o React).
 // O app só fala com o Supabase pelo servidor, então o navegador só precisa conectar em si mesmo.
@@ -59,7 +60,8 @@ export async function proxy(req) {
   const { pathname } = req.nextUrl;
   const naTelaLogin = pathname === "/login";
 
-  if (!user && !naTelaLogin) {
+  // vitrine, login e offline abrem sem login (inclusive o POST da Server Action do pedido)
+  if (!user && !rotaPublica(pathname)) {
     if (req.method !== "GET" && req.method !== "HEAD") {
       const negado = new NextResponse("Login necessário", { status: 401 });
       negado.headers.set("Content-Security-Policy", politica);
@@ -86,7 +88,7 @@ export async function proxy(req) {
   return res;
 }
 
-// tudo, menos os arquivos do próprio Next e os ícones
+// tudo, menos os arquivos do próprio Next, os ícones e o service worker
 export const config = {
-  matcher: ["/((?!_next/|icons/|manifest.webmanifest|icon.png|apple-icon.png).*)"],
+  matcher: ["/((?!_next/|icons/|manifest.webmanifest|icon.png|apple-icon.png|sw.js).*)"],
 };

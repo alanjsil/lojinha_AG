@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { rotaPublica } from "../lib/rotas";
 
 const icone = (d) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -31,7 +32,7 @@ const links = [
 // Navegação em abas fixas no rodapé: é onde o polegar alcança no celular
 export default function BottomNav() {
   const pathname = usePathname();
-  if (pathname === "/login") return null; // antes do login não tem para onde navegar
+  if (rotaPublica(pathname)) return null; // vitrine/login/offline: não tem para onde navegar
 
   return (
     <nav className="bottom-nav">

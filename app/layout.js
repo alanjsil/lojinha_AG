@@ -1,5 +1,6 @@
 import BottomNav from "../components/BottomNav";
 import Novidades from "../components/Novidades";
+import RegistrarSW from "../components/RegistrarSW";
 import "./globals.css";
 
 export const metadata = {
@@ -31,6 +32,7 @@ export default function RootLayout({ children }) {
         <main className="content">{children}</main>
         <BottomNav />
         <Novidades />
+        <RegistrarSW />
       </body>
     </html>
   );
