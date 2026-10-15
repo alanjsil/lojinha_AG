@@ -1,7 +1,7 @@
 -- ============================================================
 -- Schema da Lojinha A&G (Supabase Postgres)
 -- Aplicar no SQL Editor do Supabase (ou via migração). Mudanças futuras
--- vão em db/migracoes/NNN_*.sql e também são refletidas aqui.
+-- vão em supabase/migrations/<timestamp>_nome.sql e também são refletidas aqui.
 -- ============================================================
 -- 1) Perfil de cada usuário (1:1 com auth.users). A comissão é definida só pelo admin (SQL/painel).
 create table if not exists perfis (

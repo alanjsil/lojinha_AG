@@ -85,9 +85,13 @@ registrado por `components/RegistrarSW.js` só em produção. `sw.js` fica fora 
 - Auth: Supabase Auth (e-mail/senha), sessão por cookie (`@supabase/ssr`). Dados pelo servidor, com o
   usuário logado, sob RLS (`lib/supabase/server.js`, Server Actions em `app/actions.js`).
 - Projeto Supabase da Lojinha: ref `modldgphwfzjarydzolx` (o mesmo de `NEXT_PUBLIC_SUPABASE_URL` em `.env.local`).
-- Schema em `db/schema.sql` (estado atual completo); mudanças em `db/migracoes/NNN_*.sql` (001–032), sempre
-  refletidas no schema. O banco aplica a partir da 003 pelo histórico do Supabase; confira com o MCP
-  (`list_migrations`) antes de numerar a próxima. Funções de trigger têm `execute` revogado de
+- Schema em `db/schema.sql` (estado atual completo); mudanças em `supabase/migrations/<timestamp>_nome.sql` (formato da
+  Supabase CLI; as antigas 003–032 foram renomeadas, o número original continua no nome do arquivo), sempre
+  refletidas no schema. Nova migração: `npx supabase migration new nome`. `db/migracoes/` guarda só a 001 e a 002
+  (anteriores ao histórico do banco). Produção chegou até a 028; 029–032 entram pelo workflow manual
+  `.github/workflows/db.yml` (secrets `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_ID`; rode
+  primeiro com dry_run). CI de lint/testes em `ci.yml`. Confira com `npx supabase migration list` ou o MCP
+  (`list_migrations`) antes de criar a próxima. Funções de trigger têm `execute` revogado de
   anon/authenticated; funções que chamam outras revogadas precisam ser `security definer`.
 - **Edição pelo gerente (mig. 023):** custo de produto só o gerente vê/edita no cadastro (Estoque); contagens (`contagens_estoque`, agora com exclusão lógica) e compras/lançamentos (Saídas) são editáveis pelo gerente em colunas limitadas (contagem: data/contada/observação; compra: data/quantidade/custo/fornecedor; lançamento: data/valor/descrição/vendedor), com checagem na Server Action para não deixar o estoque negativo; editar compra/contagem refaz o custo médio por trigger.
 - **Exclusão lógica + log (mig. 021):** `vendas`, `compras`, `despesas` e `lancamentos` nunca são apagadas de verdade: o trigger `apagar_suave` transforma o `DELETE` em `apagado_em`/`apagado_por`, e uma policy restritiva esconde as apagadas do app (o código do app continua usando `.delete()`). Efeitos derivados reagem: compra apagada/restaurada refaz o custo médio, venda apagada perde as parcelas (restaurar regera), `estoque_atual` e `resumo_acumulado` filtram `apagado_em is null`. Restaurar: tela `/log` (gerente, link no fim de Resumos) chama a Server Action `restaurarRegistro` → RPC `restaurar_registro` (mig. 022, security definer; venda só volta se houver saldo em estoque); apagar de verdade exige desligar o trigger. `log_auditoria` (só o gerente lê; o app não escreve) guarda criou/editou/apagou/restaurou com `antes`/`depois` via trigger `auditar` em vendas, compras, despesas, lançamentos, produtos, contagens e categorias (edição guarda só as colunas alteradas; recálculo automático do custo médio não é logado). Como `apagado_por` liga essas tabelas a `perfis` uma 2ª vez, embed do PostgREST precisa de hint: `perfis!vendas_vendedor_id_fkey(nome)` (sem ele a consulta falha e a lista vem vazia). Query nova que ignora a RLS (função `security definer`) precisa filtrar `apagado_em is null`.
