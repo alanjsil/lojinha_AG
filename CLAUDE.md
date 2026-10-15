@@ -90,7 +90,8 @@ registrado por `components/RegistrarSW.js` só em produção. `sw.js` fica fora 
   refletidas no schema. Nova migração: `npx supabase migration new nome`. `db/migracoes/` guarda só a 001 e a 002
   (anteriores ao histórico do banco). Produção chegou até a 028; 029–032 entram pelo workflow manual
   `.github/workflows/db.yml` (secrets `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_ID`; rode
-  primeiro com dry_run). CI de lint/testes em `ci.yml`. Confira com `npx supabase migration list` ou o MCP
+  primeiro com dry_run). CI de lint/testes em `ci.yml`. Passo a passo de migrações e das chaves VAPID/variáveis de
+  ambiente em `docs/supabase-e-vapid.md` (nomes das variáveis em `.env.example`). Confira com `npx supabase migration list` ou o MCP
   (`list_migrations`) antes de criar a próxima. Funções de trigger têm `execute` revogado de
   anon/authenticated; funções que chamam outras revogadas precisam ser `security definer`.
 - **Edição pelo gerente (mig. 023):** custo de produto só o gerente vê/edita no cadastro (Estoque); contagens (`contagens_estoque`, agora com exclusão lógica) e compras/lançamentos (Saídas) são editáveis pelo gerente em colunas limitadas (contagem: data/contada/observação; compra: data/quantidade/custo/fornecedor; lançamento: data/valor/descrição/vendedor), com checagem na Server Action para não deixar o estoque negativo; editar compra/contagem refaz o custo médio por trigger.
