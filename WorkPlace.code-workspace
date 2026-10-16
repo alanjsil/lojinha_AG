@@ -11,7 +11,7 @@
     // =========================================================
     "files.exclude": {
       // Arquivos
-      //".env*": true,
+      ".env*": true,
       ".next": true,
       ".github": true,
       ".vscode": true,
