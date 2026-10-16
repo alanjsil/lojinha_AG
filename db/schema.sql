@@ -219,7 +219,7 @@ create table if not exists vendas (
   pagamento text not null check (pagamento in ('a_vista', 'cartao')),
   -- só cartão parcela; a comissão cai junto com cada parcela (tabela parcelas)
   parcelas smallint not null default 1 check (parcelas between 1 and 12),
-  check (
+  constraint vendas_parcelas_so_cartao check (
     parcelas = 1
     or pagamento = 'cartao'
   ),
@@ -293,6 +293,8 @@ create table if not exists parcelas (
 create index if not exists parcelas_vencimento on parcelas (vencimento);
 
 create index if not exists parcelas_vendedor on parcelas (vendedor_id, vencimento);
+
+create index if not exists parcelas_socia on parcelas (socia_id);
 
 create or replace function vendas_gerar_parcelas () returns trigger language plpgsql security definer
 set
@@ -1291,6 +1293,7 @@ create or replace function vitrine () returns table (
   preco numeric,
   foto_url text,
   esgotado boolean,
+  restam int,
   categoria_id uuid,
   categoria_nome text,
   categoria_ordem int,
@@ -1300,14 +1303,18 @@ set
   search_path = '' as $$
   select
     p.id, p.nome, p.descricao, p.preco, p.foto_url,
-    (
-      coalesce((select sum(c.quantidade) from public.compras c where c.produto_id = p.id and c.apagado_em is null), 0)
-      - coalesce((select sum(v.quantidade) from public.vendas v where v.produto_id = p.id and v.apagado_em is null), 0)
-      + coalesce((select sum(e.diferenca) from public.contagens_estoque e where e.produto_id = p.id and e.apagado_em is null), 0)
-    ) <= 0,
+    s.saldo <= 0,
+    case when s.saldo >= 1 and s.saldo <= 10 then floor(s.saldo)::int end,
     k.id, k.nome, k.ordem, k.foto_url
   from public.produtos p
   left join public.categorias k on k.id = p.categoria_id
+  cross join lateral (
+    select
+      coalesce((select sum(c.quantidade) from public.compras c where c.produto_id = p.id and c.apagado_em is null), 0)
+      - coalesce((select sum(v.quantidade) from public.vendas v where v.produto_id = p.id and v.apagado_em is null), 0)
+      + coalesce((select sum(e.diferenca) from public.contagens_estoque e where e.produto_id = p.id and e.apagado_em is null), 0)
+      as saldo
+  ) s
   where p.ativo and (k.id is null or k.ativo)
   order by p.nome;
 $$;
@@ -1389,10 +1396,10 @@ begin
       - coalesce((select sum(v.quantidade) from public.vendas v where v.produto_id = v_prod.id and v.apagado_em is null), 0)
       + coalesce((select sum(e.diferenca) from public.contagens_estoque e where e.produto_id = v_prod.id and e.apagado_em is null), 0);
     if v_saldo <= 0 then
-      raise exception '% esgotou. Tire do carrinho para continuar.', v_prod.nome using errcode = 'P0001';
+      raise exception '% esgotou. Tiramos do carrinho; confira e envie de novo.', v_prod.nome using errcode = 'P0001';
     end if;
     if v_qtd > v_saldo then
-      raise exception 'Não temos essa quantidade de %. Diminua no carrinho.', v_prod.nome using errcode = 'P0001';
+      raise exception 'Restam só % de %. Ajustamos o carrinho; confira e envie de novo.', floor(v_saldo)::int, v_prod.nome using errcode = 'P0001';
     end if;
 
     v_itens := v_itens || jsonb_build_object('produto_id', v_prod.id, 'nome', v_prod.nome, 'quantidade', v_qtd, 'preco', v_prod.preco);
@@ -1756,10 +1763,10 @@ begin
       - coalesce((select sum(v.quantidade) from public.vendas v where v.produto_id = v_prod.id and v.apagado_em is null), 0)
       + coalesce((select sum(e.diferenca) from public.contagens_estoque e where e.produto_id = v_prod.id and e.apagado_em is null), 0);
     if v_saldo <= 0 then
-      raise exception '% esgotou. Tire do carrinho para continuar.', v_prod.nome using errcode = 'P0001';
+      raise exception '% esgotou. Tiramos do carrinho; confira e envie de novo.', v_prod.nome using errcode = 'P0001';
     end if;
     if v_qtd > v_saldo then
-      raise exception 'Não temos essa quantidade de %. Diminua no carrinho.', v_prod.nome using errcode = 'P0001';
+      raise exception 'Restam só % de %. Ajustamos o carrinho; confira e envie de novo.', floor(v_saldo)::int, v_prod.nome using errcode = 'P0001';
     end if;
 
     v_itens := v_itens || jsonb_build_object('produto_id', v_prod.id, 'nome', v_prod.nome, 'quantidade', v_qtd, 'preco', v_prod.preco);

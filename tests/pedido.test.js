@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { limparCarrinho, linkWhatsApp, MAX_ITENS, mensagemPedido, mudarQuantidade, resumoCarrinho, telefoneValido } from "../lib/pedido.js";
+import { limiteDe, limparCarrinho, linkWhatsApp, MAX_ITENS, mensagemPedido, mudarQuantidade, resumoCarrinho, telefoneValido } from "../lib/pedido.js";
 
 const sp = (s) => s.replace(/\s/g, " ");
 
@@ -29,6 +29,27 @@ test("mudarQuantidade não passa do máximo de itens diferentes", () => {
 test("limparCarrinho tira esgotados, sumidos e quantidades inválidas", () => {
   assert.deepEqual(limparCarrinho({ a: 2, c: 1, x: 3, b: 0 }, produtos), { a: 2 });
   assert.deepEqual(limparCarrinho(null, produtos), {});
+});
+
+test("limiteDe usa o que resta quando a vitrine informa", () => {
+  assert.equal(limiteDe({ restam: 5 }), 5);
+  assert.equal(limiteDe({ restam: null }), 99);
+  assert.equal(limiteDe({}), 99);
+  assert.equal(limiteDe(undefined), 99);
+  assert.equal(limiteDe({ restam: 0 }), 0);
+});
+
+test("mudarQuantidade respeita o máximo do produto", () => {
+  assert.deepEqual(mudarQuantidade({}, "a", 10, 5), { a: 5 });
+  assert.deepEqual(mudarQuantidade({ a: 5 }, "a", 6, 5), { a: 5 });
+});
+
+test("limparCarrinho reduz ao que ainda resta", () => {
+  const ps = [
+    { id: "a", esgotado: false, restam: 3 },
+    { id: "b", esgotado: false, restam: null },
+  ];
+  assert.deepEqual(limparCarrinho({ a: 10, b: 10 }, ps), { a: 3, b: 10 });
 });
 
 test("resumoCarrinho soma quantidade e total pelo preço da vitrine", () => {

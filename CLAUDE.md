@@ -57,7 +57,7 @@ registrado por `components/RegistrarSW.js` só em produção. `sw.js` fica fora 
   e a Server Action `enviarFoto` sobe; `foto_url` só aceita endereço desse bucket. O CSP libera `img-src` para o Supabase.
 - **Vitrine pública (mig. 030):** `/` (`app/(loja)/page.js`) abre sem login; rotas públicas em `lib/rotas.js` (`/`, `/login`,
   `/cadastro`, `/offline`, que aceitam POST para a Server Action). O anon não lê tabela nenhuma: só as RPCs `vitrine()` (ativos de categoria
-  ativa, preço, foto e `esgotado`, nunca custo nem saldo) e `criar_pedido()` (security definer: refaz preço pelo banco, recusa
+  ativa, preço, foto, `esgotado` e `restam` — saldo só quando é de 1 a 10, senão null; trava o "+" do carrinho via `limiteDe` de `lib/pedido.js`; nunca custo nem saldo exato) e `criar_pedido()` (security definer: refaz preço pelo banco, recusa
   esgotado/acima do saldo/repetido, limita 3 pedidos por telefone e 30 no total a cada 10 min; erro `P0001` = mensagem para o cliente).
   Carrinho no `localStorage` do cliente (`lib/pedido.js`); depois de gravar, abre o `wa.me` do `WHATSAPP_LOJA` (variável de
   ambiente do servidor; vazia = só grava). `pedidos` (status `novo → confirmado → pronto → entregue`, ou `cancelado`; regras em
@@ -88,8 +88,8 @@ registrado por `components/RegistrarSW.js` só em produção. `sw.js` fica fora 
 - Schema em `db/schema.sql` (estado atual completo); mudanças em `supabase/migrations/<timestamp>_nome.sql` (formato da
   Supabase CLI; as antigas 003–032 foram renomeadas, o número original continua no nome do arquivo), sempre
   refletidas no schema. Nova migração: `npx supabase migration new nome`. `db/migracoes/` guarda só a 001 e a 002
-  (anteriores ao histórico do banco). Produção chegou até a 028; 029–032 entram pelo workflow manual
-  `.github/workflows/db.yml` (secrets `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_ID`; rode
+  (anteriores ao histórico do banco). Produção está em dia (até a 032); migrações novas entram pelo workflow manual
+  `.github/workflows/db.yml` (só produção; o dev em rede local recebe por `db push --db-url`) (secrets `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_ID`; rode
   primeiro com dry_run). CI de lint/testes em `ci.yml`. Passo a passo de migrações e das chaves VAPID/variáveis de
   ambiente em `docs/supabase-e-vapid.md` (nomes das variáveis em `.env.example`). Confira com `npx supabase migration list` ou o MCP
   (`list_migrations`) antes de criar a próxima. Funções de trigger têm `execute` revogado de

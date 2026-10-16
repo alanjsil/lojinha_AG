@@ -963,6 +963,13 @@ button:disabled {
   font-weight: 700;
 }
 
+.loja-restam {
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vermelho);
+}
+
 .loja-grade li > button {
   min-height: 48px;
   margin-top: 8px;

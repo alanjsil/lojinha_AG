@@ -7,6 +7,9 @@
     "build": "next build",
     "start": "next start",
     "criar-usuario": "node --env-file=.env.local scripts/criar-usuario.mjs",
+    "db:dev:dry": "node --env-file=.env.local scripts/db-dev.mjs dry",
+    "db:dev": "node --env-file=.env.local scripts/db-dev.mjs push",
+    "db:dev:list": "node --env-file=.env.local scripts/db-dev.mjs list",
     "lint": "eslint .",
     "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"tests/**/*.test.js\""
   },

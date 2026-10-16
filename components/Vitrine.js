@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { criarPedido } from "../app/loja/actions";
 import { agruparPorCategoria } from "../lib/categorias";
 import { brl } from "../lib/formato";
-import { formatarTelefone, limparCarrinho, linkWhatsApp, MAX_POR_ITEM, mensagemPedido, mudarQuantidade, resumoCarrinho, telefoneValido } from "../lib/pedido";
+import { formatarTelefone, limparCarrinho, limiteDe, linkWhatsApp, MAX_POR_ITEM, mensagemPedido, mudarQuantidade, resumoCarrinho, telefoneValido } from "../lib/pedido";
 
 const CHAVE_CARRINHO = "loja-carrinho";
 const CHAVE_CLIENTE = "loja-cliente";
@@ -41,19 +42,22 @@ function Foto({ url, nome, className }) {
   return <img src={url} alt="" className={className} loading="lazy" />;
 }
 
-function Quantidade({ valor, aoMudar, nome }) {
+function Quantidade({ valor, aoMudar, nome, maximo = MAX_POR_ITEM }) {
   return (
     <div className="qtd-passo" role="group" aria-label={`Quantidade de ${nome}`}>
       <button type="button" onClick={() => aoMudar(valor - 1)} aria-label="Diminuir">
         −
       </button>
       <span aria-live="polite">{valor}</span>
-      <button type="button" onClick={() => aoMudar(valor + 1)} disabled={valor >= MAX_POR_ITEM} aria-label="Aumentar">
+      <button type="button" onClick={() => aoMudar(valor + 1)} disabled={valor >= maximo} aria-label="Aumentar">
         +
       </button>
     </div>
   );
 }
+
+// aviso embaixo do produto quando o estoque é curto: "Só 5 disponíveis" / "Última unidade"
+const avisoRestam = (p) => (p.restam == null || p.esgotado ? null : p.restam === 1 ? "Última unidade" : `Só ${p.restam} disponíveis`);
 
 export default function Vitrine({ produtos, visitante, whatsapp, erro }) {
   const [carrinho, setCarrinho] = useState({});
@@ -64,17 +68,24 @@ export default function Vitrine({ produtos, visitante, whatsapp, erro }) {
   const [falha, setFalha] = useState(null);
   const [enviado, setEnviado] = useState(null); // { numero, link }
 
-  // carrinho e dados do cliente ficam no aparelho; o que esgotou desde a última visita sai
+  const router = useRouter();
+
+  // carrinho fica no aparelho; o que esgotou ou diminuiu desde a última visita (ou desde o último refresh) é ajustado
   useEffect(() => {
     setCarrinho(limparCarrinho(ler(CHAVE_CARRINHO, {}), produtos));
-    // cliente com conta: nome e WhatsApp do cadastro; sem conta: o que ficou salvo no aparelho
+  }, [produtos]);
+
+  // cliente com conta: nome e WhatsApp do cadastro; sem conta: o que ficou salvo no aparelho
+  useEffect(() => {
     const doCadastro = visitante && !visitante.equipe && visitante.nome ? { nome: visitante.nome, telefone: formatarTelefone(visitante.telefone) } : {};
     setCliente((c) => ({ ...c, ...ler(CHAVE_CLIENTE, {}), ...doCadastro, obs: "" }));
-  }, [produtos, visitante]);
+  }, [visitante]);
+
+  const porId = useMemo(() => new Map(produtos.map((p) => [p.id, p])), [produtos]);
 
   function mudar(id, q) {
     setCarrinho((atual) => {
-      const novo = mudarQuantidade(atual, id, q);
+      const novo = mudarQuantidade(atual, id, q, limiteDe(porId.get(id)));
       gravar(CHAVE_CARRINHO, novo);
       return novo;
     });
@@ -104,6 +115,8 @@ export default function Vitrine({ produtos, visitante, whatsapp, erro }) {
     setEnviando(false);
     if (!r.ok) {
       setFalha(r.erro);
+      // o estoque pode ter mudado: recarrega a vitrine e o carrinho se ajusta ao que resta
+      router.refresh();
       return;
     }
     gravar(CHAVE_CLIENTE, { nome: cliente.nome.trim(), telefone: cliente.telefone.trim() });
@@ -158,12 +171,13 @@ export default function Vitrine({ produtos, visitante, whatsapp, erro }) {
                   <div className="loja-nome">{p.nome}</div>
                   {p.descricao && <div className="loja-desc">{p.descricao}</div>}
                   <div className="loja-preco">{brl(p.preco)}</div>
+                  {avisoRestam(p) && <div className="loja-restam">{avisoRestam(p)}</div>}
                   {p.esgotado ? (
                     <button type="button" disabled>
                       Esgotado
                     </button>
                   ) : q > 0 ? (
-                    <Quantidade valor={q} nome={p.nome} aoMudar={(n) => mudar(p.id, n)} />
+                    <Quantidade valor={q} nome={p.nome} maximo={limiteDe(p)} aoMudar={(n) => mudar(p.id, n)} />
                   ) : (
                     <button type="button" onClick={() => mudar(p.id, 1)}>
                       Adicionar
@@ -205,8 +219,9 @@ export default function Vitrine({ produtos, visitante, whatsapp, erro }) {
                       <div className="sub">
                         {brl(i.preco)} · {brl(i.subtotal)}
                       </div>
+                      {avisoRestam(porId.get(i.produto_id)) && <div className="loja-restam">{avisoRestam(porId.get(i.produto_id))}</div>}
                     </div>
-                    <Quantidade valor={i.quantidade} nome={i.nome} aoMudar={(n) => mudar(i.produto_id, n)} />
+                    <Quantidade valor={i.quantidade} nome={i.nome} maximo={limiteDe(porId.get(i.produto_id))} aoMudar={(n) => mudar(i.produto_id, n)} />
                   </li>
                 ))}
               </ul>
