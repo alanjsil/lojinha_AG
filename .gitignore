@@ -1,47 +1,30 @@
-# Dependências e builds
-node_modules/
-.next/
+~$*
 out/
+*.key
+*.log
+*.p12
+*.pem
+*.pfx
+*.swp
+.env*
+.swc/
 dist/
+.idea/
+.next/
 build/
 .turbo/
-.swc/
-*.tsbuildinfo
-next-env.d.ts
-coverage/
-
-# Segredos e variáveis de ambiente (o .env.example é versionado)
-.env*
-!.env.example
-*.key
-*.pem
-*.p12
-*.pfx
-.mcp.json
-
-# Deploy / ferramentas locais
 .vercel/
-.claude/
-.eslintcache
-
-# Exemplo de referência (BarApp) — não faz parte deste app
-Exemplo/
-
-# Logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-pnpm-debug.log*
-
-# Editor / SO
-.idea/
-.vscode/*
-!.vscode/launch.json
-*.swp
-~$*
 .DS_Store
+coverage/
 Thumbs.db
 desktop.ini
-
-# Playwright MCP (capturas de teste)
+.eslintcache
+!.env.example
+*.tsbuildinfo
+next-env.d.ts
+node_modules/
+npm-debug.log*
+pnpm-debug.log*
+supabase/.temp/
+yarn-debug.log*
 .playwright-mcp/

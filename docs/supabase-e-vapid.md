@@ -56,12 +56,12 @@ Workflow `.github/workflows/db.yml`, manual:
 
 Pré-requisitos já configurados no repositório:
 
-| Onde | Nome | Valor |
-|---|---|---|
-| Secret | `SUPABASE_ACCESS_TOKEN` | token em supabase.com/dashboard/account/tokens |
-| Secret | `SUPABASE_DB_PASSWORD` | senha do banco |
-| Secret | `SUPABASE_PROJECT_ID` | `modldgphwfzjarydzolx` |
-| Environment | `producao` | em Settings → Environments; dá para exigir aprovação manual |
+| Onde        | Nome                    | Valor                                                       |
+| ----------- | ----------------------- | ----------------------------------------------------------- |
+| Secret      | `SUPABASE_ACCESS_TOKEN` | token em supabase.com/dashboard/account/tokens              |
+| Secret      | `SUPABASE_DB_PASSWORD`  | senha do banco                                              |
+| Secret      | `SUPABASE_PROJECT_ID`   | `modldgphwfzjarydzolx`                                      |
+| Environment | `producao`              | em Settings → Environments; dá para exigir aprovação manual |
 
 O `ci.yml` (lint + testes) roda sozinho em todo push e pull request.
 
@@ -77,13 +77,13 @@ O `ci.yml` (lint + testes) roda sozinho em todo push e pull request.
 
 ### Problemas comuns
 
-| Mensagem / sintoma | Causa | Solução |
-|---|---|---|
-| `Found local migration files to be inserted before the last migration on remote` | Arquivo novo com timestamp **anterior** ao último remoto | Renomeie o arquivo com timestamp atual (`migration new` já faz isso) |
-| `Remote migration versions not found in local migrations directory` | Existe versão no banco sem arquivo local | `npx supabase migration repair --status reverted <versão>` (ou traga o arquivo) |
-| Migração aplicada por fora do histórico | SQL rodado direto no banco | `npx supabase migration repair --status applied <versão>` (só mexe na tabela de controle) |
-| `password authentication failed` | Senha do banco errada | Redefina em Project Settings → Database e rode `link` de novo |
-| `eslint`/`npm run lint` trava com `UNKNOWN: read` | `node_modules` no OneDrive com arquivos só na nuvem | Botão direito em `node_modules` → "Sempre manter neste dispositivo", ou mova o projeto para fora do OneDrive |
+| Mensagem / sintoma                                                               | Causa                                                    | Solução                                                                                                      |
+| -------------------------------------------------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `Found local migration files to be inserted before the last migration on remote` | Arquivo novo com timestamp **anterior** ao último remoto | Renomeie o arquivo com timestamp atual (`migration new` já faz isso)                                         |
+| `Remote migration versions not found in local migrations directory`              | Existe versão no banco sem arquivo local                 | `npx supabase migration repair --status reverted <versão>` (ou traga o arquivo)                              |
+| Migração aplicada por fora do histórico                                          | SQL rodado direto no banco                               | `npx supabase migration repair --status applied <versão>` (só mexe na tabela de controle)                    |
+| `password authentication failed`                                                 | Senha do banco errada                                    | Redefina em Project Settings → Database e rode `link` de novo                                                |
+| `eslint`/`npm run lint` trava com `UNKNOWN: read`                                | `node_modules` no OneDrive com arquivos só na nuvem      | Botão direito em `node_modules` → "Sempre manter neste dispositivo", ou mova o projeto para fora do OneDrive |
 
 ---
 
@@ -106,13 +106,13 @@ No app:
 
 ### Variáveis de ambiente
 
-| Variável | O que é | Segredo? |
-|---|---|---|
-| `VAPID_PUBLIC_KEY` | chave pública (base64url) | não, mas só vive no servidor e é entregue à página |
-| `VAPID_PRIVATE_KEY` | chave privada | **sim** |
-| `VAPID_SUBJECT` | contato do remetente: `mailto:voce@email.com` ou URL do site | não |
-| `SUPABASE_SERVICE_ROLE_KEY` | chave de serviço do Supabase (Project Settings → API) | **sim**, ignora RLS |
-| `WHATSAPP_LOJA` | número da loja para o `wa.me` (ex.: `5511999999999`) | não; vazio = só grava o pedido |
+| Variável                    | O que é                                                      | Segredo?                                           |
+| --------------------------- | ------------------------------------------------------------ | -------------------------------------------------- |
+| `VAPID_PUBLIC_KEY`          | chave pública (base64url)                                    | não, mas só vive no servidor e é entregue à página |
+| `VAPID_PRIVATE_KEY`         | chave privada                                                | **sim**                                            |
+| `VAPID_SUBJECT`             | contato do remetente: `mailto:voce@email.com` ou URL do site | não                                                |
+| `SUPABASE_SERVICE_ROLE_KEY` | chave de serviço do Supabase (Project Settings → API)        | **sim**, ignora RLS                                |
+| `WHATSAPP_LOJA`             | número da loja para o `wa.me` (ex.: `5511999999999`)         | não; vazio = só grava o pedido                     |
 
 Nenhuma delas começa com `NEXT_PUBLIC_`: ficam só no servidor.
 

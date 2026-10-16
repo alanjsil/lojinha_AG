@@ -19,7 +19,9 @@ export const metadata = {
 export default async function Inicio() {
   const supabase = await createClient();
   const [usuario, { data: produtos, error }] = await Promise.all([usuarioAtual(supabase), supabase.rpc("vitrine")]);
+
   if (error) console.error(error);
+
   const {
     data: { user },
   } = usuario ? await supabase.auth.getUser() : { data: { user: null } };

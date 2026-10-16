@@ -64,12 +64,7 @@ export async function proxy(req) {
   }
   // logado: login/cadastro levam ao início de cada um; cliente fica na vitrine e na própria conta,
   // equipe não usa a área do cliente (a RLS do banco barra o cliente de qualquer forma)
-  const foraDoLugar =
-    user &&
-    (naTelaLogin ||
-      pathname === "/cadastro" ||
-      (!ehEquipe(user) && !rotaPublica(pathname) && !rotaCliente(pathname)) ||
-      (ehEquipe(user) && rotaCliente(pathname)));
+  const foraDoLugar = user && (naTelaLogin || pathname === "/cadastro" || (!ehEquipe(user) && !rotaPublica(pathname) && !rotaCliente(pathname)) || (ehEquipe(user) && rotaCliente(pathname)));
   if (foraDoLugar) {
     if (req.method !== "GET" && req.method !== "HEAD") {
       const negado = new NextResponse("Sem acesso", { status: 403 });

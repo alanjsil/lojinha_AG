@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "oracle": {
+      "command": "node",
+      "args": ["C:/oracle-mcp-server/dist/index.js"]
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@latest", "--browser=chromium"]
+    },
+    "supaLocal": {
+      "type": "http",
+      "url": "http://192.168.1.50:8000/mcp?features=docs%2Cdatabase%2Cdebugging%2Cdevelopment"
+    }
+  }
+}

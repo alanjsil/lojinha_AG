@@ -8,7 +8,9 @@ export default function Carregando() {
         <Bloco altura={36} largura={36} />
         <Bloco altura={20} largura="40%" />
       </div>
+
       <Bloco altura={52} style={{ marginBottom: 16 }} />
+
       <div className="card">
         <Bloco altura={24} largura="45%" />
         <ul className="loja-grade">

@@ -9,6 +9,7 @@ import { createClient } from "../../lib/supabase/server";
 export async function cadastrar({ nome, telefone, email, senha }) {
   const n = String(nome ?? "").trim();
   const e = String(email ?? "").trim();
+
   if (n.length < 2 || n.length > 80) return { ok: false, erro: "Informe seu nome." };
   if (!telefoneValido(telefone)) return { ok: false, erro: "Informe o WhatsApp com DDD." };
   if (!/^\S+@\S+\.\S+$/.test(e)) return { ok: false, erro: "E-mail inválido." };
@@ -20,6 +21,7 @@ export async function cadastrar({ nome, telefone, email, senha }) {
     password: senha,
     options: { data: { nome: n, telefone: soDigitos(telefone) } },
   });
+
   if (error) {
     if (error.code === "user_already_exists") return { ok: false, erro: "Já existe uma conta com esse e-mail. Use Entrar." };
     if (error.code === "weak_password") return { ok: false, erro: "Senha fraca: use letras e números." };
@@ -32,6 +34,7 @@ export async function cadastrar({ nome, telefone, email, senha }) {
     console.error(error);
     return { ok: false, erro: "Não foi possível criar a conta. Tente de novo." };
   }
+
   // com confirmação de e-mail ligada no Supabase, a sessão só vem depois do link
   if (!data.session) return { ok: true, confirmar: true };
   redirect("/conta");

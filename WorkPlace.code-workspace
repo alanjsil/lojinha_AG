@@ -11,20 +11,20 @@
     // =========================================================
     "files.exclude": {
       // Arquivos
+      ".env*": true,
       ".next": true,
-      ".vercel": true,
+      ".github": true,
       ".vscode": true,
       "proxy.js": true,
+      "*vercel*": true,
       ".mcp.json": true,
       "CLAUDE.md": true,
-      ".env.local": true,
       ".gitignore": true,
-      "vercel.json": true,
       "node_modules": true,
-      ".vercelignore": true,
       "opencode.json": true,
       ".gitattributes": true,
       "next.config.js": true,
+      "eslint.config.mjs": true,
       "package-lock.json": true,
     },
 
