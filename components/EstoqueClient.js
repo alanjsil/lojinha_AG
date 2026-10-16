@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { editarContagem, excluirCategoria, excluirContagem, registrarContagem, salvarCategoria, salvarProduto } from "../app/actions";
 import { agruparPorCategoria } from "../lib/categorias";
 import { brl, dataBR, hoje, numero, preenchido, qtd } from "../lib/formato";
+import AbaCompras from "./AbaCompras";
 import BotaoExcluir from "./BotaoExcluir";
 import CampoFoto from "./CampoFoto";
 import ListaExpansivel from "./ListaExpansivel";
@@ -307,7 +308,7 @@ function FormEditarContagem({ contagem, aoFechar }) {
   );
 }
 
-export default function EstoqueClient({ produtos, categorias, contagens, gerente }) {
+export default function EstoqueClient({ produtos, categorias, contagens, compras, produtosCompra, gerente }) {
   const [aba, setAba] = useState("produtos");
   const [editando, setEditando] = useState(null);
   const [ocultarZerados, setOcultarZerados] = useState(false);
@@ -377,7 +378,10 @@ export default function EstoqueClient({ produtos, categorias, contagens, gerente
       </div>
       <div className="segmentos">
         <button type="button" className={aba === "produtos" ? "ativo" : ""} onClick={() => setAba("produtos")}>
-          Produtos
+          Estoque
+        </button>
+        <button type="button" className={aba === "compras" ? "ativo" : ""} onClick={() => setAba("compras")}>
+          Compras
         </button>
         <button type="button" className={aba === "contagem" ? "ativo" : ""} onClick={() => setAba("contagem")}>
           Contagem
@@ -423,6 +427,8 @@ export default function EstoqueClient({ produtos, categorias, contagens, gerente
           )}
         </>
       )}
+
+      {aba === "compras" && <AbaCompras produtos={produtosCompra} compras={compras} gerente={gerente} />}
 
       {aba === "categorias" && gerente && <AbaCategorias categorias={categorias} produtos={produtos} />}
 

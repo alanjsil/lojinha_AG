@@ -1,6 +1,7 @@
 import BottomNav from "../components/BottomNav";
 import Novidades from "../components/Novidades";
 import RegistrarSW from "../components/RegistrarSW";
+import { createClient } from "../lib/supabase/server";
 import "./globals.css";
 
 export const metadata = {
@@ -25,12 +26,19 @@ export const viewport = {
   themeColor: "#111827",
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  // papel vem do app_metadata do Auth (mesma fonte do proxy.js), sem consultar o banco
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const gerente = user?.app_metadata?.papel === "gerente";
+
   return (
     <html lang="pt-BR">
       <body>
         <main className="content">{children}</main>
-        <BottomNav />
+        <BottomNav gerente={gerente} />
         <Novidades />
         <RegistrarSW />
       </body>

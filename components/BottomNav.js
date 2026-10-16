@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import Icone from "./Icone";
 import { rotaCliente, rotaPublica } from "../lib/rotas";
 
 const icone = (d) => (
@@ -14,18 +15,18 @@ const links = [
   {
     href: "/vendas",
     label: "Vendas",
-    icone: icone("M6 6h15l-1.5 9h-12zM6 6L5 3H2M9 20a1 1 0 100-2 1 1 0 000 2zM18 20a1 1 0 100-2 1 1 0 000 2z"),
+    icone: <Icone nome="caixa" />,
   },
   {
     href: "/estoque",
     label: "Estoque",
-    icone: icone("M3 7l9-4 9 4v10l-9 4-9-4V7zM3 7l9 4 9-4M12 11v10"),
+    icone: <Icone nome="estoque" />,
   },
-  { href: "/saidas", label: "Saídas", icone: icone("M12 5v14M19 12l-7 7-7-7") },
+  { href: "/saidas", label: "Saídas", icone: <Icone nome="entrada" />, soGerente: true }, // despesas e lançamentos
   {
     href: "/resumos",
     label: "Resumos",
-    icone: icone("M4 20V10M10 20V4M16 20v-7M22 20H2"),
+    icone: <Icone nome="relatorios" />,
   },
   // só no PC (classe so-pc); vendedor que abrir cai no Resumos
   {
@@ -37,13 +38,13 @@ const links = [
 ];
 
 // Navegação em abas fixas no rodapé: é onde o polegar alcança no celular
-export default function BottomNav() {
+export default function BottomNav({ gerente = false }) {
   const pathname = usePathname();
   if (rotaPublica(pathname) || rotaCliente(pathname)) return null; // vitrine/login/offline: não tem para onde navegar
 
   return (
     <nav className="bottom-nav">
-      {links.map((link) => (
+      {links.filter((link) => gerente || !link.soGerente).map((link) => (
         <Link key={link.href} href={link.href} className={[link.className, pathname.startsWith(link.href) ? "active" : ""].filter(Boolean).join(" ")}>
           {link.icone}
           {link.label}

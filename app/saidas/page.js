@@ -8,12 +8,8 @@ export default async function Saidas() {
   const usuario = await usuarioAtual(supabase);
   const desde = somarDias(new Date().toLocaleDateString("sv-SE"), -30);
 
-  const [{ data: produtos }, { data: compras }, { data: despesas }, { data: historico }, { data: lancamentos }, { data: vendedores }] = await Promise.all([
-    supabase.from("produtos").select("id, nome, custo").eq("ativo", true).order("nome"),
-    supabase.from("compras").select("id, data, quantidade, custo_unit, fornecedor, produtos(nome)").gte("data", desde).order("data", { ascending: false }).limit(100),
-    usuario?.gerente ? supabase.from("despesas").select("id, data, tipo, descricao, valor").gte("data", desde).order("data", { ascending: false }).limit(100) : Promise.resolve({ data: [] }),
-    // sem filtro de data: o último custo de compra pode ser antigo
-    supabase.from("compras").select("produto_id, custo_unit").order("data", { ascending: false }).order("created_at", { ascending: false }),
+  const [{ data: despesas }, { data: lancamentos }, { data: vendedores }] = await Promise.all([
+    supabase.from("despesas").select("id, data, tipo, descricao, valor").gte("data", desde).order("data", { ascending: false }).limit(100),
     usuario?.gerente
       ? supabase
           .from("lancamentos")
@@ -25,24 +21,20 @@ export default async function Saidas() {
     usuario?.gerente ? supabase.from("perfis").select("id, nome").in("papel", PAPEIS_EQUIPE).order("nome") : Promise.resolve({ data: [] }),
   ]);
 
-  const ultimoCusto = {};
-  for (const c of historico ?? []) if (!(c.produto_id in ultimoCusto)) ultimoCusto[c.produto_id] = Number(c.custo_unit);
+  if (!usuario?.gerente)
+    return (
+      <>
+        <h1>Saídas</h1>
+        <div className="card">
+          <p className="vazio">Despesas e lançamentos são só do gerente. Compras de mercadoria ficam em Estoque.</p>
+        </div>
+      </>
+    );
 
   return (
     <>
       <h1>Saídas</h1>
       <SaidasClient
-        produtos={(produtos ?? []).map((p) => ({
-          ...p,
-          custo: Number(p.custo),
-          ultimoCusto: ultimoCusto[p.id] ?? null,
-        }))}
-        compras={(compras ?? []).map((c) => ({
-          ...c,
-          quantidade: Number(c.quantidade),
-          custo_unit: Number(c.custo_unit),
-          produto: c.produtos?.nome ?? "Produto",
-        }))}
         despesas={(despesas ?? []).map((d) => ({
           ...d,
           valor: Number(d.valor),
@@ -57,7 +49,6 @@ export default async function Saidas() {
           vendedorId: l.vendedor_id,
         }))}
         vendedores={vendedores ?? []}
-        gerente={Boolean(usuario?.gerente)}
       />
     </>
   );
