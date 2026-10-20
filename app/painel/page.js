@@ -75,6 +75,13 @@ export default async function Painel({ searchParams }) {
         (v) => v.produto_id,
         (v) => v.produtos?.nome ?? "-",
       ).slice(0, 10)}
+      tabelaProdutos={somarPor(
+        lista,
+        (v) => v.produto_id,
+        (v) => v.produtos?.nome ?? "-",
+      )
+        .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
+        .map((g) => ({ chave: g.chave, nome: g.nome, quantidade: g.quantidade, custo: g.receita - g.lucro, receita: g.receita, lucro: g.lucro }))}
       porPagamento={["a_vista", "cartao"].map((f) => ({ nome: FORMA[f], valor: lista.filter((v) => v.pagamento === f).reduce((s, v) => s + Number(v.quantidade) * Number(v.preco_unit), 0) }))}
       estoque={{ valorCusto: est.valorCusto, valorVenda: est.valorVenda, esgotados: est.esgotados.map(enxuto), parados: est.parados.slice(0, 10).map(enxuto), nParados: est.parados.length }}
     />

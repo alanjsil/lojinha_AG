@@ -81,4 +81,4 @@ export async function proxy(req) {
   }
   return res;
 }
-export const config = { matcher: ["/((?!_next/|icons/|manifest.webmanifest|icon.png|apple-icon.png|sw.js).*)"] };
+export const config = { matcher: ["/((?!_next/|icons/|api/health|manifest.webmanifest|icon.png|apple-icon.png|sw.js).*)"] };

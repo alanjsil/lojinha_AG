@@ -1309,7 +1309,58 @@ button:disabled {
   }
 }
 
+.tabela-rolagem {
+  overflow-x: auto;
+}
+
+.tabela-painel {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tabela-painel th,
+.tabela-painel td {
+  padding: 10px 12px;
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid #e3e1dc;
+}
+
+.tabela-painel th:first-child,
+.tabela-painel td:first-child {
+  text-align: left;
+  white-space: normal;
+}
+
+.tabela-painel th {
+  color: var(--texto-suave);
+  font-weight: 600;
+}
+
+.tabela-painel .ordenar {
+  all: unset;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.tabela-painel .ordenar:focus-visible {
+  outline: 2px solid var(--primaria);
+  outline-offset: 2px;
+}
+
+.tabela-painel tfoot td {
+  font-weight: 700;
+  border-bottom: 0;
+  border-top: 2px solid #e3e1dc;
+}
+
 @media (hover: hover) {
+  .tabela-painel tbody tr:hover {
+    background: var(--primaria-clara);
+  }
+
   .bottom-nav a:hover:not(.active) {
     color: #fff;
     background: #1a2333;

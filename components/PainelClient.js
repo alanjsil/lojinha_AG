@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo, useState } from "react";
 import { brl, dataBR, nomeMes, qtd, somarMeses } from "../lib/formato";
 import { PERIODOS_PAINEL } from "../lib/painel";
 import { BarrasH, GraficoLinha, Rosca } from "./Graficos";
@@ -30,8 +31,27 @@ function Kpi({ rotulo, valor, children, destaque }) {
   );
 }
 
-export default function PainelClient({ periodo, indicadores: ind, anterior, caixa, pedidosNovos, serie, porCategoria, porVendedor, porProduto, porPagamento, estoque }) {
+const COLUNAS_TABELA = [
+  { campo: "nome", rotulo: "Descrição" },
+  { campo: "quantidade", rotulo: "Qtd" },
+  { campo: "custo", rotulo: "Custo" },
+  { campo: "receita", rotulo: "Vendas" },
+  { campo: "margem", rotulo: "Margem" },
+];
+
+export default function PainelClient({ periodo, indicadores: ind, anterior, caixa, pedidosNovos, serie, porCategoria, porVendedor, porProduto, tabelaProdutos, porPagamento, estoque }) {
   const { p, mes, de, ate, por, hoje } = periodo;
+  const [ordem, setOrdem] = useState({ campo: "nome", asc: true });
+  const linhas = useMemo(() => {
+    const valor = (t) => (ordem.campo === "margem" ? (t.receita > 0 ? t.lucro / t.receita : -Infinity) : t[ordem.campo]);
+    const sinal = ordem.asc ? 1 : -1;
+    return [...tabelaProdutos].sort((a, b) => {
+      const x = valor(a);
+      const y = valor(b);
+      return sinal * (typeof x === "string" ? x.localeCompare(y, "pt-BR") : x - y);
+    });
+  }, [tabelaProdutos, ordem]);
+  const ordenarPor = (campo) => setOrdem((o) => ({ campo, asc: o.campo === campo ? !o.asc : campo === "nome" }));
   const rotuloX = (chave, longo) => {
     if (por === "mes") return longo ? nomeMes(chave) : MES_CURTO[Number(chave.slice(5, 7)) - 1];
     return longo ? dataBR(chave, true) : dataBR(chave);
@@ -181,6 +201,50 @@ export default function PainelClient({ periodo, indicadores: ind, anterior, caix
               )}
             </div>
           </div>
+        </section>
+
+        <section className="card painel-largo">
+          <h2>Produtos vendidos no período</h2>
+          {tabelaProdutos.length === 0 ? (
+            <p className="vazio">Nenhuma venda no período.</p>
+          ) : (
+            <div className="tabela-rolagem">
+              <table className="tabela-painel">
+                <thead>
+                  <tr>
+                    {COLUNAS_TABELA.map((c) => (
+                      <th key={c.campo} aria-sort={ordem.campo === c.campo ? (ordem.asc ? "ascending" : "descending") : "none"}>
+                        <button type="button" className="ordenar" onClick={() => ordenarPor(c.campo)}>
+                          {c.rotulo}
+                          <span aria-hidden="true">{ordem.campo === c.campo ? (ordem.asc ? " ▲" : " ▼") : ""}</span>
+                        </button>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {linhas.map((t) => (
+                    <tr key={t.chave}>
+                      <td>{t.nome}</td>
+                      <td>{qtd(t.quantidade)}</td>
+                      <td>{brl(t.custo)}</td>
+                      <td>{brl(t.receita)}</td>
+                      <td className={t.lucro < 0 ? "negativo" : undefined}>{t.receita > 0 ? pct(t.lucro / t.receita) : "–"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td>Total</td>
+                    <td>{qtd(tabelaProdutos.reduce((s, t) => s + t.quantidade, 0))}</td>
+                    <td>{brl(ind.custo)}</td>
+                    <td>{brl(ind.receita)}</td>
+                    <td>{pct(ind.margemBruta)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
         </section>
       </div>
 
