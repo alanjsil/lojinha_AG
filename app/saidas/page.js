@@ -8,8 +8,8 @@ export default async function Saidas() {
   const usuario = await usuarioAtual(supabase);
   const desde = somarDias(new Date().toLocaleDateString("sv-SE"), -30);
 
-  const [{ data: despesas }, { data: lancamentos }, { data: vendedores }] = await Promise.all([
-    supabase.from("despesas").select("id, data, tipo, descricao, valor").gte("data", desde).order("data", { ascending: false }).limit(100),
+  const [{ data: despesas }, { data: lancamentos }, { data: vendedores }, { data: cartoes }] = await Promise.all([
+    supabase.from("despesas").select("id, data, tipo, descricao, valor, cartao_id, parcelas").gte("data", desde).order("data", { ascending: false }).limit(100),
     usuario?.gerente
       ? supabase
           .from("lancamentos")
@@ -19,6 +19,7 @@ export default async function Saidas() {
           .limit(100)
       : Promise.resolve({ data: [] }),
     usuario?.gerente ? supabase.from("perfis").select("id, nome").in("papel", PAPEIS_EQUIPE).order("nome") : Promise.resolve({ data: [] }),
+    supabase.from("cartoes").select("id, nome, dia_fechamento, dia_vencimento, ativo").order("ativo", { ascending: false }).order("nome"),
   ]);
 
   if (!usuario?.gerente)
@@ -49,6 +50,7 @@ export default async function Saidas() {
           vendedorId: l.vendedor_id,
         }))}
         vendedores={vendedores ?? []}
+        cartoes={cartoes ?? []}
       />
     </>
   );

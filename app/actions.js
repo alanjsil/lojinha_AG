@@ -71,6 +71,22 @@ function parcelasValidas(pagamento, parcelas) {
   return n;
 }
 
+// despesa/compra: sem cartão = à vista (1 parcela); no cartão, 1 a 12x. Cartão desativado só vale
+// se já era o da linha (editar um lançamento antigo não obriga a trocar de cartão)
+async function formaDePagamento(supabase, cartaoId, parcelas, cartaoAtual = null) {
+  if (!cartaoId) return { cartao_id: null, parcelas: 1 };
+  if (!UUID.test(cartaoId)) falha("Cartão inválido.");
+  const { data: cartao } = await supabase.from("cartoes").select("ativo").eq("id", cartaoId).maybeSingle();
+  if (!cartao || (!cartao.ativo && cartaoId !== cartaoAtual)) falha("Cartão não encontrado ou desativado.");
+  return { cartao_id: cartaoId, parcelas: parcelasValidas("cartao", parcelas) };
+}
+
+function diaDoCartao(texto, nome) {
+  const n = Number(texto);
+  if (!Number.isInteger(n) || n < 1 || n > 28) falha(`Dia de ${nome} inválido (1 a 28).`);
+  return n;
+}
+
 function atualizarTudo() {
   ["/vendas", "/estoque", "/saidas", "/resumos"].forEach((p) => revalidatePath(p));
 }
@@ -303,11 +319,12 @@ export async function enviarFoto(formData) {
 
 // ---------- Compras (entrada de estoque) ----------
 
-export async function registrarCompra({ produtoId, quantidade, custo, fornecedor, data }) {
+export async function registrarCompra({ produtoId, quantidade, custo, fornecedor, data, cartaoId, parcelas }) {
   return executar(async (supabase) => {
     if (!produtoId) falha("Escolha o produto.");
     const q = valorPositivo(quantidade, "a quantidade");
     const c = valorPositivo(custo, "o custo unitário", { permiteZero: true });
+    const pagamento = await formaDePagamento(supabase, cartaoId, parcelas);
 
     // o custo do produto é recalculado automaticamente (trigger) como a média
     // ponderada de todas as compras; vendas antigas guardam o custo da época
@@ -317,6 +334,7 @@ export async function registrarCompra({ produtoId, quantidade, custo, fornecedor
       quantidade: q,
       custo_unit: c,
       fornecedor: (fornecedor ?? "").trim() || null,
+      ...pagamento,
     });
     if (error) throw error;
     atualizarTudo();
@@ -324,13 +342,14 @@ export async function registrarCompra({ produtoId, quantidade, custo, fornecedor
 }
 
 // Só o gerente edita compra (data, quantidade, custo, fornecedor); o custo médio é refeito por trigger.
-export async function editarCompra({ id, quantidade, custo, fornecedor, data }) {
+export async function editarCompra({ id, quantidade, custo, fornecedor, data, cartaoId, parcelas }) {
   return executar(
     async (supabase) => {
       const q = valorPositivo(quantidade, "a quantidade");
       const c = valorPositivo(custo, "o custo unitário", { permiteZero: true });
-      const { data: antiga, error: erroCompra } = await supabase.from("compras").select("produto_id, quantidade").eq("id", id).single();
+      const { data: antiga, error: erroCompra } = await supabase.from("compras").select("produto_id, quantidade, cartao_id").eq("id", id).single();
       if (erroCompra || !antiga) falha("Compra não encontrada.");
+      const pagamento = await formaDePagamento(supabase, cartaoId, parcelas, antiga.cartao_id);
 
       // diminuir a compra tira mercadoria do estoque: não pode deixar o saldo negativo
       const produto = await saldoDoProduto(supabase, antiga.produto_id);
@@ -339,7 +358,7 @@ export async function editarCompra({ id, quantidade, custo, fornecedor, data }) 
 
       const { data: linhas, error } = await supabase
         .from("compras")
-        .update({ data: dataValida(data), quantidade: q, custo_unit: c, fornecedor: (fornecedor ?? "").trim() || null })
+        .update({ data: dataValida(data), quantidade: q, custo_unit: c, fornecedor: (fornecedor ?? "").trim() || null, ...pagamento })
         .eq("id", id)
         .select("id");
       if (error) throw error;
@@ -360,16 +379,18 @@ export async function excluirCompra(id) {
 
 // ---------- Despesas ----------
 
-export async function registrarDespesa({ tipo, descricao, valor, data }) {
+export async function registrarDespesa({ tipo, descricao, valor, data, cartaoId, parcelas }) {
   return executar(
     async (supabase) => {
       if (!TIPOS_DESPESA.includes(tipo)) falha("Escolha o tipo da despesa.");
       const v = valorPositivo(valor, "o valor");
+      const pagamento = await formaDePagamento(supabase, cartaoId, parcelas);
       const { error } = await supabase.from("despesas").insert({
         data: dataValida(data),
         tipo,
         descricao: (descricao ?? "").trim() || null,
         valor: v,
+        ...pagamento,
       });
       if (error) throw error;
       atualizarTudo();
@@ -378,11 +399,14 @@ export async function registrarDespesa({ tipo, descricao, valor, data }) {
   );
 }
 
-export async function editarDespesa({ id, tipo, descricao, valor, data }) {
+export async function editarDespesa({ id, tipo, descricao, valor, data, cartaoId, parcelas }) {
   return executar(
     async (supabase) => {
       if (!TIPOS_DESPESA.includes(tipo)) falha("Escolha o tipo da despesa.");
       const v = valorPositivo(valor, "o valor");
+      const { data: atual } = await supabase.from("despesas").select("cartao_id").eq("id", id).maybeSingle();
+      if (!atual) falha("Despesa não encontrada.");
+      const pagamento = await formaDePagamento(supabase, cartaoId, parcelas, atual.cartao_id);
       const { data: linhas, error } = await supabase
         .from("despesas")
         .update({
@@ -390,6 +414,7 @@ export async function editarDespesa({ id, tipo, descricao, valor, data }) {
           tipo,
           descricao: (descricao ?? "").trim() || null,
           valor: v,
+          ...pagamento,
         })
         .eq("id", id)
         .select("id");
@@ -407,6 +432,49 @@ export async function excluirDespesa(id) {
       const { error } = await supabase.from("despesas").delete().eq("id", id);
       if (error) throw error;
       atualizarTudo();
+    },
+    { exigeGerente: true },
+  );
+}
+
+// ---------- Cartões (despesa/compra no cartão sai do caixa no vencimento da fatura) ----------
+
+export async function registrarCartao({ nome, fechamento, vencimento }) {
+  return executar(
+    async (supabase) => {
+      if (!preenchido(nome)) falha("Informe o nome do cartão.");
+      const { error } = await supabase.from("cartoes").insert({
+        nome: nome.trim(),
+        dia_fechamento: diaDoCartao(fechamento, "fechamento"),
+        dia_vencimento: diaDoCartao(vencimento, "vencimento"),
+      });
+      if (error) throw error;
+      revalidatePath("/saidas");
+      revalidatePath("/estoque");
+    },
+    { exigeGerente: true },
+  );
+}
+
+// mudar os dias não refaz o que já foi lançado (as parcelas ficam como foram calculadas)
+export async function editarCartao({ id, nome, fechamento, vencimento, ativo }) {
+  return executar(
+    async (supabase) => {
+      if (!preenchido(nome)) falha("Informe o nome do cartão.");
+      const { data: linhas, error } = await supabase
+        .from("cartoes")
+        .update({
+          nome: nome.trim(),
+          dia_fechamento: diaDoCartao(fechamento, "fechamento"),
+          dia_vencimento: diaDoCartao(vencimento, "vencimento"),
+          ativo: Boolean(ativo),
+        })
+        .eq("id", id)
+        .select("id");
+      if (error) throw error;
+      if (!linhas?.length) falha("Cartão não encontrado ou sem permissão para editar.");
+      revalidatePath("/saidas");
+      revalidatePath("/estoque");
     },
     { exigeGerente: true },
   );

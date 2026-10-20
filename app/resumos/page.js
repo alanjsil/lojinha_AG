@@ -189,6 +189,8 @@ export default async function Resumos(props) {
   const an = anteriorLinhas?.[0];
   const acSaldo = caixaAte(ac);
   const saldoInicial = caixaAte(an);
+  // gasto no cartão até o fim do período que só sai do caixa depois (já contou no lucro)
+  const cartaoAPagar = Number(ac?.cartao_a_pagar ?? 0);
   // movimento do período = acumulado até o fim − acumulado até o dia anterior
   const mov = (campo) => (ac ? Number(ac[campo]) - Number(an?.[campo] ?? 0) : 0);
 
@@ -262,6 +264,11 @@ export default async function Resumos(props) {
             <div className={`numero ${acSaldo < 0 ? "negativo" : "positivo"}`} style={{ fontSize: "2rem", fontWeight: 700, marginBottom: 12 }}>
               {brl(acSaldo)}
             </div>
+            {cartaoAPagar > 0 && (
+              <p className="sub" style={{ marginTop: -8, marginBottom: 12 }}>
+                Cartão a pagar: {brl(cartaoAPagar)} (sobra {brl(acSaldo - cartaoAPagar)} depois das faturas)
+              </p>
+            )}
           </>
         )}
         <div className="kpis">
@@ -411,9 +418,15 @@ export default async function Resumos(props) {
               <span className="titulo">= Saldo final</span>
               <span className={`valor ${acSaldo < 0 ? "negativo" : "positivo"}`}>{brl(acSaldo)}</span>
             </li>
+            {cartaoAPagar > 0 && (
+              <li>
+                <span className="sub">Cartão a pagar (faturas futuras)</span>
+                <span className="valor">{brl(cartaoAPagar)}</span>
+              </li>
+            )}
           </ul>
           <p className="info">
-            Dinheiro em caixa: vendas à vista entram na data e cartão em cada parcela, no vencimento. O saldo de um período passa para o seguinte. Não é o saldo da conta bancária.
+            Dinheiro em caixa: vendas à vista entram na data e cartão em cada parcela, no vencimento. Despesas e compras no cartão saem no vencimento da fatura (no lucro, contam na data do gasto). O saldo de um período passa para o seguinte. Não é o saldo da conta bancária.
           </p>
         </div>
       )}

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { editarDespesa, editarLancamento, excluirDespesa, excluirLancamento, registrarDespesa, registrarLancamento } from "../app/actions";
+import { editarCartao, editarDespesa, editarLancamento, excluirDespesa, excluirLancamento, registrarCartao, registrarDespesa, registrarLancamento } from "../app/actions";
 import { brl, dataBR, hoje } from "../lib/formato";
+import CamposPagamento from "./CamposPagamento";
 import ListaExpansivel from "./ListaExpansivel";
 import useEnvio, { Mensagem } from "./useEnvio";
 
@@ -33,10 +34,10 @@ function useDataHoje() {
 }
 
 
-function FormDespesa() {
+function FormDespesa({ cartoes }) {
   const { salvando, msg, enviar } = useEnvio();
   const [data, setData] = useDataHoje();
-  const [f, setF] = useState({ tipo: "gasolina", descricao: "", valor: "" });
+  const [f, setF] = useState({ tipo: "gasolina", descricao: "", valor: "", cartaoId: "", parcelas: "1" });
 
   return (
     <form
@@ -48,7 +49,7 @@ function FormDespesa() {
           { ...f, data },
           {
             textoOk: "Despesa registrada!",
-            aoConcluir: () => setF({ ...f, descricao: "", valor: "" }),
+            aoConcluir: () => setF({ ...f, descricao: "", valor: "", parcelas: "1" }),
           },
         );
       }}
@@ -68,6 +69,7 @@ function FormDespesa() {
       <input id="desc" value={f.descricao} onChange={(e) => setF({ ...f, descricao: e.target.value })} />
       <label htmlFor="ddata">Data</label>
       <input id="ddata" type="date" value={data} onChange={(e) => setData(e.target.value)} required />
+      <CamposPagamento id="desp" cartoes={cartoes} cartaoId={f.cartaoId} parcelas={f.parcelas} data={data} total={Number(f.valor)} aoMudar={(p) => setF({ ...f, ...p })} />
       <button type="submit" disabled={salvando}>
         {salvando ? "Salvando..." : "Registrar despesa"}
       </button>
@@ -76,13 +78,15 @@ function FormDespesa() {
   );
 }
 
-function FormEditarDespesa({ despesa, aoFechar }) {
+function FormEditarDespesa({ despesa, cartoes, aoFechar }) {
   const { salvando, msg, enviar } = useEnvio();
   const [f, setF] = useState({
     tipo: despesa.tipo,
     valor: String(despesa.valor),
     descricao: despesa.descricao ?? "",
     data: despesa.data,
+    cartaoId: despesa.cartao_id ?? "",
+    parcelas: String(despesa.parcelas),
   });
   const set = (campo) => (e) => setF({ ...f, [campo]: e.target.value });
 
@@ -107,6 +111,7 @@ function FormEditarDespesa({ despesa, aoFechar }) {
       <input id={`edesc-${despesa.id}`} value={f.descricao} onChange={set("descricao")} />
       <label htmlFor={`edata-${despesa.id}`}>Data</label>
       <input id={`edata-${despesa.id}`} type="date" value={f.data} onChange={set("data")} required />
+      <CamposPagamento id={`e-${despesa.id}`} cartoes={cartoes} cartaoId={f.cartaoId} parcelas={f.parcelas} data={f.data} total={Number(f.valor)} aoMudar={(p) => setF({ ...f, ...p })} />
       <div className="acoes-item">
         <button type="button" className="botao-secundario" onClick={aoFechar}>
           Cancelar
@@ -233,13 +238,113 @@ function FormLancamento({ vendedores }) {
   );
 }
 
-export default function SaidasClient({ despesas, lancamentos, vendedores }) {
+const CARTAO_VAZIO = { nome: "", fechamento: "", vencimento: "", ativo: true };
+
+// Cartão da loja: o gasto a partir do dia de fechamento cai na fatura seguinte, que vence no dia de vencimento.
+function FormCartao({ inicial, aoFechar, embutido = false }) {
+  const { salvando, msg, enviar } = useEnvio();
+  const [f, setF] = useState(inicial);
+  const set = (campo) => (e) => setF({ ...f, [campo]: e.target.value });
+  const sufixo = f.id ?? "novo";
+
+  return (
+    <form
+      className={embutido ? "form-inline" : "card"}
+      onSubmit={(e) => {
+        e.preventDefault();
+        enviar(f.id ? editarCartao : registrarCartao, f, { aoConcluir: aoFechar, textoOk: "Cartão salvo!" });
+      }}
+    >
+      {!embutido && <h2>Novo cartão</h2>}
+      <label htmlFor={`cnome-${sufixo}`}>Nome</label>
+      <input id={`cnome-${sufixo}`} value={f.nome} onChange={set("nome")} maxLength={40} placeholder="Ex.: Nubank" required />
+      <div className="linha-2">
+        <div>
+          <label htmlFor={`cfech-${sufixo}`}>Dia que fecha</label>
+          <input id={`cfech-${sufixo}`} type="number" inputMode="numeric" step="1" min="1" max="28" value={f.fechamento} onChange={set("fechamento")} required />
+        </div>
+        <div>
+          <label htmlFor={`cvenc-${sufixo}`}>Dia que vence</label>
+          <input id={`cvenc-${sufixo}`} type="number" inputMode="numeric" step="1" min="1" max="28" value={f.vencimento} onChange={set("vencimento")} required />
+        </div>
+      </div>
+      {f.id && (
+        <label className="chk">
+          <input type="checkbox" checked={f.ativo} onChange={(e) => setF({ ...f, ativo: e.target.checked })} />
+          Ativo (aparece para escolher)
+        </label>
+      )}
+      <div className="acoes-item">
+        <button type="button" className="botao-secundario" onClick={aoFechar}>
+          Cancelar
+        </button>
+        <button type="submit" disabled={salvando || !f.nome.trim()}>
+          {salvando ? "Salvando..." : "Salvar"}
+        </button>
+      </div>
+      <Mensagem msg={msg} />
+    </form>
+  );
+}
+
+function AbaCartoes({ cartoes }) {
+  const [editando, setEditando] = useState(null);
+
+  return (
+    <>
+      {editando && !editando.id ? (
+        <FormCartao inicial={editando} aoFechar={() => setEditando(null)} />
+      ) : (
+        <button type="button" style={{ marginTop: 0, marginBottom: 16 }} onClick={() => setEditando(CARTAO_VAZIO)}>
+          Novo cartão
+        </button>
+      )}
+      <div className="card">
+        {cartoes.length === 0 ? (
+          <p className="vazio">Nenhum cartão. Sem cartão, despesas e compras saem do caixa na própria data.</p>
+        ) : (
+          <ul className="lista">
+            {cartoes.map((c) =>
+              editando?.id === c.id ? (
+                <li key={c.id} className="editando">
+                  <FormCartao inicial={editando} aoFechar={() => setEditando(null)} embutido />
+                </li>
+              ) : (
+                <li
+                  key={c.id}
+                  className="editavel"
+                  onClick={() => setEditando({ id: c.id, nome: c.nome, fechamento: String(c.dia_fechamento), vencimento: String(c.dia_vencimento), ativo: c.ativo })}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="titulo">
+                      {c.nome}
+                      {!c.ativo && " (desativado)"}
+                    </div>
+                    <div className="sub">
+                      Fecha dia {c.dia_fechamento} · vence dia {c.dia_vencimento}
+                    </div>
+                  </div>
+                </li>
+              ),
+            )}
+          </ul>
+        )}
+        <p className="info">
+          O gasto no cartão conta no lucro na data da compra e sai do caixa no vencimento de cada parcela. Mudar os dias não altera o que já foi lançado.
+        </p>
+      </div>
+    </>
+  );
+}
+
+export default function SaidasClient({ despesas, lancamentos, vendedores, cartoes }) {
   const [aba, setAba] = useState("despesas");
+  const nomeCartao = new Map(cartoes.map((c) => [c.id, c.nome]));
 
   const itensDespesas = despesas.map((d) => ({
     id: d.id,
     titulo: TIPOS[d.tipo],
-    sub: `${dataBR(d.data)}${d.descricao ? ` · ${d.descricao}` : ""}`,
+    sub: `${dataBR(d.data)}${d.cartao_id ? ` · ${nomeCartao.get(d.cartao_id) ?? "Cartão"}${d.parcelas > 1 ? ` ${d.parcelas}x` : ""}` : ""}${d.descricao ? ` · ${d.descricao}` : ""}`,
     valor: brl(d.valor),
     dados: d,
   }));
@@ -260,9 +365,14 @@ export default function SaidasClient({ despesas, lancamentos, vendedores }) {
         <button type="button" className={aba === "lancamentos" ? "ativo" : ""} onClick={() => setAba("lancamentos")}>
           Lançamentos
         </button>
+        <button type="button" className={aba === "cartoes" ? "ativo" : ""} onClick={() => setAba("cartoes")}>
+          Cartões
+        </button>
       </div>
 
-      {aba === "lancamentos" ? (
+      {aba === "cartoes" ? (
+        <AbaCartoes cartoes={cartoes} />
+      ) : aba === "lancamentos" ? (
         <>
           <FormLancamento vendedores={vendedores} />
           <div className="card">
@@ -277,14 +387,14 @@ export default function SaidasClient({ despesas, lancamentos, vendedores }) {
         </>
       ) : (
         <>
-          <FormDespesa />
+          <FormDespesa cartoes={cartoes} />
           <div className="card">
             <h2>Últimos 30 dias</h2>
             <ListaExpansivel
               itens={itensDespesas}
               excluir={excluirDespesa}
               vazio="Nenhuma despesa nos últimos 30 dias."
-              renderEditar={(item, fechar) => <FormEditarDespesa despesa={item.dados} aoFechar={fechar} />}
+              renderEditar={(item, fechar) => <FormEditarDespesa despesa={item.dados} cartoes={cartoes} aoFechar={fechar} />}
             />
           </div>
         </>

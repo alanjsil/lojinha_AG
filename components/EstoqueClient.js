@@ -308,7 +308,7 @@ function FormEditarContagem({ contagem, aoFechar }) {
   );
 }
 
-export default function EstoqueClient({ produtos, categorias, contagens, compras, produtosCompra, gerente }) {
+export default function EstoqueClient({ produtos, categorias, contagens, compras, produtosCompra, gerente, cartoes }) {
   const [aba, setAba] = useState("produtos");
   const [editando, setEditando] = useState(null);
   const [ocultarZerados, setOcultarZerados] = useState(false);
@@ -428,7 +428,7 @@ export default function EstoqueClient({ produtos, categorias, contagens, compras
         </>
       )}
 
-      {aba === "compras" && <AbaCompras produtos={produtosCompra} compras={compras} gerente={gerente} />}
+      {aba === "compras" && <AbaCompras produtos={produtosCompra} compras={compras} cartoes={cartoes} gerente={gerente} />}
 
       {aba === "categorias" && gerente && <AbaCategorias categorias={categorias} produtos={produtos} />}
 

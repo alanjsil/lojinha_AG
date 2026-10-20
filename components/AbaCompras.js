@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { editarCompra, excluirCompra, registrarCompra } from "../app/actions";
-import { brl, dataBR, hoje, qtd } from "../lib/formato";
+import { brl, dataBR, hoje, numero, qtd } from "../lib/formato";
+import CamposPagamento from "./CamposPagamento";
 import ListaExpansivel from "./ListaExpansivel";
 import useEnvio, { Mensagem } from "./useEnvio";
 
@@ -12,7 +13,7 @@ function useDataHoje() {
   return [data, setData];
 }
 
-function FormCompra({ produtos }) {
+function FormCompra({ produtos, cartoes }) {
   const { salvando, msg, enviar } = useEnvio();
   const [data, setData] = useDataHoje();
   const [f, setF] = useState({
@@ -20,6 +21,8 @@ function FormCompra({ produtos }) {
     quantidade: "",
     custo: "",
     fornecedor: "",
+    cartaoId: "",
+    parcelas: "1",
   });
 
   function escolher(id) {
@@ -50,6 +53,7 @@ function FormCompra({ produtos }) {
                 quantidade: "",
                 custo: "",
                 fornecedor: "",
+                parcelas: "1",
               }),
           },
         );
@@ -82,6 +86,15 @@ function FormCompra({ produtos }) {
       <input id="forn" value={f.fornecedor} onChange={(e) => setF({ ...f, fornecedor: e.target.value })} />
       <label htmlFor="data">Data</label>
       <input id="data" type="date" value={data} onChange={(e) => setData(e.target.value)} required />
+      <CamposPagamento
+        id="compra"
+        cartoes={cartoes}
+        cartaoId={f.cartaoId}
+        parcelas={f.parcelas}
+        data={data}
+        total={numero(f.quantidade) * numero(f.custo)}
+        aoMudar={(p) => setF({ ...f, ...p })}
+      />
       <button type="submit" disabled={salvando}>
         {salvando ? "Salvando..." : "Registrar compra"}
       </button>
@@ -90,13 +103,15 @@ function FormCompra({ produtos }) {
   );
 }
 
-function FormEditarCompra({ compra, aoFechar }) {
+function FormEditarCompra({ compra, cartoes, aoFechar }) {
   const { salvando, msg, enviar } = useEnvio();
   const [f, setF] = useState({
     quantidade: String(compra.quantidade),
     custo: String(compra.custo_unit),
     fornecedor: compra.fornecedor ?? "",
     data: compra.data,
+    cartaoId: compra.cartao_id ?? "",
+    parcelas: String(compra.parcelas),
   });
   const set = (campo) => (e) => setF({ ...f, [campo]: e.target.value });
 
@@ -121,6 +136,15 @@ function FormEditarCompra({ compra, aoFechar }) {
       <input id={`ecf-${compra.id}`} value={f.fornecedor} onChange={set("fornecedor")} />
       <label htmlFor={`ecd-${compra.id}`}>Data</label>
       <input id={`ecd-${compra.id}`} type="date" value={f.data} onChange={set("data")} required />
+      <CamposPagamento
+        id={`ec-${compra.id}`}
+        cartoes={cartoes}
+        cartaoId={f.cartaoId}
+        parcelas={f.parcelas}
+        data={f.data}
+        total={numero(f.quantidade) * numero(f.custo)}
+        aoMudar={(p) => setF({ ...f, ...p })}
+      />
       <p className="sub">O custo do produto é recalculado automaticamente ao salvar.</p>
       <div className="acoes-item">
         <button type="button" className="botao-secundario" onClick={aoFechar}>
@@ -136,11 +160,12 @@ function FormEditarCompra({ compra, aoFechar }) {
 }
 
 // Aba Compras do Estoque: entrada de mercadoria + últimos 30 dias (gerente edita)
-export default function AbaCompras({ produtos, compras, gerente }) {
+export default function AbaCompras({ produtos, compras, cartoes, gerente }) {
+  const nomeCartao = new Map(cartoes.map((c) => [c.id, c.nome]));
   const itens = compras.map((c) => ({
     id: c.id,
     titulo: c.produto,
-    sub: `${dataBR(c.data)} · ${qtd(c.quantidade)} × ${brl(c.custo_unit)}${c.fornecedor ? ` · ${c.fornecedor}` : ""}`,
+    sub: `${dataBR(c.data)} · ${qtd(c.quantidade)} × ${brl(c.custo_unit)}${c.cartao_id ? ` · ${nomeCartao.get(c.cartao_id) ?? "Cartão"}${c.parcelas > 1 ? ` ${c.parcelas}x` : ""}` : ""}${c.fornecedor ? ` · ${c.fornecedor}` : ""}`,
     valor: brl(c.quantidade * c.custo_unit),
     detalhes: ["Excluir remove a entrada do estoque."],
     dados: c,
@@ -148,14 +173,14 @@ export default function AbaCompras({ produtos, compras, gerente }) {
 
   return (
     <>
-      <FormCompra produtos={produtos} />
+      <FormCompra produtos={produtos} cartoes={cartoes} />
       <div className="card">
         <h2>Últimos 30 dias</h2>
         <ListaExpansivel
           itens={itens}
           excluir={excluirCompra}
           vazio="Nenhuma compra nos últimos 30 dias."
-          renderEditar={gerente ? (item, fechar) => <FormEditarCompra compra={item.dados} aoFechar={fechar} /> : undefined}
+          renderEditar={gerente ? (item, fechar) => <FormEditarCompra compra={item.dados} cartoes={cartoes} aoFechar={fechar} /> : undefined}
         />
       </div>
     </>

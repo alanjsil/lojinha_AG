@@ -37,6 +37,12 @@ registrado por `components/RegistrarSW.js` só em produção. `sw.js` fica fora 
   Sem compras, vale o custo digitado no cadastro; depois da 1ª compra a edição manual do custo é ignorada
   (trigger `produtos_bloquear_custo_manual`, liberado só dentro do recálculo via `app.recalculando_cmp`).
 - Lucro líquido = lucro bruto − comissões − despesas (compras não entram de novo: o custo já está na venda).
+- **Despesa/compra no cartão (mig. 034):** `cartoes` (nome, `dia_fechamento`/`dia_vencimento` 1–28, `ativo`; só o gerente cadastra, aba Cartões em Saídas;
+  não se apaga, desativa) e `despesas`/`compras` com `cartao_id` (null = à vista) e `parcelas` (1–12, só cartão). **Competência × caixa:** o lucro
+  conta na `data` do gasto; o caixa (`resumo_acumulado`) conta em `saidas_parcelas.vencimento` (trigger `saidas_gerar_parcelas`, à vista = 1 parcela
+  na própria data). Fatura: gasto com dia ≥ fechamento cai na seguinte; vence no mesmo mês do fechamento se vencimento > fechamento, senão no
+  seguinte (`vencimento_fatura()` no banco, espelhada em `lib/cartao.js`). Mudar os dias do cartão não refaz o que já foi lançado.
+  `resumo_acumulado` devolve `cartao_a_pagar` (gasto até a data que vence depois dela), mostrado nos Resumos.
 - Lançamentos dos sócios (`lancamentos`, aba em Saídas, só gerente): `pro_labore`, `pagamento_comissao` (exige
   vendedor), `saque`, `aporte`, `capital_inicial`, `repasse` (exige vendedor: dinheiro das vendas que ele entregou ao gerente; não mexe no caixa total; o vendedor lê só os próprios; Resumos mostra recebido/entregue/pendente = parcelas vencidas − repasses). Só o **pró-labore** entra no lucro líquido; os demais ficam na "Movimentação de caixa"
   dos Resumos. Resumos tem aba Mês com setas ‹ › (`?p=mes&m=AAAA-MM`; mês corrente vai só até hoje).
@@ -88,7 +94,7 @@ registrado por `components/RegistrarSW.js` só em produção. `sw.js` fica fora 
 - Schema em `db/schema.sql` (estado atual completo); mudanças em `supabase/migrations/<timestamp>_nome.sql` (formato da
   Supabase CLI; as antigas 003–032 foram renomeadas, o número original continua no nome do arquivo), sempre
   refletidas no schema. Nova migração: `npx supabase migration new nome`. `db/migracoes/` guarda só a 001 e a 002
-  (anteriores ao histórico do banco). Produção está em dia (até a 032); migrações novas entram pelo workflow manual
+  (anteriores ao histórico do banco). Produção está em dia (até a 033; a 034 `saidas_cartao` está só no dev); migrações novas entram pelo workflow manual
   `.github/workflows/db.yml` (só produção; o dev em rede local recebe por `db push --db-url`) (secrets `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_ID`; rode
   primeiro com dry_run). CI de lint/testes em `ci.yml`. Passo a passo de migrações e das chaves VAPID/variáveis de
   ambiente em `docs/supabase-e-vapid.md` (nomes das variáveis em `.env.example`). Confira com `npx supabase migration list` ou o MCP
