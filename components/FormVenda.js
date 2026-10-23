@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { registrarVenda } from "../app/actions";
-import { brl, hoje, numero, preenchido, qtd } from "../lib/formato";
+import { brl, dataBR, hoje, numero, preenchido, qtd } from "../lib/formato";
+import { primeiroVencimentoVenda } from "../lib/parcelas";
 import useEnvio, { Mensagem } from "./useEnvio";
 
 const FORMAS = [
@@ -32,6 +33,7 @@ export default function FormVenda({ produtos, comissaoPct, pedido = null }) {
   const [pagamento, setPagamento] = useState("a_vista");
   const [parcelas, setParcelas] = useState("1");
   const [data, setData] = useState("");
+  const [venc, setVenc] = useState(""); // vazio = padrão (dia 8 do mês seguinte)
   const [obs, setObs] = useState(pedido ? `Pedido nº ${pedido.numero} · ${pedido.cliente_nome}`.slice(0, 200) : "");
 
   // data local só no navegador (o servidor roda em UTC)
@@ -76,13 +78,14 @@ export default function FormVenda({ produtos, comissaoPct, pedido = null }) {
     e.preventDefault();
     await enviar(
       registrarVenda,
-      { itens: itens.map(({ produtoId, quantidade, preco }) => ({ produtoId, quantidade, preco })), pagamento, parcelas: nParcelas, data, obs, pedidoId: pedido?.id },
+      { itens: itens.map(({ produtoId, quantidade, preco }) => ({ produtoId, quantidade, preco })), pagamento, parcelas: nParcelas, primeiroVencimento: venc, data, obs, pedidoId: pedido?.id },
       {
         textoOk: itens.length > 1 ? `Venda registrada (${itens.length} itens)!` : "Venda registrada!",
         aoConcluir: () => {
           setLote([]);
           limparItem();
           setParcelas("1");
+          setVenc("");
           setObs("");
           if (pedido) router.replace("/vendas"); // sai do modo pedido
         },
@@ -181,6 +184,9 @@ export default function FormVenda({ produtos, comissaoPct, pedido = null }) {
               </option>
             ))}
           </select>
+          <label htmlFor="venc">1ª parcela vence em</label>
+          <input id="venc" type="date" value={venc || (data ? primeiroVencimentoVenda(data) : "")} onChange={(e) => setVenc(e.target.value)} required />
+          <span className="info">As demais vencem no mesmo dia, mês a mês{venc || data ? `, a partir de ${dataBR(venc || primeiroVencimentoVenda(data))}` : ""}.</span>
         </>
       )}
 

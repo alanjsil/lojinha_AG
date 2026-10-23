@@ -66,6 +66,8 @@ export default function FormEditarVenda({ venda, aoFechar }) {
               </option>
             ))}
           </select>
+          <label htmlFor={`evenc-${venda.id}`}>1ª parcela vence em</label>
+          <input id={`evenc-${venda.id}`} type="date" value={f.primeiroVencimento} onChange={set("primeiroVencimento")} required />
         </>
       )}
       <div className="acoes-item">

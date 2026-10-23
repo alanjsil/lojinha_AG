@@ -28,7 +28,7 @@ registrado por `components/RegistrarSW.js` só em produção. `sw.js` fica fora 
 - Venda com vários itens (mig. 027): cada item é uma linha de `vendas` (custo, comissão, parcelas e estoque são por item); `grupo_id` liga os itens lançados juntos (null = um item só). Pagamento/parcelas/data/obs são os mesmos na criação (`registrarVenda({ itens, ... })`, um único insert; saldo conferido pela soma por produto); a lista agrupa por `grupo_id`, excluir um grupo apaga todos os itens, editar é item a item. Custo e % de comissão são fotografados por trigger (`vendas_preencher`).
 - Comissão = % (padrão 40) do **lucro** da venda; prejuízo não gera comissão negativa.
 - Pagamento: `a_vista` ou `cartao` (sem Pix). Só cartão parcela (1–12x). `parcelas` guarda uma linha por
-  parcela (trigger `vendas_gerar_parcelas`, vence data + (k−1) meses) com a fatia da comissão; nos Resumos
+  parcela (trigger `vendas_gerar_parcelas`; cartão: 1ª no dia 8 do mês seguinte à venda ou em `vendas.primeiro_vencimento` (mig. 035), as demais mês a mês; à vista: na data da venda) com a fatia da comissão; nos Resumos
   a comissão conta no **vencimento da parcela**, não na data da venda.
 - Estoque = compras − vendas + diferença das contagens (view `estoque_atual`). Não vende acima do saldo.
 - Custo do produto (`produtos.custo`) = **custo médio móvel sobre o saldo**: a cada compra lançada/excluída,
@@ -94,7 +94,7 @@ registrado por `components/RegistrarSW.js` só em produção. `sw.js` fica fora 
 - Schema em `db/schema.sql` (estado atual completo); mudanças em `supabase/migrations/<timestamp>_nome.sql` (formato da
   Supabase CLI; as antigas 003–032 foram renomeadas, o número original continua no nome do arquivo), sempre
   refletidas no schema. Nova migração: `npx supabase migration new nome`. `db/migracoes/` guarda só a 001 e a 002
-  (anteriores ao histórico do banco). Produção está em dia (até a 033; a 034 `saidas_cartao` está só no dev); migrações novas entram pelo workflow manual
+  (anteriores ao histórico do banco). Produção está em dia (até a 035 `vencimento_dia8`); migrações novas entram pelo workflow manual
   `.github/workflows/db.yml` (só produção; o dev em rede local recebe por `db push --db-url`) (secrets `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_ID`; rode
   primeiro com dry_run). CI de lint/testes em `ci.yml`. Passo a passo de migrações e das chaves VAPID/variáveis de
   ambiente em `docs/supabase-e-vapid.md` (nomes das variáveis em `.env.example`). Confira com `npx supabase migration list` ou o MCP

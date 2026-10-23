@@ -23,21 +23,42 @@ export default async function Log(props) {
   let consulta = supabase.from("log_auditoria").select("id, quando, tabela, registro_id, acao, antes, depois, perfis(nome)").order("id", { ascending: false }).limit(200);
   if (t) consulta = consulta.eq("tabela", t);
 
-  const [{ data: entradas }, { data: produtos }] = await Promise.all([consulta, supabase.from("produtos").select("id, nome").limit(1000)]);
+  const [{ data: entradas }, { data: produtos }, { data: categorias }, { data: cartoes }] = await Promise.all([
+    consulta,
+    supabase.from("produtos").select("id, nome").limit(1000),
+    supabase.from("categorias").select("id, nome").limit(200),
+    supabase.from("cartoes").select("id, nome").limit(200),
+  ]);
   const nomes = new Map((produtos ?? []).map((p) => [p.id, p.nome]));
   const nomeProduto = (id) => nomes.get(id) ?? "Produto";
+  const nomesRef = { categoria_id: new Map((categorias ?? []).map((c) => [c.id, c.nome])), cartao_id: new Map((cartoes ?? []).map((c) => [c.id, c.nome])) };
+  const nomeDe = (campo, id) => nomesRef[campo].get(id) ?? "(removido)";
   const apagados = aindaApagados(entradas ?? []);
 
+  // a edição guarda só as colunas alteradas: busca a linha atual para dizer de qual registro se trata
+  const idsEditados = {};
+  for (const e of entradas ?? []) if (e.acao === "editou") (idsEditados[e.tabela] ??= new Set()).add(e.registro_id);
+  const atuais = new Map();
+  await Promise.all(
+    Object.entries(idsEditados).map(async ([tabela, ids]) => {
+      const { data } = await supabase
+        .from(tabela)
+        .select("*")
+        .in("id", [...ids]);
+      for (const l of data ?? []) atuais.set(`${tabela}:${l.id}`, l);
+    }),
+  );
+
   const itens = (entradas ?? []).map((e) => {
-    const linha = e.acao === "apagou" ? e.antes : e.depois;
-    const resumo = e.acao === "editou" ? "" : resumoRegistro(e.tabela, linha, nomeProduto);
+    const linha = e.acao === "apagou" ? e.antes : e.acao === "editou" ? atuais.get(`${e.tabela}:${e.registro_id}`) : e.depois;
+    const resumo = resumoRegistro(e.tabela, linha, nomeProduto);
     return {
       id: e.id,
       titulo: `${TABELAS_LOG[e.tabela] ?? e.tabela}${resumo ? ` · ${resumo}` : ""}`,
       sub: `${e.perfis?.nome ?? "Sistema"} · ${quandoBR(e.quando)}`,
       acao: e.acao,
       acaoRotulo: ACOES_LOG[e.acao] ?? e.acao,
-      detalhes: e.acao === "editou" ? mudancas(e.antes, e.depois) : [],
+      detalhes: e.acao === "editou" ? mudancas(e.antes, e.depois, nomeDe) : [],
       tabela: e.tabela,
       registroId: e.registro_id,
       // só a entrada "apagou" mais recente de um registro que continua apagado

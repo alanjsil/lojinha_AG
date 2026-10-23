@@ -5,6 +5,7 @@ import ListaVendas from "../../components/ListaVendas";
 import PedidosLoja from "../../components/PedidosLoja";
 import { brl, dataBR, qtd, somarDias } from "../../lib/formato";
 import { ABERTOS } from "../../lib/pedido";
+import { primeiroVencimentoVenda } from "../../lib/parcelas";
 import { createClient, usuarioAtual } from "../../lib/supabase/server";
 import { excluirVenda } from "../actions";
 
@@ -40,6 +41,8 @@ export default async function Vendas({ searchParams }) {
     preco: String(v.preco_unit),
     pagamento: v.pagamento,
     parcelas: String(v.parcelas),
+    // 1ª parcela gravada; se virou cartão agora, sugere o dia 8 do mês seguinte
+    primeiroVencimento: (v.pagamento === "cartao" ? [...(v.parcelas_venda ?? [])].sort((a, b) => a.numero - b.numero)[0]?.vencimento : null) ?? primeiroVencimentoVenda(v.data),
     obs: v.obs ?? "",
   });
   const detalhesDe = (v) => [

@@ -71,6 +71,12 @@ function parcelasValidas(pagamento, parcelas) {
   return n;
 }
 
+// data da 1ª parcela da venda no cartão; vazio = padrão do banco (dia 8 do mês seguinte)
+function vencimentoOpcional(pagamento, texto) {
+  if (pagamento !== "cartao" || !texto) return null;
+  return dataValida(texto);
+}
+
 // despesa/compra: sem cartão = à vista (1 parcela); no cartão, 1 a 12x. Cartão desativado só vale
 // se já era o da linha (editar um lançamento antigo não obriga a trocar de cartão)
 async function formaDePagamento(supabase, cartaoId, parcelas, cartaoAtual = null) {
@@ -96,7 +102,7 @@ function atualizarTudo() {
 // itens: [{ produtoId, quantidade, preco }]; pagamento, parcelas, data e obs valem para a venda toda.
 // Cada item vira uma linha em `vendas`, ligadas por grupo_id quando há mais de um.
 // pedidoId: venda lançada a partir de um pedido da loja (vitrine); o pedido fica "entregue" e ligado à venda.
-export async function registrarVenda({ itens, pagamento, parcelas, data, obs, pedidoId }) {
+export async function registrarVenda({ itens, pagamento, parcelas, primeiroVencimento, data, obs, pedidoId }) {
   return executar(async (supabase, user) => {
     if (!Array.isArray(itens) || itens.length === 0) falha("Adicione ao menos um item.");
     let ped = null;
@@ -109,6 +115,7 @@ export async function registrarVenda({ itens, pagamento, parcelas, data, obs, pe
     if (itens.length > 30) falha("Itens demais numa venda (máximo 30).");
     if (!PAGAMENTOS.includes(pagamento)) falha("Escolha a forma de pagamento.");
     const nParcelas = parcelasValidas(pagamento, parcelas);
+    const venc = vencimentoOpcional(pagamento, primeiroVencimento);
 
     const linhas = itens.map((i) => {
       if (!i.produtoId) falha("Escolha o produto.");
@@ -137,6 +144,7 @@ export async function registrarVenda({ itens, pagamento, parcelas, data, obs, pe
           preco_unit: l.p,
           pagamento,
           parcelas: nParcelas,
+          primeiro_vencimento: venc,
           obs: (obs ?? "").trim() || null,
           grupo_id: grupoId,
         })),
@@ -177,12 +185,13 @@ export async function atualizarPedido({ id, status }) {
   });
 }
 
-export async function editarVenda({ id, quantidade, preco, pagamento, parcelas, data, obs }) {
+export async function editarVenda({ id, quantidade, preco, pagamento, parcelas, primeiroVencimento, data, obs }) {
   return executar(async (supabase) => {
     const q = valorPositivo(quantidade, "a quantidade");
     const p = valorPositivo(preco, "o preço");
     if (!PAGAMENTOS.includes(pagamento)) falha("Escolha a forma de pagamento.");
     const nParcelas = parcelasValidas(pagamento, parcelas);
+    const venc = vencimentoOpcional(pagamento, primeiroVencimento);
 
     const { data: antiga, error: erroVenda } = await supabase.from("vendas").select("produto_id, quantidade").eq("id", id).single();
     if (erroVenda || !antiga) falha("Venda não encontrada.");
@@ -200,6 +209,7 @@ export async function editarVenda({ id, quantidade, preco, pagamento, parcelas, 
         preco_unit: p,
         pagamento,
         parcelas: nParcelas,
+        primeiro_vencimento: venc,
         obs: (obs ?? "").trim() || null,
       })
       .eq("id", id)

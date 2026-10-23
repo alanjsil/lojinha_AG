@@ -219,6 +219,8 @@ create table if not exists vendas (
   pagamento text not null check (pagamento in ('a_vista', 'cartao')),
   -- só cartão parcela; a comissão cai junto com cada parcela (tabela parcelas)
   parcelas smallint not null default 1 check (parcelas between 1 and 12),
+  -- 035: 1ª parcela no cartão (null = dia 8 do mês seguinte)
+  primeiro_vencimento date,
   constraint vendas_parcelas_so_cartao check (
     parcelas = 1
     or pagamento = 'cartao'
@@ -305,17 +307,22 @@ declare
   v_parc numeric := round(total / n, 2);
   c_parc numeric := round(new.comissao / n, 2);
   s_parc numeric := round(new.comissao_socia / n, 2);
+  base date;
   k int;
 begin
   delete from public.parcelas where venda_id = new.id;
   if new.apagado_em is not null then
     return null;
   end if;
+  base := case
+    when new.pagamento <> 'cartao' then new.data
+    else coalesce(new.primeiro_vencimento, (date_trunc('month', new.data) + interval '1 month' + interval '7 days')::date)
+  end;
   for k in 1..n loop
     insert into public.parcelas (venda_id, vendedor_id, numero, vencimento, valor, comissao, comissao_socia, socia_id)
     values (
       new.id, new.vendedor_id, k,
-      (new.data + ((k - 1) * interval '1 month'))::date,
+      (base + ((k - 1) * interval '1 month'))::date,
       case when k = n then total - v_parc * (n - 1) else v_parc end,
       case when k = n then new.comissao - c_parc * (n - 1) else c_parc end,
       case when k = n then new.comissao_socia - s_parc * (n - 1) else s_parc end,
@@ -331,7 +338,9 @@ create trigger depois_de_gravar_venda
 after insert or update of data,
 quantidade,
 preco_unit,
+pagamento,
 parcelas,
+primeiro_vencimento,
 apagado_em on vendas for each row
 execute function vendas_gerar_parcelas ();
 
@@ -452,7 +461,6 @@ from
   produtos p;
 
 -- resumo_acumulado (caixa real): definido no fim, na seção 034 (usa saidas_parcelas).
-
 -- ============================================================
 -- Segurança: RLS ligado em tudo. Só usuários logados (todos com o mesmo acesso).
 -- Compras e contagens não são editáveis (apaga e lança de novo). Vendas só
@@ -582,7 +590,7 @@ from
   authenticated;
 
 grant
-update (data, quantidade, preco_unit, pagamento, parcelas, obs) on vendas to authenticated;
+update (data, quantidade, preco_unit, pagamento, parcelas, primeiro_vencimento, obs) on vendas to authenticated;
 
 -- parcelas: só leitura para o app; quem grava é o trigger
 alter table parcelas enable row level security;
