@@ -2,7 +2,22 @@ import BottomNav from "../components/BottomNav";
 import Novidades from "../components/Novidades";
 import RegistrarSW from "../components/RegistrarSW";
 import { createClient } from "../lib/supabase/server";
+import { Plus_Jakarta_Sans, Sora } from "next/font/google";
 import "./globals.css";
+
+// hospedadas pelo próprio app no build (sem requisição externa, sem mudar o CSP)
+const textoFonte = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  variable: "--fonte-texto",
+  display: "swap",
+});
+const tituloFonte = Sora({
+  subsets: ["latin"],
+  weight: ["600", "700"],
+  variable: "--fonte-titulo",
+  display: "swap",
+});
 
 export const metadata = {
   title: "Lojinha A&G",
@@ -35,7 +50,7 @@ export default async function RootLayout({ children }) {
   const gerente = user?.app_metadata?.papel === "gerente";
 
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" className={`${textoFonte.variable} ${tituloFonte.variable}`}>
       <body>
         <main className="content">{children}</main>
         <BottomNav gerente={gerente} />

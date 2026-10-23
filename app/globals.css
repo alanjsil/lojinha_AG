@@ -26,11 +26,14 @@ html {
 body {
   margin: 0;
   font-family:
+    var(--fonte-texto),
     system-ui,
     -apple-system,
     Segoe UI,
     Roboto,
     sans-serif;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
   font-size: 18px;
   line-height: 1.4;
   color: var(--texto);
@@ -40,6 +43,11 @@ body {
   max-width: 560px;
   margin: 0 auto;
   padding: 16px 16px calc(var(--nav-altura) + 24px + env(safe-area-inset-bottom));
+}
+h1,
+h2 {
+  font-family: var(--fonte-titulo), var(--fonte-texto), system-ui, sans-serif;
+  letter-spacing: -0.01em;
 }
 h1 {
   font-size: 24px;
@@ -1454,4 +1462,110 @@ button:disabled {
 .selo-status.pronto {
   background: var(--verde-claro);
   color: var(--verde-escuro);
+}
+
+/* ---------- Acabamento visual (sombras, toque, vitrine, estados vazios) ---------- */
+:root {
+  --sombra-1: 0 1px 2px rgb(16 24 40 / 0.06), 0 1px 3px rgb(16 24 40 / 0.1);
+  --sombra-2: 0 4px 12px rgb(16 24 40 / 0.1), 0 1px 3px rgb(16 24 40 / 0.08);
+  --raio-grande: 16px;
+}
+.card {
+  border-radius: var(--raio-grande);
+  box-shadow: var(--sombra-1);
+}
+button,
+.botao-link,
+.botao-link-cheio,
+.link-cartao,
+.loja-entrar,
+.bottom-nav a {
+  transition:
+    transform 0.15s ease,
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+button:active:not(:disabled),
+.botao-link:active,
+.botao-link-cheio:active,
+.link-cartao:active {
+  transform: scale(0.98);
+}
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 3px solid var(--primaria-clara);
+  border-color: var(--primaria);
+}
+
+/* vitrine: cartões de produto com foto em destaque */
+.loja-grade li {
+  padding: 0 0 10px;
+  overflow: hidden;
+  background: var(--cartao);
+  border: none;
+  border-radius: var(--raio-grande);
+  box-shadow: var(--sombra-1);
+  transition: box-shadow 0.15s ease;
+}
+.loja-grade li:active {
+  box-shadow: var(--sombra-2);
+}
+.loja-grade li .loja-foto-caixa {
+  margin-bottom: 8px;
+}
+.loja-grade .loja-foto {
+  border-radius: 0;
+}
+.loja-grade li > :not(.loja-foto-caixa) {
+  margin-left: 10px;
+  margin-right: 10px;
+}
+.loja-grade li > button,
+.loja-grade li > .qtd-passo {
+  margin-left: 10px;
+  margin-right: 10px;
+}
+.loja-preco {
+  color: var(--primaria);
+  font-family: var(--fonte-titulo), var(--fonte-texto), system-ui, sans-serif;
+}
+.selo-esgotado {
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+.loja-topo {
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.25);
+}
+
+/* estado vazio: caixa tracejada centralizada */
+.vazio {
+  padding: 24px 16px;
+  text-align: center;
+  border: 1px dashed var(--borda);
+  border-radius: var(--raio-grande);
+  background: #fafaf8;
+}
+
+/* entrada suave das telas */
+@keyframes aparecer {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.content > * {
+  animation: aparecer 0.2s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .content > *,
+  button,
+  .card {
+    animation: none;
+    transition: none;
+  }
 }
