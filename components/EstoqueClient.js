@@ -380,9 +380,11 @@ export default function EstoqueClient({ produtos, categorias, contagens, compras
         <button type="button" className={aba === "produtos" ? "ativo" : ""} onClick={() => setAba("produtos")}>
           Estoque
         </button>
-        <button type="button" className={aba === "compras" ? "ativo" : ""} onClick={() => setAba("compras")}>
-          Compras
-        </button>
+        {gerente && (
+          <button type="button" className={aba === "compras" ? "ativo" : ""} onClick={() => setAba("compras")}>
+            Compras
+          </button>
+        )}
         <button type="button" className={aba === "contagem" ? "ativo" : ""} onClick={() => setAba("contagem")}>
           Contagem
         </button>
@@ -428,7 +430,7 @@ export default function EstoqueClient({ produtos, categorias, contagens, compras
         </>
       )}
 
-      {aba === "compras" && <AbaCompras produtos={produtosCompra} compras={compras} cartoes={cartoes} gerente={gerente} />}
+      {aba === "compras" && gerente && <AbaCompras produtos={produtosCompra} compras={compras} cartoes={cartoes} gerente={gerente} />}
 
       {aba === "categorias" && gerente && <AbaCategorias categorias={categorias} produtos={produtos} />}
 

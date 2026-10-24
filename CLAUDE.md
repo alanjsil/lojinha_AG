@@ -31,6 +31,13 @@ registrado por `components/RegistrarSW.js` só em produção. `sw.js` fica fora 
   parcela (trigger `vendas_gerar_parcelas`; cartão: 1ª no dia 8 do mês seguinte à venda ou em `vendas.primeiro_vencimento` (mig. 035), as demais mês a mês; à vista: na data da venda) com a fatia da comissão; nos Resumos
   a comissão conta no **vencimento da parcela**, não na data da venda.
 - Estoque = compras − vendas + diferença das contagens (view `estoque_atual`). Não vende acima do saldo.
+- **Quem mexe no quê (mig. 036, auditoria em `docs/auditoria-seguranca.md`):** vendedor e sócia editam/excluem **só a própria venda, até 48 h depois de lançada**
+  (conta `created_at`, não a data da venda); depois disso só o gerente, a qualquer momento. A sócia não ganha poder de gerente. Regra no banco
+  (`pode_mexer_venda()` nas policies `vendas_editar`/`vendas_apagar`), espelhada em `lib/vendas.js` para mensagem e botões. Como a exclusão é lógica
+  (o DELETE não devolve linhas), `excluirVenda` confere antes de apagar. **Compras: só o gerente lança e exclui** (aba Compras some para os outros).
+  O banco, não a Server Action, é quem garante: saldo (trigger `vendas_checar_saldo`, com lock por produto), `quantidade_sistema` da contagem
+  (trigger `contagens_preencher`), transições do pedido (`pedidos_validar_status`: `entregue` só com venda real, ligada a um pedido só) e `INSERT` por
+  coluna em `vendas`/`compras`/`contagens_estoque` (autoria, custo/comissão e `apagado_*` não vêm do navegador; coluna nova que o app envia precisa de `grant insert`).
 - Custo do produto (`produtos.custo`) = **custo médio móvel sobre o saldo**: a cada compra lançada/excluída,
   `recalcular_custo_medio` refaz o histórico em ordem cronológica (compra: `(saldo×custo + qtd×custo da compra) /
 (saldo + qtd)`; venda e contagem só mexem na quantidade; saldo ≤ 0 antes da compra → custo da compra).
@@ -64,7 +71,7 @@ registrado por `components/RegistrarSW.js` só em produção. `sw.js` fica fora 
 - **Vitrine pública (mig. 030):** `/` (`app/(loja)/page.js`) abre sem login; rotas públicas em `lib/rotas.js` (`/`, `/login`,
   `/cadastro`, `/offline`, que aceitam POST para a Server Action). O anon não lê tabela nenhuma: só as RPCs `vitrine()` (ativos de categoria
   ativa, preço, foto, `esgotado` e `restam` — saldo só quando é de 1 a 10, senão null; trava o "+" do carrinho via `limiteDe` de `lib/pedido.js`; nunca custo nem saldo exato) e `criar_pedido()` (security definer: refaz preço pelo banco, recusa
-  esgotado/acima do saldo/repetido, limita 3 pedidos por telefone e 30 no total a cada 10 min; erro `P0001` = mensagem para o cliente).
+  esgotado/acima do saldo/repetido, limita 3 pedidos por telefone, 5 por rede (IP em HMAC, `pedidos.ip_hash`, IPv6 pelo /64) e 30 no total a cada 10 min; erro `P0001` = mensagem para o cliente; **só a service role executa** (mig. 036): a Server Action `criarPedido` chama pelo `criarAdmin()`, então sem `SUPABASE_SERVICE_ROLE_KEY` o site não grava pedido).
   Carrinho no `localStorage` do cliente (`lib/pedido.js`); depois de gravar, abre o `wa.me` do `WHATSAPP_LOJA` (variável de
   ambiente do servidor; vazia = só grava). `pedidos` (status `novo → confirmado → pronto → entregue`, ou `cancelado`; regras em
   `mudancaValida`/`proximoStatus` de `lib/pedido.js`): a equipe lê e só altera status/atendimento (grants por coluna). Em Vendas,
@@ -82,7 +89,7 @@ registrado por `components/RegistrarSW.js` só em produção. `sw.js` fica fora 
 - **Push (Web Push/VAPID):** `push_inscricoes` (uma por aparelho, endpoint único). `components/AtivarAvisos.js` pede permissão,
   inscreve no `pushManager` do `sw.js` e grava pela Server Action `ativarAvisos`; o envio (`lib/push.js`, `web-push`) usa a
   service role (`lib/supabase/admin.js`, `server-only`) e roda em `after()` para não atrasar a resposta. Pedido novo → toda a equipe;
-  mudança de status → o cliente dono. Inscrição 404/410 é apagada. Variáveis: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`,
+  mudança de status → o cliente dono. Inscrição 404/410 é apagada. O endpoint só vale se for de serviço de push de navegador (`lib/push-endpoint.js` + constraint `push_inscricoes_endpoint_host`); o usuário não insere direto na tabela, só a Server Action. Variáveis: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`,
   `VAPID_SUBJECT` e `SUPABASE_SERVICE_ROLE_KEY` (sem elas, simplesmente não avisa). iPhone só recebe com o app instalado (iOS 16.4+).
 
 ## Banco e auth
@@ -94,7 +101,7 @@ registrado por `components/RegistrarSW.js` só em produção. `sw.js` fica fora 
 - Schema em `db/schema.sql` (estado atual completo); mudanças em `supabase/migrations/<timestamp>_nome.sql` (formato da
   Supabase CLI; as antigas 003–032 foram renomeadas, o número original continua no nome do arquivo), sempre
   refletidas no schema. Nova migração: `npx supabase migration new nome`. `db/migracoes/` guarda só a 001 e a 002
-  (anteriores ao histórico do banco). Produção está em dia (até a 035 `vencimento_dia8`); migrações novas entram pelo workflow manual
+  (anteriores ao histórico do banco). Produção está em dia até a 035 `vencimento_dia8`; a 036 `seguranca_auditoria` entra pelo workflow, colada no deploy do app (entre um e outro, pedido da loja e contagem de estoque falham: a assinatura de `criar_pedido` e o `INSERT` de contagem mudaram); confira `SUPABASE_SERVICE_ROLE_KEY` na Vercel antes; migrações novas entram pelo workflow manual
   `.github/workflows/db.yml` (só produção; o dev em rede local recebe por `db push --db-url`) (secrets `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_ID`; rode
   primeiro com dry_run). CI de lint/testes em `ci.yml`. Passo a passo de migrações e das chaves VAPID/variáveis de
   ambiente em `docs/supabase-e-vapid.md` (nomes das variáveis em `.env.example`). Confira com `npx supabase migration list` ou o MCP

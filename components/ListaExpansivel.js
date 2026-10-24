@@ -5,9 +5,10 @@ import BotaoExcluir from "./BotaoExcluir";
 import useEnvio, { Mensagem } from "./useEnvio";
 
 // Lista em cartões: tocar num item mostra os detalhes e os botões de ação.
-// itens: [{ id, titulo, sub, valor, detalhes: [texto] }]
+// itens: [{ id, titulo, sub, valor, detalhes: [texto], bloqueio? }]
 // renderEditar(item, fechar): opcional; quando passado, aparece o botão Editar
 // ao lado de Excluir e o formulário abre dentro do próprio item.
+// bloqueio: texto com o motivo de o usuário não poder editar nem excluir o item (sem botões, só o aviso).
 export default function ListaExpansivel({ itens, excluir, renderEditar, vazio = "Nada lançado ainda." }) {
   const [aberto, setAberto] = useState(null);
   const [editando, setEditando] = useState(null);
@@ -48,14 +49,18 @@ export default function ListaExpansivel({ itens, excluir, renderEditar, vazio = 
                     {i.detalhes?.map((d) => (
                       <p key={d}>{d}</p>
                     ))}
-                    <div className={renderEditar ? "acoes-item" : undefined}>
-                      {renderEditar && (
-                        <button type="button" className="botao-secundario" onClick={() => setEditando(i.id)}>
-                          Editar
-                        </button>
-                      )}
-                      <BotaoExcluir onConfirmar={() => enviar(excluir, i.id, { textoOk: "Excluído." })} />
-                    </div>
+                    {i.bloqueio ? (
+                      <p className="sub">{i.bloqueio}</p>
+                    ) : (
+                      <div className={renderEditar ? "acoes-item" : undefined}>
+                        {renderEditar && (
+                          <button type="button" className="botao-secundario" onClick={() => setEditando(i.id)}>
+                            Editar
+                          </button>
+                        )}
+                        <BotaoExcluir onConfirmar={() => enviar(excluir, i.id, { textoOk: "Excluído." })} />
+                      </div>
+                    )}
                   </>
                 )}
               </div>

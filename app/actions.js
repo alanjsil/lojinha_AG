@@ -8,6 +8,7 @@ import { ABERTOS, avisoStatus, mudancaValida } from "../lib/pedido";
 import { avisarCliente } from "../lib/push";
 import { ehEquipe } from "../lib/rotas";
 import { createClient, usuarioAtual } from "../lib/supabase/server";
+import { motivoSemAcessoVenda } from "../lib/vendas";
 
 const PAGAMENTOS = ["a_vista", "cartao"];
 const TIPOS_DESPESA = ["aluguel", "agua", "luz", "internet", "gasolina", "alimentacao", "pedagio", "outros"];
@@ -150,6 +151,8 @@ export async function registrarVenda({ itens, pagamento, parcelas, primeiroVenci
         })),
       )
       .select("id");
+    // P0001 = mensagem escrita para o usuário dentro do banco (ex.: o saldo acabou entre a conferência e o insert)
+    if (error?.code === "P0001") falha(error.message);
     if (error) throw error;
     if (ped) {
       // a venda já entrou; se marcar o pedido falhar, ele só continua aberto na lista
@@ -185,16 +188,27 @@ export async function atualizarPedido({ id, status }) {
   });
 }
 
+// Vendedor e sócia mexem só na própria venda, até 48 h depois de lançada; depois, só o gerente (lib/vendas.js).
+// O banco aplica a mesma regra (policy pode_mexer_venda); aqui é para dar a mensagem certa.
+function conferirAcessoVenda(user, vendas) {
+  for (const v of vendas) {
+    const motivo = motivoSemAcessoVenda({ papel: user.app_metadata?.papel, usuarioId: user.id, vendedorId: v.vendedor_id, criadaEm: v.created_at });
+    if (motivo) falha(motivo);
+  }
+}
+
 export async function editarVenda({ id, quantidade, preco, pagamento, parcelas, primeiroVencimento, data, obs }) {
-  return executar(async (supabase) => {
+  return executar(async (supabase, user) => {
+    if (!UUID.test(id ?? "")) falha("Venda inválida.");
     const q = valorPositivo(quantidade, "a quantidade");
     const p = valorPositivo(preco, "o preço");
     if (!PAGAMENTOS.includes(pagamento)) falha("Escolha a forma de pagamento.");
     const nParcelas = parcelasValidas(pagamento, parcelas);
     const venc = vencimentoOpcional(pagamento, primeiroVencimento);
 
-    const { data: antiga, error: erroVenda } = await supabase.from("vendas").select("produto_id, quantidade").eq("id", id).single();
+    const { data: antiga, error: erroVenda } = await supabase.from("vendas").select("produto_id, quantidade, vendedor_id, created_at").eq("id", id).single();
     if (erroVenda || !antiga) falha("Venda não encontrada.");
+    conferirAcessoVenda(user, [antiga]);
 
     // o saldo atual já desconta a quantidade antiga desta venda
     const produto = await saldoDoProduto(supabase, antiga.produto_id);
@@ -214,6 +228,7 @@ export async function editarVenda({ id, quantidade, preco, pagamento, parcelas, 
       })
       .eq("id", id)
       .select("id");
+    if (error?.code === "P0001") falha(error.message);
     if (error) throw error;
     if (!salvas?.length) falha("Você não pode editar esta venda.");
     atualizarTudo();
@@ -222,9 +237,15 @@ export async function editarVenda({ id, quantidade, preco, pagamento, parcelas, 
 
 // `id` é o de uma venda ou o grupo_id de uma venda com vários itens (apaga todos os itens)
 export async function excluirVenda(id) {
-  return executar(async (supabase) => {
+  return executar(async (supabase, user) => {
     if (!UUID.test(id ?? "")) falha("Venda inválida.");
-    const { error } = await supabase.from("vendas").delete().or(`id.eq.${id},grupo_id.eq.${id}`);
+    const filtro = `id.eq.${id},grupo_id.eq.${id}`;
+    // a exclusão é lógica (o DELETE não devolve linhas), então a conferência de quem pode vem antes
+    const { data: itens, error: erroBusca } = await supabase.from("vendas").select("vendedor_id, created_at").or(filtro);
+    if (erroBusca) throw erroBusca;
+    if (!itens?.length) falha("Venda não encontrada.");
+    conferirAcessoVenda(user, itens);
+    const { error } = await supabase.from("vendas").delete().or(filtro);
     if (error) throw error;
     atualizarTudo();
   });
@@ -329,26 +350,30 @@ export async function enviarFoto(formData) {
 
 // ---------- Compras (entrada de estoque) ----------
 
+// Só o gerente lança e exclui compra: ela mexe no estoque e no custo médio, que vira o custo (e a comissão) das vendas seguintes.
 export async function registrarCompra({ produtoId, quantidade, custo, fornecedor, data, cartaoId, parcelas }) {
-  return executar(async (supabase) => {
-    if (!produtoId) falha("Escolha o produto.");
-    const q = valorPositivo(quantidade, "a quantidade");
-    const c = valorPositivo(custo, "o custo unitário", { permiteZero: true });
-    const pagamento = await formaDePagamento(supabase, cartaoId, parcelas);
+  return executar(
+    async (supabase) => {
+      if (!produtoId) falha("Escolha o produto.");
+      const q = valorPositivo(quantidade, "a quantidade");
+      const c = valorPositivo(custo, "o custo unitário", { permiteZero: true });
+      const pagamento = await formaDePagamento(supabase, cartaoId, parcelas);
 
-    // o custo do produto é recalculado automaticamente (trigger) como a média
-    // ponderada de todas as compras; vendas antigas guardam o custo da época
-    const { error } = await supabase.from("compras").insert({
-      data: dataValida(data),
-      produto_id: produtoId,
-      quantidade: q,
-      custo_unit: c,
-      fornecedor: (fornecedor ?? "").trim() || null,
-      ...pagamento,
-    });
-    if (error) throw error;
-    atualizarTudo();
-  });
+      // o custo do produto é recalculado automaticamente (trigger) como a média
+      // ponderada de todas as compras; vendas antigas guardam o custo da época
+      const { error } = await supabase.from("compras").insert({
+        data: dataValida(data),
+        produto_id: produtoId,
+        quantidade: q,
+        custo_unit: c,
+        fornecedor: (fornecedor ?? "").trim() || null,
+        ...pagamento,
+      });
+      if (error) throw error;
+      atualizarTudo();
+    },
+    { exigeGerente: true },
+  );
 }
 
 // Só o gerente edita compra (data, quantidade, custo, fornecedor); o custo médio é refeito por trigger.
@@ -380,11 +405,15 @@ export async function editarCompra({ id, quantidade, custo, fornecedor, data, ca
 }
 
 export async function excluirCompra(id) {
-  return executar(async (supabase) => {
-    const { error } = await supabase.from("compras").delete().eq("id", id);
-    if (error) throw error;
-    atualizarTudo();
-  });
+  return executar(
+    async (supabase) => {
+      if (!UUID.test(id ?? "")) falha("Compra inválida.");
+      const { error } = await supabase.from("compras").delete().eq("id", id);
+      if (error) throw error;
+      atualizarTudo();
+    },
+    { exigeGerente: true },
+  );
 }
 
 // ---------- Despesas ----------
@@ -566,18 +595,18 @@ export async function restaurarRegistro({ tabela, id }) {
 // ---------- Contagem cíclica ----------
 
 // Guarda o que o sistema achava e o que foi contado; a diferença ajusta o estoque.
+// O "que o sistema achava" (quantidade_sistema) é calculado pelo banco na hora de gravar, não vem do navegador.
 export async function registrarContagem({ produtoId, quantidade, observacao, data }) {
   return executar(async (supabase) => {
     if (!produtoId) falha("Escolha o produto.");
     const contada = valorPositivo(quantidade, "a quantidade contada", {
       permiteZero: true,
     });
-    const produto = await saldoDoProduto(supabase, produtoId);
+    await saldoDoProduto(supabase, produtoId);
 
     const { error } = await supabase.from("contagens_estoque").insert({
       data: dataValida(data),
       produto_id: produtoId,
-      quantidade_sistema: produto.saldo,
       quantidade_contada: contada,
       observacao: (observacao ?? "").trim() || null,
     });

@@ -7,6 +7,7 @@ import { brl, dataBR, qtd, somarDias } from "../../lib/formato";
 import { ABERTOS } from "../../lib/pedido";
 import { primeiroVencimentoVenda } from "../../lib/parcelas";
 import { createClient, usuarioAtual } from "../../lib/supabase/server";
+import { motivoSemAcessoVenda } from "../../lib/vendas";
 import { excluirVenda } from "../actions";
 
 const FORMA = { a_vista: "À Vista", cartao: "Cartão" };
@@ -23,7 +24,7 @@ export default async function Vendas({ searchParams }) {
     supabase
       .from("vendas")
       .select(
-        "id, grupo_id, data, quantidade, preco_unit, custo_unit, pagamento, parcelas, obs, lucro, comissao, comissao_socia, produtos(nome, unidade), perfis!vendas_vendedor_id_fkey(nome), parcelas_venda:parcelas(numero, vencimento, valor, comissao)",
+        "id, grupo_id, vendedor_id, created_at, data, quantidade, preco_unit, custo_unit, pagamento, parcelas, obs, lucro, comissao, comissao_socia, produtos(nome, unidade), perfis!vendas_vendedor_id_fkey(nome), parcelas_venda:parcelas(numero, vencimento, valor, comissao)",
       )
       .gte("data", desde)
       .order("data", { ascending: false })
@@ -54,6 +55,9 @@ export default async function Vendas({ searchParams }) {
       : []),
   ];
   const pagamentoDe = (v) => `${FORMA[v.pagamento]}${v.parcelas > 1 ? ` ${v.parcelas}x` : ""}`;
+  // motivo de não poder editar/excluir (a regra das 48 h está em lib/vendas.js); null = pode. Itens do mesmo grupo têm o mesmo dono e hora.
+  const bloqueioDe = (vs) =>
+    vs.map((x) => motivoSemAcessoVenda({ papel: usuario?.papel, usuarioId: usuario?.id, vendedorId: x.vendedor_id, criadaEm: x.created_at })).find(Boolean) ?? null;
 
   // itens da mesma venda (mesmo grupo_id) viram um cartão só, na posição do mais recente
   const grupos = new Map();
@@ -71,6 +75,7 @@ export default async function Vendas({ searchParams }) {
         titulo: v.produtos?.nome ?? "Produto",
         sub: `${dataBR(v.data)} · ${qtd(v.quantidade)} × ${brl(v.preco_unit)} · ${pagamentoDe(v)}`,
         valor: brl(v.quantidade * v.preco_unit),
+        bloqueio: bloqueioDe(vs),
         dados: [dadosDe(v)],
         detalhes: [`Vendedor: ${v.perfis?.nome ?? "-"}`, ...(v.obs ? [`Obs: ${v.obs}`] : []), ...detalhesDe(v)],
       };
@@ -83,6 +88,7 @@ export default async function Vendas({ searchParams }) {
       titulo: `${v.produtos?.nome ?? "Produto"} + ${vs.length - 1} ${vs.length === 2 ? "item" : "itens"}`,
       sub: `${dataBR(v.data)} · ${vs.length} itens · ${pagamentoDe(v)}`,
       valor: brl(total),
+      bloqueio: bloqueioDe(vs),
       dados: vs.map((x) => ({ ...dadosDe(x), nome: x.produtos?.nome ?? "Produto" })),
       detalhes: [
         `Vendedor: ${v.perfis?.nome ?? "-"}`,
