@@ -2,6 +2,7 @@ import Link from "next/link";
 import AtivarAvisos from "../../components/AtivarAvisos";
 import FormVenda from "../../components/FormVenda";
 import ListaVendas from "../../components/ListaVendas";
+import ModalVendas from "../../components/ModalVendas";
 import PedidosLoja from "../../components/PedidosLoja";
 import { brl, dataBR, qtd, somarDias } from "../../lib/formato";
 import { ABERTOS } from "../../lib/pedido";
@@ -26,10 +27,9 @@ export default async function Vendas({ searchParams }) {
       .select(
         "id, grupo_id, vendedor_id, created_at, data, quantidade, preco_unit, custo_unit, pagamento, parcelas, obs, lucro, comissao, comissao_socia, produtos(nome, unidade), perfis!vendas_vendedor_id_fkey(nome), parcelas_venda:parcelas(numero, vencimento, valor, comissao)",
       )
-      .gte("data", desde)
       .order("data", { ascending: false })
       .order("created_at", { ascending: false })
-      .limit(50),
+      .limit(500),
     supabase.from("pedidos").select("id, numero, criado_em, status, cliente_id, cliente_nome, cliente_telefone, obs, itens, total").in("status", ABERTOS).order("criado_em").limit(50),
   ]);
   const pedido = pedidoId ? ((pedidos ?? []).find((p) => p.id === pedidoId) ?? null) : null;
@@ -67,10 +67,11 @@ export default async function Vendas({ searchParams }) {
     grupos.get(chave).push(v);
   }
 
-  const itens = [...grupos.entries()].map(([chave, vs]) => {
+  const todas = [...grupos.entries()].map(([chave, vs]) => {
     const v = vs[0];
     if (vs.length === 1) {
       return {
+        data: v.data,
         id: v.id,
         titulo: v.produtos?.nome ?? "Produto",
         sub: `${dataBR(v.data)} · ${qtd(v.quantidade)} × ${brl(v.preco_unit)} · ${pagamentoDe(v)}`,
@@ -84,6 +85,7 @@ export default async function Vendas({ searchParams }) {
     const lucro = vs.reduce((t, x) => t + Number(x.lucro), 0);
     const comissao = vs.reduce((t, x) => t + Number(x.comissao), 0);
     return {
+      data: v.data,
       id: chave,
       titulo: `${v.produtos?.nome ?? "Produto"} + ${vs.length - 1} ${vs.length === 2 ? "item" : "itens"}`,
       sub: `${dataBR(v.data)} · ${vs.length} itens · ${pagamentoDe(v)}`,
@@ -98,6 +100,8 @@ export default async function Vendas({ searchParams }) {
       ],
     };
   });
+
+  const itens = todas.filter((i) => i.data >= desde);
 
   return (
     <>
@@ -128,6 +132,7 @@ export default async function Vendas({ searchParams }) {
         <h2>Últimos 7 dias</h2>
         <ListaVendas itens={itens} excluir={excluirVenda} />
       </div>
+      <ModalVendas itens={todas} excluir={excluirVenda} />
       {!pedido && <AtivarAvisos chavePublica={process.env.VAPID_PUBLIC_KEY ?? ""} texto="Receba um aviso neste aparelho quando chegar um pedido novo da loja." />}
     </>
   );

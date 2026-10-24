@@ -18,7 +18,7 @@ function loteDoPedido(pedido, produtos) {
   return pedido.itens.flatMap((i) => {
     const p = produtos.find((x) => x.id === i.produto_id);
     if (!p) return [];
-    return [{ produtoId: p.id, quantidade: String(i.quantidade), preco: String(i.preco), nome: p.nome, unidade: p.unidade, q: Number(i.quantidade), pr: Number(i.preco), custo: p.custo }];
+    return [{ produtoId: p.id, quantidade: String(i.quantidade), preco: String(i.preco), nome: p.nome, unidade: p.unidade, q: Number(i.quantidade), pr: Number(i.preco), custo: p.custo, tabela: p.preco }];
   });
 }
 
@@ -51,11 +51,15 @@ export default function FormVenda({ produtos, comissaoPct, pedido = null }) {
   const q = numero(quantidade);
   const pr = numero(preco);
   const itemValido = Boolean(produto) && preenchido(quantidade) && preenchido(preco) && q > 0 && pr > 0;
-  const atual = itemValido ? { produtoId, quantidade, preco, nome: produto.nome, unidade: produto.unidade, q, pr, custo: produto.custo } : null;
+  const atual = itemValido ? { produtoId, quantidade, preco, nome: produto.nome, unidade: produto.unidade, q, pr, custo: produto.custo, tabela: produto.preco } : null;
   // venda = itens do lote + o que está nos campos
   const itens = atual ? [...lote, atual] : lote;
   const valido = itens.length > 0;
   const total = itens.reduce((t, i) => t + i.q * i.pr, 0);
+  // desconto = preço cadastrado − preço vendido (negativo = vendeu acima da tabela)
+  const tabelaTotal = itens.reduce((t, i) => t + i.tabela * i.q, 0);
+  const desconto = tabelaTotal - total;
+  const descontoPct = tabelaTotal > 0 ? (desconto / tabelaTotal) * 100 : 0;
   const lucro = itens.reduce((t, i) => t + (i.pr - i.custo) * i.q, 0);
   // comissão por item: prejuízo de um item não abate o lucro de outro
   const comissao = itens.reduce((t, i) => t + Math.max((i.pr - i.custo) * i.q, 0), 0) * (comissaoPct / 100);
@@ -201,6 +205,10 @@ export default function FormVenda({ produtos, comissaoPct, pedido = null }) {
           <div>
             <span>Total</span>
             <strong>{brl(total)}</strong>
+          </div>
+          <div>
+            <span>Desconto ({qtd(Math.round(descontoPct * 10) / 10)}%)</span>
+            <strong className={desconto > 0.005 ? "negativo" : undefined}>{brl(desconto)}</strong>
           </div>
           <div>
             <span>Lucro</span>

@@ -317,6 +317,17 @@ button:disabled {
   background: var(--vermelho-claro);
   color: var(--vermelho);
 }
+.sub.bloqueio {
+  color: var(--vermelho);
+  font-weight: 600;
+}
+.modal-vendas .busca-vendas {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--card, #fff);
+  padding-bottom: 8px;
+}
 .icone-alerta {
   color: #d32f2f;
   margin-right: 8px;

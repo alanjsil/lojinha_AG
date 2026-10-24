@@ -50,8 +50,8 @@ export default function ListaExpansivel({ itens, excluir, renderEditar, vazio = 
                       <p key={d}>{d}</p>
                     ))}
                     {i.bloqueio ? (
-                      <p className="sub">{i.bloqueio}</p>
-                    ) : (
+                      <p className="sub bloqueio">{i.bloqueio}</p>
+                    ) : !excluir ? null : (
                       <div className={renderEditar ? "acoes-item" : undefined}>
                         {renderEditar && (
                           <button type="button" className="botao-secundario" onClick={() => setEditando(i.id)}>

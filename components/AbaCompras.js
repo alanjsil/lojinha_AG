@@ -159,7 +159,7 @@ function FormEditarCompra({ compra, cartoes, aoFechar }) {
   );
 }
 
-// Aba Compras do Estoque: entrada de mercadoria + últimos 30 dias (gerente edita)
+// Aba Compras do Estoque: entrada de mercadoria + últimos 30 dias (só o gerente lança/edita/exclui; a sócia só vê)
 export default function AbaCompras({ produtos, compras, cartoes, gerente }) {
   const nomeCartao = new Map(cartoes.map((c) => [c.id, c.nome]));
   const itens = compras.map((c) => ({
@@ -167,18 +167,18 @@ export default function AbaCompras({ produtos, compras, cartoes, gerente }) {
     titulo: c.produto,
     sub: `${dataBR(c.data)} · ${qtd(c.quantidade)} × ${brl(c.custo_unit)}${c.cartao_id ? ` · ${nomeCartao.get(c.cartao_id) ?? "Cartão"}${c.parcelas > 1 ? ` ${c.parcelas}x` : ""}` : ""}${c.fornecedor ? ` · ${c.fornecedor}` : ""}`,
     valor: brl(c.quantidade * c.custo_unit),
-    detalhes: ["Excluir remove a entrada do estoque."],
+    detalhes: gerente ? ["Excluir remove a entrada do estoque."] : [],
     dados: c,
   }));
 
   return (
     <>
-      <FormCompra produtos={produtos} cartoes={cartoes} />
+      {gerente && <FormCompra produtos={produtos} cartoes={cartoes} />}
       <div className="card">
         <h2>Últimos 30 dias</h2>
         <ListaExpansivel
           itens={itens}
-          excluir={excluirCompra}
+          excluir={gerente ? excluirCompra : undefined}
           vazio="Nenhuma compra nos últimos 30 dias."
           renderEditar={gerente ? (item, fechar) => <FormEditarCompra compra={item.dados} cartoes={cartoes} aoFechar={fechar} /> : undefined}
         />
