@@ -46,9 +46,10 @@ export default async function Vendas({ searchParams }) {
     primeiroVencimento: (v.pagamento === "cartao" ? [...(v.parcelas_venda ?? [])].sort((a, b) => a.numero - b.numero)[0]?.vencimento : null) ?? primeiroVencimentoVenda(v.data),
     obs: v.obs ?? "",
   });
+  // vendedor não vê custo nem lucro: só a própria comissão; a venda de outro vendedor aparece sem detalhes
+  const vendaDeOutro = (x) => !mostraSocia && x.vendedor_id !== usuario?.id;
   const detalhesDe = (v) => [
-    `Custo unit.: ${brl(v.custo_unit)}`,
-    `Lucro: ${brl(v.lucro)} · Comissão: ${brl(v.comissao)}`,
+    ...(mostraSocia ? [`Custo unit.: ${brl(v.custo_unit)}`, `Lucro: ${brl(v.lucro)} · Comissão: ${brl(v.comissao)}`] : [`Sua comissão: ${brl(v.comissao)}`]),
     ...(mostraSocia && Number(v.comissao_socia) > 0 ? [`Comissão da sócia: ${brl(v.comissao_socia)}`] : []),
     ...(v.parcelas > 1
       ? [...(v.parcelas_venda ?? [])].sort((a, b) => a.numero - b.numero).map((p) => `${p.numero}/${v.parcelas} · ${dataBR(p.vencimento)} · ${brl(p.valor)} · comissão ${brl(p.comissao)}`)
@@ -78,7 +79,7 @@ export default async function Vendas({ searchParams }) {
         valor: brl(v.quantidade * v.preco_unit),
         bloqueio: bloqueioDe(vs),
         dados: [dadosDe(v)],
-        detalhes: [`Vendedor: ${v.perfis?.nome ?? "-"}`, ...(v.obs ? [`Obs: ${v.obs}`] : []), ...detalhesDe(v)],
+        detalhes: vendaDeOutro(v) ? [`Vendedor: ${v.perfis?.nome ?? "-"}`] : [`Vendedor: ${v.perfis?.nome ?? "-"}`, ...(v.obs ? [`Obs: ${v.obs}`] : []), ...detalhesDe(v)],
       };
     }
     const total = vs.reduce((t, x) => t + x.quantidade * x.preco_unit, 0);
@@ -92,12 +93,14 @@ export default async function Vendas({ searchParams }) {
       valor: brl(total),
       bloqueio: bloqueioDe(vs),
       dados: vs.map((x) => ({ ...dadosDe(x), nome: x.produtos?.nome ?? "Produto" })),
-      detalhes: [
-        `Vendedor: ${v.perfis?.nome ?? "-"}`,
-        ...(v.obs ? [`Obs: ${v.obs}`] : []),
-        `Lucro: ${brl(lucro)} · Comissão: ${brl(comissao)}`,
-        ...vs.map((x) => `• ${x.produtos?.nome ?? "Produto"}: ${qtd(x.quantidade)} × ${brl(x.preco_unit)} = ${brl(x.quantidade * x.preco_unit)} (lucro ${brl(x.lucro)})`),
-      ],
+      detalhes: vendaDeOutro(v)
+        ? [`Vendedor: ${v.perfis?.nome ?? "-"}`]
+        : [
+            `Vendedor: ${v.perfis?.nome ?? "-"}`,
+            ...(v.obs ? [`Obs: ${v.obs}`] : []),
+            mostraSocia ? `Lucro: ${brl(lucro)} · Comissão: ${brl(comissao)}` : `Sua comissão: ${brl(comissao)}`,
+            ...vs.map((x) => `• ${x.produtos?.nome ?? "Produto"}: ${qtd(x.quantidade)} × ${brl(x.preco_unit)} = ${brl(x.quantidade * x.preco_unit)}${mostraSocia ? ` (lucro ${brl(x.lucro)})` : ""}`),
+          ],
     };
   });
 
@@ -127,6 +130,7 @@ export default async function Vendas({ searchParams }) {
           saldo: Number(p.saldo),
         }))}
         comissaoPct={usuario?.comissaoPct ?? 0}
+        mostraLucro={Boolean(mostraSocia)}
       />
       <div className="card">
         <h2>Últimos 7 dias</h2>

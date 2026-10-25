@@ -385,9 +385,11 @@ export default function EstoqueClient({ produtos, categorias, contagens, compras
             Compras
           </button>
         )}
-        <button type="button" className={aba === "contagem" ? "ativo" : ""} onClick={() => setAba("contagem")}>
-          Contagem
-        </button>
+        {veCompras && (
+          <button type="button" className={aba === "contagem" ? "ativo" : ""} onClick={() => setAba("contagem")}>
+            Contagem
+          </button>
+        )}
         {gerente && (
           <button type="button" className={aba === "categorias" ? "ativo" : ""} onClick={() => setAba("categorias")}>
             Categorias
@@ -434,7 +436,7 @@ export default function EstoqueClient({ produtos, categorias, contagens, compras
 
       {aba === "categorias" && gerente && <AbaCategorias categorias={categorias} produtos={produtos} />}
 
-      {aba === "contagem" && (
+      {aba === "contagem" && veCompras && (
         <>
           <FormContagem produtos={produtos.filter((p) => p.ativo)} />
           <div className="card">

@@ -22,7 +22,7 @@ function loteDoPedido(pedido, produtos) {
   });
 }
 
-export default function FormVenda({ produtos, comissaoPct, pedido = null }) {
+export default function FormVenda({ produtos, comissaoPct, mostraLucro = false, pedido = null }) {
   const router = useRouter();
   const { salvando, msg, enviar, limpar } = useEnvio();
   const [lote, setLote] = useState(() => loteDoPedido(pedido, produtos)); // itens já adicionados à venda
@@ -210,10 +210,12 @@ export default function FormVenda({ produtos, comissaoPct, pedido = null }) {
             <span>Desconto ({qtd(Math.round(descontoPct * 10) / 10)}%)</span>
             <strong className={desconto > 0.005 ? "negativo" : undefined}>{brl(desconto)}</strong>
           </div>
-          <div>
-            <span>Lucro</span>
-            <strong className={lucro < 0 ? "negativo" : "positivo"}>{brl(lucro)}</strong>
-          </div>
+          {mostraLucro && (
+            <div>
+              <span>Lucro</span>
+              <strong className={lucro < 0 ? "negativo" : "positivo"}>{brl(lucro)}</strong>
+            </div>
+          )}
           <div>
             <span>Sua comissão ({qtd(comissaoPct)}%)</span>
             <strong>{brl(comissao)}</strong>
@@ -227,7 +229,7 @@ export default function FormVenda({ produtos, comissaoPct, pedido = null }) {
             .filter((i) => i.pr < i.custo)
             .map((i, idx) => (
               <span key={idx} className="negativo">
-                Atenção: {i.nome} abaixo do custo ({brl(i.custo)}).
+                Atenção: {i.nome} abaixo do custo{mostraLucro ? ` (${brl(i.custo)})` : ""}.
               </span>
             ))}
         </div>

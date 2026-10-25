@@ -712,7 +712,9 @@ select
 
 create policy contagens_criar on contagens_estoque for insert to authenticated
 with
-  check (true);
+  check (
+    eh_resumo_completo ()
+  );
 
 revoke all on perfis,
 produtos,

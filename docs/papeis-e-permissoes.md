@@ -45,6 +45,7 @@ Equipe que abre `/conta` e cliente que abre tela da equipe são redirecionados (
 | Ver os próprios pedidos                                               |          🔸           |       —        |       —        |      —      |
 | Registrar venda                                                       |          ❌           |       ✅       |       ✅       |     ✅      |
 | Ver vendas                                                            |          ❌           |    ✅ todas    |    ✅ todas    |  ✅ todas   |
+| Ver detalhes, custo e lucro da venda                                  |          ❌           | 🔸 só comissão |       ✅       |     ✅      |
 | Editar venda                                                          |          ❌           | 🔸 até 48 h \* | 🔸 até 48 h \* | ✅ qualquer |
 | Excluir venda                                                         |          ❌           | 🔸 até 48 h \* | 🔸 até 48 h \* |     ✅      |
 | Ver pedidos da loja, confirmar, marcar pronto, cancelar, lançar venda |          ❌           |       ✅       |       ✅       |     ✅      |
@@ -63,7 +64,7 @@ Equipe que abre `/conta` e cliente que abre tela da equipe são redirecionados (
 | Lançar compra                           |    ❌    |  ❌   |   ✅    |
 | Editar compra                           |    ❌    |  ❌   |   ✅    |
 | Excluir compra                          |    ❌    |  ❌   |   ✅    |
-| Registrar contagem de estoque           |    ✅    |  ✅   |   ✅    |
+| Registrar contagem de estoque           |    ❌    |  ✅   |   ✅    |
 | Editar/excluir contagem                 |    ❌    |  ❌   |   ✅    |
 
 ### Dinheiro (Saídas, Resumos, Log)

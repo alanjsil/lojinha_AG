@@ -598,6 +598,9 @@ export async function restaurarRegistro({ tabela, id }) {
 // O "que o sistema achava" (quantidade_sistema) é calculado pelo banco na hora de gravar, não vem do navegador.
 export async function registrarContagem({ produtoId, quantidade, observacao, data }) {
   return executar(async (supabase) => {
+    // contagem é de gerente e sócia (o vendedor nem vê a aba); o banco também barra (mig. 037)
+    const usuario = await usuarioAtual(supabase);
+    if (!usuario?.gerente && usuario?.papel !== "socia") falha("Só o gerente ou a sócia registram contagem.");
     if (!produtoId) falha("Escolha o produto.");
     const contada = valorPositivo(quantidade, "a quantidade contada", {
       permiteZero: true,

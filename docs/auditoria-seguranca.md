@@ -45,7 +45,7 @@ Implementadas no repositório, : migração `20261024201255_seguranca_auditoria.
 
 - **Saldo por tentativa:** com acima de 10 unidades, quem pede 99 e vai baixando ainda descobre o saldo no primeiro pedido que passa. Isso gera um pedido real (visível para a equipe e limitado por rede), então é ruidoso e lento, mas não é zero.
 - **Rede compartilhada:** quem usa o mesmo IP (ex.: 4G com CGNAT) divide o limite de 5 pedidos em 10 min.
-- **Contagem de estoque continua aberta a vendedor e sócia.** Ela ajusta o saldo como uma compra ajusta, só que sem custo: dá para "criar" estoque contando a mais. Decidir se vira só do gerente.
+- **Contagem de estoque é de gerente e sócia (mig. 037).** O vendedor não vê a aba e o banco recusa o INSERT. A sócia ainda pode "criar" estoque contando a mais (a contagem ajusta o saldo sem custo); se isso incomodar, vira só do gerente ou ganha aprovação.
 - **Vendedor ainda recebe o custo no navegador.** A tela esconde, mas `estoque_atual`, `vendas` e `compras` são legíveis por toda a equipe pela API. Se isso importa, as consultas e as policies de leitura precisam mudar.
 - **Dev sem o trigger `antes_de_apagar_venda`.** O banco de dev não tem a exclusão lógica de `vendas` (produção tem os cinco). Lá, apagar venda é físico. Não faz parte da 036.
 - **Sem captcha.** Um atacante com muitos IPs ainda consegue lotar o limite global de 30 pedidos em 10 min. Turnstile resolveria, mas exige mexer na CSP.

@@ -34,7 +34,7 @@ registrado por `components/RegistrarSW.js` só em produção. `sw.js` fica fora 
 - **Quem mexe no quê (mig. 036, auditoria em `docs/auditoria-seguranca.md`):** vendedor e sócia editam/excluem **só a própria venda, até 48 h depois de lançada**
   (conta `created_at`, não a data da venda); depois disso só o gerente, a qualquer momento. A sócia não ganha poder de gerente. Regra no banco
   (`pode_mexer_venda()` nas policies `vendas_editar`/`vendas_apagar`), espelhada em `lib/vendas.js` para mensagem e botões. Como a exclusão é lógica
-  (o DELETE não devolve linhas), `excluirVenda` confere antes de apagar. **Compras: só o gerente lança e exclui** (aba Compras some para os outros).
+  (o DELETE não devolve linhas), `excluirVenda` confere antes de apagar. **Compras: só o gerente lança e exclui** (aba Compras some para os outros). **Contagem de estoque: só gerente e sócia** (aba some para o vendedor; mig. 037, policy `contagens_criar` com `eh_resumo_completo()`).
   O banco, não a Server Action, é quem garante: saldo (trigger `vendas_checar_saldo`, com lock por produto), `quantidade_sistema` da contagem
   (trigger `contagens_preencher`), transições do pedido (`pedidos_validar_status`: `entregue` só com venda real, ligada a um pedido só) e `INSERT` por
   coluna em `vendas`/`compras`/`contagens_estoque` (autoria, custo/comissão e `apagado_*` não vêm do navegador; coluna nova que o app envia precisa de `grant insert`).
@@ -61,7 +61,7 @@ registrado por `components/RegistrarSW.js` só em produção. `sw.js` fica fora 
   como adicional (não sai da comissão do vendedor). Fotografada na venda (`socia_id`, `socia_pct`, `comissao_socia`), parcelada em `parcelas.comissao_socia`,
   somada em Comissões/lucro líquido/caixa e listada no Resumos como a comissão dela. Vendas anteriores à 018 não têm comissão de sócia. Uma sócia só (a mais antiga).
 - Dois papéis básicos (`perfis.papel`): **gerente** vê e cadastra despesas e vê o resumo de todos os vendedores;
-  **vendedor** não acessa despesas (aba some em Saídas, Server Action recusa) e no resumo só vê as
+  **vendedor** não vê custo nem lucro por venda (só a própria comissão), nem detalhes da venda de outro vendedor (só nome do vendedor), nem "Margem bruta" nos Resumos; não acessa despesas (aba some em Saídas, Server Action recusa) e no resumo só vê as
   próprias vendas/comissão (sem despesas, lucro líquido ou comparativo entre vendedores). Só o admin
   altera `papel`/`comissao_pct` (SQL/painel ou `--` do `criar-usuario`).
 - **Categorias e fotos (mig. 029):** `categorias` (nome, ordem, foto, ativo; só o gerente cadastra, aba Categorias no Estoque)
@@ -101,7 +101,7 @@ registrado por `components/RegistrarSW.js` só em produção. `sw.js` fica fora 
 - Schema em `db/schema.sql` (estado atual completo); mudanças em `supabase/migrations/<timestamp>_nome.sql` (formato da
   Supabase CLI; as antigas 003–032 foram renomeadas, o número original continua no nome do arquivo), sempre
   refletidas no schema. Nova migração: `npx supabase migration new nome`. `db/migracoes/` guarda só a 001 e a 002
-  (anteriores ao histórico do banco). Produção está em dia até a 035 `vencimento_dia8`; a 036 `seguranca_auditoria` entra pelo workflow, colada no deploy do app (entre um e outro, pedido da loja e contagem de estoque falham: a assinatura de `criar_pedido` e o `INSERT` de contagem mudaram); confira `SUPABASE_SERVICE_ROLE_KEY` na Vercel antes; migrações novas entram pelo workflow manual
+  (anteriores ao histórico do banco). Produção está em dia até a 035 `vencimento_dia8`; a 037 `contagem_so_gerente_socia` entra pelo workflow junto com o deploy; a 036 `seguranca_auditoria` entra pelo workflow, colada no deploy do app (entre um e outro, pedido da loja e contagem de estoque falham: a assinatura de `criar_pedido` e o `INSERT` de contagem mudaram); confira `SUPABASE_SERVICE_ROLE_KEY` na Vercel antes; migrações novas entram pelo workflow manual
   `.github/workflows/db.yml` (só produção; o dev em rede local recebe por `db push --db-url`) (secrets `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_ID`; rode
   primeiro com dry_run). CI de lint/testes em `ci.yml`. Passo a passo de migrações e das chaves VAPID/variáveis de
   ambiente em `docs/supabase-e-vapid.md` (nomes das variáveis em `.env.example`). Confira com `npx supabase migration list` ou o MCP

@@ -94,7 +94,8 @@ export default async function Resumos(props) {
       m.comissao += Number(pc.comissao);
     }
     const extra = Number(pc.comissao_socia ?? 0);
-    if (extra > 0 && pc.socia_id) linhaMaos(pc.socia_id, nomeSocia.get(pc.socia_id) ?? usuario?.nome).comissao += extra;
+    // a comissão extra da sócia só entra na linha dela (o vendedor não vê a dos outros)
+    if (extra > 0 && pc.socia_id && (ehGerente || pc.socia_id === usuario?.id)) linhaMaos(pc.socia_id, nomeSocia.get(pc.socia_id) ?? usuario?.nome).comissao += extra;
   }
   for (const r of repassesAcum ?? []) {
     const m = linhaMaos(r.vendedor_id, r.perfis?.nome);
@@ -282,10 +283,12 @@ export default async function Resumos(props) {
               <div className={`numero ${liquido < 0 ? "negativo" : "positivo"}`}>{brl(liquido)}</div>
             </div>
           )}
-          <div className="kpi">
-            <div className="rotulo">{gerente ? "Margem líquida" : "Margem bruta"}</div>
-            <div className="numero">{pc100(gerente ? margemLiquida : margemBruta)}</div>
-          </div>
+          {gerente && (
+            <div className="kpi">
+              <div className="rotulo">Margem líquida</div>
+              <div className="numero">{pc100(margemLiquida)}</div>
+            </div>
+          )}
           <div className="kpi">
             <div className="rotulo">{gerente ? "Comissões" : "Sua comissão"}</div>
             <div className="numero">{brl(total.comissoes)}</div>
@@ -491,7 +494,7 @@ export default async function Resumos(props) {
                 <li key={m.nome}>
                   <div>
                     <div className="titulo">{m.nome}</div>
-                    <div className="sub">lucro {brl(m.lucro)}</div>
+                    {gerente && <div className="sub">lucro {brl(m.lucro)}</div>}
                   </div>
                   <div className="valor">{qtd(m.quantidade)}</div>
                 </li>
