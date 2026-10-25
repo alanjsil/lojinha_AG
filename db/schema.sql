@@ -237,10 +237,22 @@ create table if not exists vendas (
   obs text,
   -- 027: liga os itens lançados na mesma venda (null = venda de um item só)
   grupo_id uuid,
+  -- 038: cliente opcional (CRM); venda de pedido herda do pedido, inclusive a conta
+  cliente_nome text check (length(cliente_nome) between 2 and 80),
+  cliente_telefone text check (cliente_telefone ~ '^[0-9]{10,13}$'),
+  cliente_id uuid references perfis (id) on delete set null,
   apagado_em timestamptz,
   apagado_por uuid references perfis (id) on delete set null,
   created_at timestamptz not null default now()
 );
+
+create index if not exists vendas_cliente_telefone on vendas (cliente_telefone)
+where
+  cliente_telefone is not null;
+
+create index if not exists vendas_cliente on vendas (cliente_id)
+where
+  cliente_id is not null;
 
 create index if not exists vendas_grupo on vendas (grupo_id)
 where
@@ -398,6 +410,8 @@ create table if not exists contagens_estoque (
   quantidade_contada numeric(12, 2) not null check (quantidade_contada >= 0),
   diferenca numeric(12, 2) generated always as (quantidade_contada - quantidade_sistema) stored,
   observacao text,
+  -- 039: motivo da diferença (null = antigas)
+  motivo text check (motivo in ('perda', 'quebra', 'erro', 'outro')),
   created_by uuid default auth.uid () references perfis (id),
   apagado_em timestamptz,
   apagado_por uuid references perfis (id) on delete set null,
@@ -712,9 +726,7 @@ select
 
 create policy contagens_criar on contagens_estoque for insert to authenticated
 with
-  check (
-    eh_resumo_completo ()
-  );
+  check (eh_resumo_completo ());
 
 revoke all on perfis,
 produtos,
@@ -2585,3 +2597,16 @@ alter table push_inscricoes
 add constraint push_inscricoes_endpoint_host check (
   endpoint ~ '^https://(fcm\.googleapis\.com|([a-z0-9-]+\.)*push\.services\.mozilla\.com|([a-z0-9-]+\.)+notify\.windows\.com|([a-z0-9-]+\.)*push\.apple\.com)/'
 ) not valid;
+
+-- ============================================================
+-- 038: cliente opcional na venda (colunas na tabela vendas, acima); o app envia no INSERT e na edição
+grant insert (cliente_nome, cliente_telefone, cliente_id) on vendas to authenticated;
+
+grant
+update (cliente_nome, cliente_telefone) on vendas to authenticated;
+
+-- 039: motivo da contagem (coluna em contagens_estoque, acima)
+grant insert (motivo) on contagens_estoque to authenticated;
+
+grant
+update (motivo) on contagens_estoque to authenticated;

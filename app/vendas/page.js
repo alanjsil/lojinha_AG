@@ -5,7 +5,7 @@ import ListaVendas from "../../components/ListaVendas";
 import ModalVendas from "../../components/ModalVendas";
 import PedidosLoja from "../../components/PedidosLoja";
 import { brl, dataBR, qtd, somarDias } from "../../lib/formato";
-import { ABERTOS } from "../../lib/pedido";
+import { ABERTOS, formatarTelefone } from "../../lib/pedido";
 import { primeiroVencimentoVenda } from "../../lib/parcelas";
 import { createClient, usuarioAtual } from "../../lib/supabase/server";
 import { motivoSemAcessoVenda } from "../../lib/vendas";
@@ -25,7 +25,7 @@ export default async function Vendas({ searchParams }) {
     supabase
       .from("vendas")
       .select(
-        "id, grupo_id, vendedor_id, created_at, data, quantidade, preco_unit, custo_unit, pagamento, parcelas, obs, lucro, comissao, comissao_socia, produtos(nome, unidade), perfis!vendas_vendedor_id_fkey(nome), parcelas_venda:parcelas(numero, vencimento, valor, comissao)",
+        "id, grupo_id, vendedor_id, created_at, data, quantidade, preco_unit, custo_unit, pagamento, parcelas, obs, cliente_nome, cliente_telefone, lucro, comissao, comissao_socia, produtos(nome, unidade), perfis!vendas_vendedor_id_fkey(nome), parcelas_venda:parcelas(numero, vencimento, valor, comissao)",
       )
       .order("data", { ascending: false })
       .order("created_at", { ascending: false })
@@ -45,7 +45,10 @@ export default async function Vendas({ searchParams }) {
     // 1ª parcela gravada; se virou cartão agora, sugere o dia 8 do mês seguinte
     primeiroVencimento: (v.pagamento === "cartao" ? [...(v.parcelas_venda ?? [])].sort((a, b) => a.numero - b.numero)[0]?.vencimento : null) ?? primeiroVencimentoVenda(v.data),
     obs: v.obs ?? "",
+    clienteNome: v.cliente_nome ?? "",
+    clienteTelefone: v.cliente_telefone ? formatarTelefone(v.cliente_telefone) : "",
   });
+  const clienteDe = (v) => (v.cliente_nome || v.cliente_telefone ? [`Cliente: ${[v.cliente_nome, v.cliente_telefone && formatarTelefone(v.cliente_telefone)].filter(Boolean).join(" · ")}`] : []);
   // vendedor não vê custo nem lucro: só a própria comissão; a venda de outro vendedor aparece sem detalhes
   const vendaDeOutro = (x) => !mostraSocia && x.vendedor_id !== usuario?.id;
   const detalhesDe = (v) => [
@@ -79,7 +82,7 @@ export default async function Vendas({ searchParams }) {
         valor: brl(v.quantidade * v.preco_unit),
         bloqueio: bloqueioDe(vs),
         dados: [dadosDe(v)],
-        detalhes: vendaDeOutro(v) ? [`Vendedor: ${v.perfis?.nome ?? "-"}`] : [`Vendedor: ${v.perfis?.nome ?? "-"}`, ...(v.obs ? [`Obs: ${v.obs}`] : []), ...detalhesDe(v)],
+        detalhes: vendaDeOutro(v) ? [`Vendedor: ${v.perfis?.nome ?? "-"}`] : [`Vendedor: ${v.perfis?.nome ?? "-"}`, ...clienteDe(v), ...(v.obs ? [`Obs: ${v.obs}`] : []), ...detalhesDe(v)],
       };
     }
     const total = vs.reduce((t, x) => t + x.quantidade * x.preco_unit, 0);
@@ -97,6 +100,7 @@ export default async function Vendas({ searchParams }) {
         ? [`Vendedor: ${v.perfis?.nome ?? "-"}`]
         : [
             `Vendedor: ${v.perfis?.nome ?? "-"}`,
+            ...clienteDe(v),
             ...(v.obs ? [`Obs: ${v.obs}`] : []),
             mostraSocia ? `Lucro: ${brl(lucro)} · Comissão: ${brl(comissao)}` : `Sua comissão: ${brl(comissao)}`,
             ...vs.map((x) => `• ${x.produtos?.nome ?? "Produto"}: ${qtd(x.quantidade)} × ${brl(x.preco_unit)} = ${brl(x.quantidade * x.preco_unit)}${mostraSocia ? ` (lucro ${brl(x.lucro)})` : ""}`),

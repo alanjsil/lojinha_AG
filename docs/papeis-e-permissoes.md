@@ -29,6 +29,7 @@ Quem pode o quê na Lojinha A&G. Levantado do código (`app/actions.js`, `lib/ro
 | `/saidas` (despesas, lançamentos, cartões) |    ❌     |   ❌    |       ❌       |    ❌    |    ✅    |
 | `/resumos`                                 |    ❌     |   ❌    |   só o dele    | completo | completo |
 | `/painel` (só PC)                          |    ❌     |   ❌    | vai p/ Resumos |    ✅    |    ✅    |
+| `/crm` (clientes e pedidos, só PC)         |    ❌     |   ❌    | vai p/ Resumos |    ✅    |    ✅    |
 | `/log` (histórico e restaurar)             |    ❌     |   ❌    |       ❌       |    ❌    |    ✅    |
 
 Equipe que abre `/conta` e cliente que abre tela da equipe são redirecionados (`inicioDe()`: equipe → `/vendas`, cliente → `/conta`). A aba Saídas nem aparece no rodapé para quem não é gerente.
@@ -75,7 +76,8 @@ Equipe que abre `/conta` e cliente que abre tela da equipe são redirecionados (
 | Cartões (cadastrar/editar/desativar)                                                                |               ❌                |              ❌               |   ✅    |
 | Lançamentos dos sócios (pró-labore, saque, aporte, capital inicial, pagamento de comissão, repasse) | ❌ (vê só os próprios repasses) |          só **ver**           |   ✅    |
 | Resumos: vendas e comissão                                                                          |           só as dele            | todas + a comissão extra dela |  todas  |
-| Resumos: despesas, lucro líquido, caixa/acumulado, comparativo entre vendedores                     |               ❌                |              ✅               |   ✅    |
+| Resumos: despesas, lucro líquido, caixa/acumulado                                                   |               ❌                |              ✅               |   ✅    |
+| Resumos: lucro de cada vendedor em "Performance" (comparativo entre vendedores)                     |               ❌                |              ❌               |   ✅    |
 | Resumos: "Dinheiro com os vendedores" / "Seu repasse"                                               |           seu repasse           |              ✅               |   ✅    |
 | Painel (gráficos no PC)                                                                             |               ❌                |              ✅               |   ✅    |
 | Ver log de auditoria e restaurar registros apagados                                                 |               ❌                |              ❌               |   ✅    |

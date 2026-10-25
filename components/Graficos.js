@@ -24,7 +24,7 @@ function Legenda({ series }) {
 }
 
 // Evolução no tempo: linhas finas, um eixo só, cruz + caixinha com os valores ao passar o mouse/dedo
-export function GraficoLinha({ pontos, series, rotuloX }) {
+export function GraficoLinha({ pontos, series, rotuloX, formatar = brl }) {
   const [ativo, setAtivo] = useState(null);
   const L = 720;
   const A = 260;
@@ -103,7 +103,7 @@ export function GraficoLinha({ pontos, series, rotuloX }) {
             {series.map((s, i) => (
               <span key={s.campo}>
                 <i style={{ background: COR_SERIE[i] }} />
-                {s.nome}: {brl(p[s.campo])}
+                {s.nome}: {formatar(p[s.campo])}
               </span>
             ))}
           </div>
@@ -127,7 +127,7 @@ export function GraficoLinha({ pontos, series, rotuloX }) {
                   <td>{rotuloX(pt.chave, true)}</td>
                   {series.map((s) => (
                     <td key={s.campo} className={pt[s.campo] < 0 ? "negativo" : undefined}>
-                      {brl(pt[s.campo])}
+                      {formatar(pt[s.campo])}
                     </td>
                   ))}
                 </tr>

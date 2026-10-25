@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { editarContagem, excluirCategoria, excluirContagem, registrarContagem, salvarCategoria, salvarProduto } from "../app/actions";
 import { agruparPorCategoria } from "../lib/categorias";
 import { brl, dataBR, hoje, numero, preenchido, qtd } from "../lib/formato";
+import { MOTIVOS_CONTAGEM } from "../lib/resumo";
 import AbaCompras from "./AbaCompras";
 import BotaoExcluir from "./BotaoExcluir";
 import CampoFoto from "./CampoFoto";
@@ -199,11 +200,28 @@ function Miniatura({ url, nome }) {
   return <img src={url} alt="" className="miniatura" loading="lazy" />;
 }
 
+// com diferença, a contagem diz o porquê (perda, quebra, erro, outro): é o que separa perda real de correção
+function CampoMotivo({ id, valor, aoMudar }) {
+  return (
+    <>
+      <label id={id}>Motivo da diferença</label>
+      <div className="segmentos" role="group" aria-labelledby={id} style={{ marginBottom: 0 }}>
+        {Object.entries(MOTIVOS_CONTAGEM).map(([k, r]) => (
+          <button key={k} type="button" className={valor === k ? "ativo" : ""} onClick={() => aoMudar(k)}>
+            {r}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
 function FormContagem({ produtos }) {
   const { salvando, msg, enviar } = useEnvio();
   const [produtoId, setProdutoId] = useState("");
   const [quantidade, setQuantidade] = useState("");
   const [observacao, setObservacao] = useState("");
+  const [motivo, setMotivo] = useState("");
   const [data, setData] = useState("");
   useEffect(() => setData(hoje()), []);
 
@@ -217,13 +235,14 @@ function FormContagem({ produtos }) {
         e.preventDefault();
         enviar(
           registrarContagem,
-          { produtoId, quantidade, observacao, data },
+          { produtoId, quantidade, observacao, data, motivo },
           {
             textoOk: "Contagem registrada; estoque ajustado.",
             aoConcluir: () => {
               setProdutoId("");
               setQuantidade("");
               setObservacao("");
+              setMotivo("");
             },
           },
         );
@@ -252,6 +271,7 @@ function FormContagem({ produtos }) {
           {qtd(diferenca)} {produto.unidade} (o estoque será ajustado)
         </p>
       )}
+      {diferenca !== null && diferenca !== 0 && <CampoMotivo id="cmotivo" valor={motivo} aoMudar={setMotivo} />}
       <label htmlFor="cobs">Observação</label>
       <input id="cobs" value={observacao} onChange={(e) => setObservacao(e.target.value)} />
       <label htmlFor="cdata">Data</label>
@@ -271,6 +291,7 @@ function FormEditarContagem({ contagem, aoFechar }) {
     quantidade: String(contagem.contada),
     observacao: contagem.observacao ?? "",
     data: contagem.data,
+    motivo: contagem.motivo ?? "",
   });
   const set = (campo) => (e) => setF({ ...f, [campo]: e.target.value });
   const diferenca = preenchido(f.quantidade) ? numero(f.quantidade) - contagem.sistema : null;
@@ -291,6 +312,7 @@ function FormEditarContagem({ contagem, aoFechar }) {
           {qtd(diferenca)}
         </p>
       )}
+      {diferenca !== null && diferenca !== 0 && <CampoMotivo id={`ecmotivo-${contagem.id}`} valor={f.motivo} aoMudar={(m) => setF({ ...f, motivo: m })} />}
       <label htmlFor={`ecobs-${contagem.id}`}>Observação</label>
       <input id={`ecobs-${contagem.id}`} value={f.observacao} onChange={set("observacao")} />
       <label htmlFor={`ecdata-${contagem.id}`}>Data</label>
@@ -448,7 +470,7 @@ export default function EstoqueClient({ produtos, categorias, contagens, compras
                 itens={contagens.map((c) => ({
                   id: c.id,
                   titulo: c.produto,
-                  sub: `${dataBR(c.data)} · sistema ${qtd(c.sistema)} → contado ${qtd(c.contada)}`,
+                  sub: `${dataBR(c.data)} · sistema ${qtd(c.sistema)} → contado ${qtd(c.contada)}${c.motivo ? ` · ${MOTIVOS_CONTAGEM[c.motivo]}` : ""}`,
                   valor: (
                     <span className={c.diferenca < 0 ? "negativo" : c.diferenca > 0 ? "positivo" : ""}>
                       {c.diferenca > 0 ? "+" : ""}
@@ -469,6 +491,7 @@ export default function EstoqueClient({ produtos, categorias, contagens, compras
                       <div className="titulo">{c.produto}</div>
                       <div className="sub">
                         {dataBR(c.data)} · sistema {qtd(c.sistema)} → contado {qtd(c.contada)}
+                        {c.motivo ? ` · ${MOTIVOS_CONTAGEM[c.motivo]}` : ""}
                       </div>
                     </div>
                     <div className={`valor ${c.diferenca < 0 ? "negativo" : c.diferenca > 0 ? "positivo" : ""}`}>

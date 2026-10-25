@@ -1,12 +1,10 @@
 import Link from "next/link";
 import { brl, dataBR, nomeMes, qtd, somarDias, somarMeses, ultimoDiaDoMes } from "../../lib/formato";
+import { todas } from "../../lib/paginar";
+import { resumoEstoque, somarPor } from "../../lib/painel";
+import { despesasPorTipo, indicadoresResumo, META_SOBRA, perdasPorMotivo } from "../../lib/resumo";
 import { createClient, usuarioAtual } from "../../lib/supabase/server";
 import { sair } from "../actions";
-
-// meta do sócio: sobrar (antes do pró-labore) 20% do lucro bruto
-const META_SOBRA = 0.2;
-
-const PERIODOS = { mes: "Mês", semana: "7 dias" };
 
 // o servidor roda em UTC; "hoje" precisa ser o dia de Brasília
 const hojeBR = () => new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
@@ -17,69 +15,100 @@ function mesEscolhido(m, hoje) {
 }
 
 // o mês corrente vai só até hoje; os demais (passados ou futuros) vão até o último dia
-function intervalo(p, hoje, mes) {
-  if (p === "semana") return [somarDias(hoje, -6), hoje];
+function intervalo(hoje, mes) {
   const fim = ultimoDiaDoMes(mes);
   return [`${mes}-01`, mes === hoje.slice(0, 7) ? hoje : fim];
 }
 
 export default async function Resumos(props) {
   const searchParams = await props.searchParams;
-  const p = PERIODOS[searchParams?.p] ? searchParams.p : "mes";
   const hoje = hojeBR();
   const mes = mesEscolhido(searchParams?.m, hoje);
-  const [de, ate] = intervalo(p, hoje, mes);
+  const [de, ate] = intervalo(hoje, mes);
+  // mês futuro: o saldo conta parcelas e faturas que ainda vão vencer (projeção, não dinheiro em caixa)
+  const futuro = mes > hoje.slice(0, 7);
 
   const supabase = await createClient();
   const usuario = await usuarioAtual(supabase);
   const ehGerente = Boolean(usuario?.gerente);
   // a sócia vê o Resumos completo (como o gerente); só o link do Log fica restrito ao gerente (mig. 028)
   const gerente = ehGerente || usuario?.papel === "socia";
+  const socia = usuario?.papel === "socia";
+  const vazio = Promise.resolve({ data: [] });
 
-  let consultaVendas = supabase
-    .from("vendas")
-    .select("grupo_id, data, quantidade, preco_unit, custo_unit, lucro, vendedor_id, produto_id, produtos(nome), perfis!vendas_vendedor_id_fkey(nome)")
-    .gte("data", de)
-    .lte("data", ate)
-    .limit(5000);
-  if (!gerente) consultaVendas = consultaVendas.eq("vendedor_id", usuario?.id);
+  // todas() busca página a página: o PostgREST corta cada resposta em 1000 linhas
+  const consultaVendas = (a, b) => {
+    const q = supabase
+      .from("vendas")
+      .select("id, grupo_id, data, quantidade, preco_unit, custo_unit, lucro, vendedor_id, produto_id, produtos(nome, categoria_id), perfis!vendas_vendedor_id_fkey(nome)")
+      .gte("data", de)
+      .lte("data", ate)
+      .order("id")
+      .range(a, b);
+    return gerente ? q : q.eq("vendedor_id", usuario?.id);
+  };
 
   // a comissão cai junto com cada parcela: conta no vencimento, não na data da venda
-  let consultaParcelas = supabase.from("parcelas").select("comissao, comissao_socia, socia_id, vendedor_id, perfis(nome)").gte("vencimento", de).lte("vencimento", ate).limit(5000);
-  const socia = usuario?.papel === "socia";
-  // a sócia também vê as parcelas de outros vendedores, só para somar a comissão extra dela
-  if (!gerente) consultaParcelas = socia ? consultaParcelas.or(`vendedor_id.eq.${usuario.id},socia_id.eq.${usuario.id}`) : consultaParcelas.eq("vendedor_id", usuario?.id);
+  const consultaParcelas = (a, b) => {
+    const q = supabase.from("parcelas").select("id, comissao, comissao_socia, socia_id, vendedor_id, perfis(nome)").gte("vencimento", de).lte("vencimento", ate).order("id").range(a, b);
+    if (gerente) return q;
+    // a sócia também vê as parcelas de outros vendedores, só para somar a comissão extra dela
+    return socia ? q.or(`vendedor_id.eq.${usuario.id},socia_id.eq.${usuario.id}`) : q.eq("vendedor_id", usuario?.id);
+  };
 
   const { data: socias } = gerente ? await supabase.from("perfis").select("id, nome").eq("papel", "socia") : { data: [] };
   const nomeSocia = new Map((socias ?? []).map((s) => [s.id, s.nome]));
 
-  const [{ data: vendas }, { data: parcelas }, { data: despesas }, { data: lancamentos }, { data: acumuladoLinhas }, { data: anteriorLinhas }, { data: estoque }] = await Promise.all([
-    consultaVendas,
-    consultaParcelas,
-    gerente ? supabase.from("despesas").select("valor").gte("data", de).lte("data", ate).limit(5000) : Promise.resolve({ data: [] }),
-    gerente ? supabase.from("lancamentos").select("tipo, valor, vendedor_id, perfis!lancamentos_vendedor_id_fkey(nome)").gte("data", de).lte("data", ate).limit(5000) : Promise.resolve({ data: [] }),
-    gerente ? supabase.rpc("resumo_acumulado", { ate }) : Promise.resolve({ data: [] }),
-    gerente ? supabase.rpc("resumo_acumulado", { ate: somarDias(de, -1) }) : Promise.resolve({ data: [] }),
-    gerente ? supabase.from("estoque_atual").select("custo, preco, saldo").limit(5000) : Promise.resolve({ data: [] }),
+  const [
+    { data: vendas },
+    { data: parcelas },
+    { data: despesas },
+    { data: lancamentos },
+    { data: acumuladoLinhas },
+    { data: anteriorLinhas },
+    { data: estoque },
+    { data: compras },
+    { data: contagens },
+    { data: categorias },
+  ] = await Promise.all([
+    todas(consultaVendas),
+    todas(consultaParcelas),
+    gerente ? todas((a, b) => supabase.from("despesas").select("id, tipo, valor").gte("data", de).lte("data", ate).order("id").range(a, b)) : vazio,
+    gerente
+      ? todas((a, b) => supabase.from("lancamentos").select("id, tipo, valor, vendedor_id, perfis!lancamentos_vendedor_id_fkey(nome)").gte("data", de).lte("data", ate).order("id").range(a, b))
+      : vazio,
+    gerente ? supabase.rpc("resumo_acumulado", { ate }) : vazio,
+    gerente ? supabase.rpc("resumo_acumulado", { ate: somarDias(de, -1) }) : vazio,
+    gerente ? todas((a, b) => supabase.from("estoque_atual").select("id, custo, preco, saldo, ativo").order("id").range(a, b)) : vazio,
+    gerente ? todas((a, b) => supabase.from("compras").select("id, quantidade, custo_unit").gte("data", de).lte("data", ate).order("id").range(a, b)) : vazio,
+    gerente ? todas((a, b) => supabase.from("contagens_estoque").select("id, produto_id, diferenca, motivo").gte("data", de).lte("data", ate).order("id").range(a, b)) : vazio,
+    gerente ? supabase.from("categorias").select("id, nome") : vazio,
   ]);
 
   // dinheiro das vendas em mãos: recebido (parcelas vencidas até o fim, nunca no futuro) − repasses entregues ao gerente
   const [{ data: parcelasAcum }, { data: repassesAcum }] = await Promise.all([
-    (() => {
+    todas((a, b) => {
       const q = supabase
         .from("parcelas")
-        .select("valor, comissao, comissao_socia, socia_id, vendedor_id, perfis(nome)")
+        .select("id, valor, comissao, comissao_socia, socia_id, vendedor_id, perfis(nome)")
         .lte("vencimento", ate < hoje ? ate : hoje)
-        .limit(10000);
+        .order("id")
+        .range(a, b);
       if (ehGerente) return q;
       // a sócia também precisa das parcelas dos outros, só para somar a comissão extra dela
       return socia ? q.or(`vendedor_id.eq.${usuario.id},socia_id.eq.${usuario.id}`) : q.eq("vendedor_id", usuario?.id);
-    })(),
-    (() => {
-      const q = supabase.from("lancamentos").select("tipo, valor, vendedor_id, perfis!lancamentos_vendedor_id_fkey(nome)").in("tipo", ["repasse", "pagamento_comissao"]).lte("data", ate).limit(10000);
+    }),
+    todas((a, b) => {
+      const q = supabase
+        .from("lancamentos")
+        .select("id, tipo, valor, vendedor_id, perfis!lancamentos_vendedor_id_fkey(nome)")
+        .in("tipo", ["repasse", "pagamento_comissao"])
+        .lte("data", ate)
+        .order("id")
+        .range(a, b);
       // a sócia vê só o próprio repasse (a RLS de leitura dela abrange todos os lançamentos, mig. 028)
       return ehGerente ? q : q.eq("vendedor_id", usuario?.id);
-    })(),
+    }),
   ]);
   const emMaos = new Map();
   const linhaMaos = (id, nome) => {
@@ -106,83 +135,55 @@ export default async function Resumos(props) {
 
   const total = { vendas: 0, custo: 0, lucro: 0, comissoes: 0 };
   const porVendedor = new Map();
-  const porProduto = new Map();
+  const linhaVendedor = (id, nome) => {
+    const v = porVendedor.get(id) ?? { id, nome: nome ?? "-", n: 0, grupos: new Set(), vendas: 0, lucro: 0, comissao: 0, pago: 0 };
+    porVendedor.set(id, v);
+    return v;
+  };
 
   for (const v of vendas ?? []) {
     const receita = Number(v.quantidade) * Number(v.preco_unit);
-    const custo = Number(v.quantidade) * Number(v.custo_unit);
-    const lucro = Number(v.lucro);
     total.vendas += receita;
-    total.custo += custo;
-    total.lucro += lucro;
-
-    const vend = porVendedor.get(v.vendedor_id) ?? {
-      nome: v.perfis?.nome ?? "-",
-      n: 0,
-      vendas: 0,
-      lucro: 0,
-      comissao: 0,
-    };
-    vend.n += 1;
+    total.custo += Number(v.quantidade) * Number(v.custo_unit);
+    total.lucro += Number(v.lucro);
+    const vend = linhaVendedor(v.vendedor_id, v.perfis?.nome);
+    // itens do mesmo grupo_id são uma venda só
+    vend.grupos.add(v.grupo_id ?? v.id);
     vend.vendas += receita;
-    vend.lucro += lucro;
-    porVendedor.set(v.vendedor_id, vend);
-
-    const prod = porProduto.get(v.produto_id) ?? {
-      nome: v.produtos?.nome ?? "-",
-      quantidade: 0,
-      lucro: 0,
-    };
-    prod.quantidade += Number(v.quantidade);
-    prod.lucro += lucro;
-    porProduto.set(v.produto_id, prod);
+    vend.lucro += Number(v.lucro);
   }
 
   for (const pc of parcelas ?? []) {
-    const minha = gerente || pc.vendedor_id === usuario?.id;
-    const comissao = minha ? Number(pc.comissao) : 0;
-    total.comissoes += comissao;
-    const vend = porVendedor.get(pc.vendedor_id) ?? {
-      nome: pc.perfis?.nome ?? "-",
-      n: 0,
-      vendas: 0,
-      lucro: 0,
-      comissao: 0,
-    };
-    if (minha) {
-      vend.comissao += comissao;
-      porVendedor.set(pc.vendedor_id, vend);
+    if (gerente || pc.vendedor_id === usuario?.id) {
+      const comissao = Number(pc.comissao);
+      total.comissoes += comissao;
+      linhaVendedor(pc.vendedor_id, pc.perfis?.nome).comissao += comissao;
     }
-
     // comissão extra da sócia sobre a venda de outro vendedor (só o gerente e a própria sócia enxergam)
     const extra = gerente || socia ? Number(pc.comissao_socia ?? 0) : 0;
     if (extra > 0 && pc.socia_id) {
       total.comissoes += extra;
-      const s = porVendedor.get(pc.socia_id) ?? { nome: nomeSocia.get(pc.socia_id) ?? "-", n: 0, vendas: 0, lucro: 0, comissao: 0 };
-      s.comissao += extra;
-      porVendedor.set(pc.socia_id, s);
+      linhaVendedor(pc.socia_id, nomeSocia.get(pc.socia_id)).comissao += extra;
     }
   }
 
-  const totalDespesas = (despesas ?? []).reduce((s, d) => s + Number(d.valor), 0);
-  const estoqueCusto = (estoque ?? []).reduce((t, e) => t + Math.max(Number(e.saldo), 0) * Number(e.custo), 0);
-  const estoqueVenda = (estoque ?? []).reduce((t, e) => t + Math.max(Number(e.saldo), 0) * Number(e.preco), 0);
   const caixa = { pro_labore: 0, pagamento_comissao: 0, saque: 0, aporte: 0, capital_inicial: 0, repasse: 0 };
   for (const l of lancamentos ?? []) {
     caixa[l.tipo] += Number(l.valor);
-    if (l.tipo === "pagamento_comissao") {
-      const vend = porVendedor.get(l.vendedor_id) ?? {
-        nome: l.perfis?.nome ?? "-",
-        n: 0,
-        vendas: 0,
-        lucro: 0,
-        comissao: 0,
-      };
-      vend.pago = (vend.pago ?? 0) + Number(l.valor);
-      porVendedor.set(l.vendedor_id, vend);
-    }
+    if (l.tipo === "pagamento_comissao") linhaVendedor(l.vendedor_id, l.perfis?.nome).pago += Number(l.valor);
   }
-  const liquido = total.lucro - total.comissoes - totalDespesas - caixa.pro_labore;
+
+  const totalDespesas = (despesas ?? []).reduce((s, d) => s + Number(d.valor), 0);
+  const ind = indicadoresResumo({ receita: total.vendas, lucro: total.lucro, comissoes: total.comissoes, despesas: totalDespesas, proLabore: caixa.pro_labore });
+  const liquido = ind.liquido;
+  const porTipo = despesasPorTipo(despesas ?? []);
+
+  // estoque: só produtos ativos, a mesma conta do Painel
+  const est = resumoEstoque(estoque ?? [], new Set());
+  const custoAtual = new Map((estoque ?? []).map((e) => [e.id, Number(e.custo)]));
+  const perdas = perdasPorMotivo(contagens ?? [], (id) => custoAtual.get(id));
+  const totalCompras = (compras ?? []).reduce((s, c) => s + Number(c.quantidade) * Number(c.custo_unit), 0);
+
   // caixa (dinheiro): recebido (parcelas vencidas) + capital inicial + aportes − compras − despesas − saques − pró-labore − comissões pagas
   const caixaAte = (r) =>
     r ? Number(r.recebido) + Number(r.capital_inicial) + Number(r.aportes) - Number(r.compras) - Number(r.despesas) - Number(r.saques) - Number(r.pro_labore) - Number(r.comissoes_pagas) : 0;
@@ -198,23 +199,13 @@ export default async function Resumos(props) {
   const entradas = mov("recebido") + mov("capital_inicial") + mov("aportes");
   const saidas = mov("compras") + mov("despesas") + mov("saques") + mov("pro_labore") + mov("comissoes_pagas");
 
-  // indicadores: custo fixo = despesas (o pró-labore é a sobra do sócio); comissão é variável (já sai da margem)
-  const custosFixos = totalDespesas;
-  const margemBruta = total.vendas > 0 ? total.lucro / total.vendas : 0;
-  const margemContrib = total.vendas > 0 ? (total.lucro - total.comissoes) / total.vendas : 0;
-  const margemLiquida = total.vendas > 0 ? liquido / total.vendas : 0;
-  const margemMinima = total.vendas > 0 ? custosFixos / total.vendas : 0;
-  const pontoEquilibrio = margemContrib > 0 ? custosFixos / margemContrib : null;
-  const nVendas = new Set((vendas ?? []).map((v, i) => v.grupo_id ?? `i${i}`)).size;
+  const nVendas = new Set((vendas ?? []).map((v) => v.grupo_id ?? v.id)).size;
   const ticketMedio = nVendas > 0 ? total.vendas / nVendas : 0;
-  const margemPotencial = estoqueVenda > 0 ? (estoqueVenda - estoqueCusto) / estoqueVenda : 0;
-  // meta: sobra = vendas × margem contrib − despesas = META × vendas × margem bruta
-  const denomMeta = margemContrib - META_SOBRA * margemBruta;
-  const metaFaturar = denomMeta > 0 ? custosFixos / denomMeta : null;
-  const pctMeta = metaFaturar > 0 ? total.vendas / metaFaturar : null;
+  const margemPotencial = est.valorVenda > 0 ? (est.valorVenda - est.valorCusto) / est.valorVenda : 0;
   // quanto falta faturar para um alvo (ou "atingido")
-  const faltaFaturar = (alvo) => (alvo === null ? "sem vendas no período para calcular" : total.vendas >= alvo ? "atingido" : `falta ${brl(alvo - total.vendas)}`);
+  const faltaFaturar = (alvo) => (alvo === null ? "sem vendas no mês para calcular" : total.vendas >= alvo ? "atingido" : `falta ${brl(alvo - total.vendas)}`);
   const pc100 = (x) => `${qtd(x * 100)}%`;
+  const rotuloSaldo = futuro ? "Saldo projetado em" : "Saldo em";
 
   // % sobre a receita e % sobre o lucro bruto (vazio quando a base é zero)
   const pct = (v, base) => (base > 0 ? `${qtd((v / base) * 100)}%` : "–");
@@ -222,49 +213,60 @@ export default async function Resumos(props) {
     { item: "Receita", valor: total.vendas, semPctLucro: true },
     { item: "Custo das mercadorias", valor: total.custo, semPctLucro: true },
     { item: "Lucro bruto", valor: total.lucro, forte: true },
-    { item: gerente ? "Comissões" : "Sua comissão", valor: total.comissoes },
-    ...(gerente
-      ? [
-          { item: "Despesas", valor: totalDespesas },
-          { item: "Pró-labore", valor: caixa.pro_labore },
-          { item: "Lucro líquido", valor: liquido, forte: true },
-        ]
-      : []),
+    { item: "Comissões", valor: total.comissoes },
+    { item: "Despesas", valor: totalDespesas },
+    { item: "Pró-labore", valor: caixa.pro_labore },
+    { item: "Lucro líquido", valor: liquido, forte: true },
   ];
-  const vendedores = [...porVendedor.values()].sort((a, b) => b.comissao - a.comissao);
-  const maisVendidos = [...porProduto.values()].sort((a, b) => b.quantidade - a.quantidade).slice(0, 5);
+  const vendedores = [...porVendedor.values()].map((v) => ({ ...v, n: v.grupos.size })).sort((a, b) => b.vendas - a.vendas || b.comissao - a.comissao);
+  // linha de quem não vendeu no mês, mas recebe comissão (parcela de venda antiga ou a extra da sócia)
+  const semVenda = (v) => (nomeSocia.has(v.id) ? "comissão sobre as vendas da equipe" : "sem venda no mês · comissão de parcelas anteriores");
+
+  // gerente: o que dá lucro (com margem); vendedor: o que mais sai (quantidade), sem lucro
+  const produtos = somarPor(
+    vendas ?? [],
+    (v) => v.produto_id,
+    (v) => v.produtos?.nome ?? "-",
+  );
+  const maisVendidos = (gerente ? [...produtos].sort((a, b) => b.lucro - a.lucro) : [...produtos].sort((a, b) => b.quantidade - a.quantidade)).slice(0, 5);
+  const nomeCategoria = new Map((categorias ?? []).map((c) => [c.id, c.nome]));
+  const porCategoria = gerente
+    ? somarPor(
+        vendas ?? [],
+        (v) => v.produtos?.categoria_id ?? "outros",
+        (v) => nomeCategoria.get(v.produtos?.categoria_id) ?? "Outros",
+      ).sort((a, b) => b.lucro - a.lucro)
+    : [];
 
   return (
     <>
       <h1>Resumos</h1>
-      <div className="segmentos">
-        {Object.entries(PERIODOS).map(([k, r]) => (
-          <Link key={k} href={k === "mes" ? `/resumos?p=mes&m=${mes}` : `/resumos?p=${k}`} className={p === k ? "ativo" : ""}>
-            {r}
-          </Link>
-        ))}
-      </div>
 
-      {p === "mes" && (
-        <div className="mes-nav">
-          <Link href={`/resumos?p=mes&m=${somarMeses(mes, -1)}`} aria-label="Mês anterior">
-            ‹
-          </Link>
-          <span>{nomeMes(mes)}</span>
-          <Link href={`/resumos?p=mes&m=${somarMeses(mes, 1)}`} aria-label="Próximo mês">
-            ›
-          </Link>
-        </div>
-      )}
+      <div className="mes-nav">
+        <Link href={`/resumos?m=${somarMeses(mes, -1)}`} aria-label="Mês anterior">
+          ‹
+        </Link>
+        <span>{nomeMes(mes)}</span>
+        <Link href={`/resumos?m=${somarMeses(mes, 1)}`} aria-label="Próximo mês">
+          ›
+        </Link>
+      </div>
 
       <div className="card">
         <h2>01 · Visão geral</h2>
         {gerente && ac && (
           <>
-            <div className="rotulo">Saldo em {dataBR(ate, true)}</div>
+            <div className="rotulo">
+              {rotuloSaldo} {dataBR(ate, true)}
+            </div>
             <div className={`numero ${acSaldo < 0 ? "negativo" : "positivo"}`} style={{ fontSize: "2rem", fontWeight: 700, marginBottom: 12 }}>
               {brl(acSaldo)}
             </div>
+            {futuro && (
+              <p className="sub" style={{ marginTop: -8, marginBottom: 12 }}>
+                Projeção: conta como recebidas as parcelas que ainda vão vencer e como pagas as faturas do cartão.
+              </p>
+            )}
             {cartaoAPagar > 0 && (
               <p className="sub" style={{ marginTop: -8, marginBottom: 12 }}>
                 Cartão a pagar: {brl(cartaoAPagar)} (sobra {brl(acSaldo - cartaoAPagar)} depois das faturas)
@@ -286,7 +288,7 @@ export default async function Resumos(props) {
           {gerente && (
             <div className="kpi">
               <div className="rotulo">Margem líquida</div>
-              <div className="numero">{pc100(margemLiquida)}</div>
+              <div className="numero">{pc100(ind.margemLiquida)}</div>
             </div>
           )}
           <div className="kpi">
@@ -298,6 +300,10 @@ export default async function Resumos(props) {
             <div className="numero">{brl(ticketMedio)}</div>
           </div>
         </div>
+        <p className="info">
+          Vendas, lucro e ticket contam na data da venda; comissões, no vencimento de cada parcela. Num mês com muita venda parcelada, a comissão do mês fica menor que a das
+          vendas do mês (e a margem líquida, maior): ela aparece nos meses seguintes.
+        </p>
       </div>
 
       {maos.length > 0 && (
@@ -326,7 +332,10 @@ export default async function Resumos(props) {
               );
             })}
           </ul>
-          <p className="info">Recebido das vendas (parcelas vencidas) menos repasses, até {dataBR(ate, true)}.</p>
+          <p className="info">
+            Pendente = recebido das vendas (parcelas vencidas) − repasses entregues, até {dataBR(ate, true)}. Limpo = pendente − a comissão que ainda é {ehGerente ? "do vendedor" : "sua"}
+            : é o que {ehGerente ? "ele ainda deve entregar" : "você ainda deve entregar"} se a comissão for acertada com esse dinheiro.
+          </p>
         </div>
       )}
 
@@ -351,8 +360,29 @@ export default async function Resumos(props) {
               <span className="valor">{brl(total.comissoes)}</span>
             </li>
             <li>
-              <span className="titulo">− Despesas</span>
-              <span className="valor">{brl(totalDespesas)}</span>
+              {porTipo.length > 0 ? (
+                <details className="detalhe">
+                  <summary>
+                    <span className="titulo">− Despesas</span>
+                    <span className="valor">{brl(totalDespesas)}</span>
+                  </summary>
+                  <ul className="lista">
+                    {porTipo.map((t) => (
+                      <li key={t.tipo}>
+                        <span className="sub">{t.nome}</span>
+                        <span className="valor">
+                          {brl(t.valor)} <span className="sub">{pct(t.valor, totalDespesas)}</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ) : (
+                <>
+                  <span className="titulo">− Despesas</span>
+                  <span className="valor">{brl(0)}</span>
+                </>
+              )}
             </li>
             <li>
               <span className="titulo">− Pró-labore</span>
@@ -363,13 +393,16 @@ export default async function Resumos(props) {
               <span className={`valor ${liquido < 0 ? "negativo" : "positivo"}`}>{brl(liquido)}</span>
             </li>
           </ul>
-          <p className="info">As comissões contam no vencimento de cada parcela. As compras não entram aqui: o custo da mercadoria já está no CMV de cada venda.</p>
+          <p className="info">
+            As comissões contam no vencimento de cada parcela; as despesas, na data do gasto (mesmo no cartão). As compras não entram aqui: o custo da mercadoria já está no CMV de
+            cada venda. Toque em Despesas para ver por tipo.
+          </p>
         </div>
       )}
 
       {gerente && ac && (
         <div className="card">
-          <h2>03 · Caixa</h2>
+          <h2>03 · Caixa{futuro ? " (projeção)" : ""}</h2>
           <ul className="lista">
             <li>
               <span className="titulo">Saldo inicial</span>
@@ -418,7 +451,7 @@ export default async function Resumos(props) {
               </details>
             </li>
             <li>
-              <span className="titulo">= Saldo final</span>
+              <span className="titulo">= {futuro ? "Saldo projetado" : "Saldo final"}</span>
               <span className={`valor ${acSaldo < 0 ? "negativo" : "positivo"}`}>{brl(acSaldo)}</span>
             </li>
             {cartaoAPagar > 0 && (
@@ -429,7 +462,9 @@ export default async function Resumos(props) {
             )}
           </ul>
           <p className="info">
-            Dinheiro em caixa: vendas à vista entram na data e cartão em cada parcela, no vencimento. Despesas e compras no cartão saem no vencimento da fatura (no lucro, contam na data do gasto). O saldo de um período passa para o seguinte. Não é o saldo da conta bancária.
+            Dinheiro em caixa: vendas à vista entram na data e cartão em cada parcela, no vencimento. Despesas e compras no cartão saem no vencimento da fatura (no lucro, contam na
+            data do gasto). O saldo de um mês passa para o seguinte. Supõe que toda parcela vencida caiu: não é o saldo da conta bancária.
+            {futuro ? " Neste mês futuro, tudo o que ainda vai vencer já está contado." : ""}
           </p>
         </div>
       )}
@@ -440,43 +475,81 @@ export default async function Resumos(props) {
           <ul className="lista">
             <li>
               <span className="titulo">Estoque a custo</span>
-              <span className="valor">{brl(estoqueCusto)}</span>
+              <span className="valor">{brl(est.valorCusto)}</span>
             </li>
             <li>
               <span className="titulo">Estoque a venda</span>
-              <span className="valor">{brl(estoqueVenda)}</span>
+              <span className="valor">{brl(est.valorVenda)}</span>
             </li>
             <li>
               <span className="titulo">Margem potencial</span>
               <span className="valor positivo">
-                {brl(estoqueVenda - estoqueCusto)} · {pc100(margemPotencial)}
+                {brl(est.valorVenda - est.valorCusto)} · {pc100(margemPotencial)}
               </span>
             </li>
+            <li>
+              <div>
+                <div className="titulo">Compras do mês</div>
+                <div className="sub">CMV do mês {brl(total.custo)}</div>
+              </div>
+              <span className={`valor ${totalCompras > total.custo ? "negativo" : ""}`}>{brl(totalCompras)}</span>
+            </li>
+            <li>
+              {perdas.itens.length > 0 ? (
+                <details className="detalhe">
+                  <summary>
+                    <span className="titulo">Perdas na contagem (aprox.)</span>
+                    <span className="valor negativo">{brl(perdas.total)}</span>
+                  </summary>
+                  <ul className="lista">
+                    {perdas.itens.map((p) => (
+                      <li key={p.motivo}>
+                        <span className="sub">
+                          {p.nome} · {qtd(p.quantidade)} un.
+                        </span>
+                        <span className="valor">{brl(p.valor)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ) : (
+                <>
+                  <span className="titulo">Perdas na contagem</span>
+                  <span className="valor">{brl(0)}</span>
+                </>
+              )}
+            </li>
           </ul>
-          <p className="info">Posição de hoje, não do período escolhido.</p>
+          <p className="info">
+            Estoque: posição de hoje, só produtos ativos (o mesmo número do Painel). Compras do mês acima do CMV = entrou mais mercadoria do que saiu vendida (o estoque cresceu).
+            Perdas: faltas achadas nas contagens do mês, ao custo atual do produto.
+          </p>
         </div>
       )}
 
       <div className="card">
         <h2>05 · Performance</h2>
         {vendedores.length === 0 ? (
-          <p className="vazio">Sem vendas no período.</p>
+          <p className="vazio">Sem vendas no mês.</p>
         ) : (
           <ul className="lista">
             {vendedores.map((v) => (
-              <li key={v.nome}>
+              <li key={v.id ?? v.nome}>
                 <div>
                   <div className="titulo">{v.nome}</div>
                   <div className="sub">
-                    {v.n} {v.n === 1 ? "venda" : "vendas"} · vendas {brl(v.vendas)}
+                    {v.n === 0 ? semVenda(v) : `${v.n} ${v.n === 1 ? "venda" : "vendas"} · vendas ${brl(v.vendas)}${ehGerente ? ` · lucro ${brl(v.lucro)}` : ""}`}
                   </div>
                   {gerente && (
                     <div className="sub">
-                      paga {brl(v.pago ?? 0)} · a pagar {brl(v.comissao - (v.pago ?? 0))}
+                      comissão paga {brl(v.pago)} · a pagar {brl(v.comissao - v.pago)}
                     </div>
                   )}
                 </div>
-                <div className="valor">{brl(v.comissao)}</div>
+                <div className="valor">
+                  {brl(v.comissao)}
+                  <div className="sub">comissão</div>
+                </div>
               </li>
             ))}
           </ul>
@@ -484,24 +557,50 @@ export default async function Resumos(props) {
         {maisVendidos.length > 0 && (
           <details className="detalhe" style={{ marginTop: 16 }}>
             <summary>
-              <span className="titulo">Mais vendidos</span>
+              <span className="titulo">{gerente ? "Produtos que mais deram lucro" : "Mais vendidos"}</span>
               <span className="sub">
                 {maisVendidos.length} {maisVendidos.length === 1 ? "produto" : "produtos"}
               </span>
             </summary>
             <ul className="lista">
               {maisVendidos.map((m) => (
-                <li key={m.nome}>
+                <li key={m.chave}>
                   <div>
                     <div className="titulo">{m.nome}</div>
-                    {gerente && <div className="sub">lucro {brl(m.lucro)}</div>}
+                    <div className="sub">
+                      {qtd(m.quantidade)} vendidos{gerente ? ` · margem ${pct(m.lucro, m.receita)}` : ""}
+                    </div>
                   </div>
-                  <div className="valor">{qtd(m.quantidade)}</div>
+                  <div className="valor">{gerente ? brl(m.lucro) : qtd(m.quantidade)}</div>
                 </li>
               ))}
             </ul>
           </details>
         )}
+        {porCategoria.length > 0 && (
+          <details className="detalhe" style={{ marginTop: 8 }}>
+            <summary>
+              <span className="titulo">Lucro por categoria</span>
+              <span className="sub">
+                {porCategoria.length} {porCategoria.length === 1 ? "categoria" : "categorias"}
+              </span>
+            </summary>
+            <ul className="lista">
+              {porCategoria.map((c) => (
+                <li key={c.chave}>
+                  <div>
+                    <div className="titulo">{c.nome}</div>
+                    <div className="sub">
+                      vendas {brl(c.receita)} · margem {pct(c.lucro, c.receita)}
+                    </div>
+                  </div>
+                  <div className="valor">{brl(c.lucro)}</div>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+        <p className="info">Ordem: quem mais vendeu no mês. A comissão é a que vence no mês (parcelas), por isso não bate com as vendas do mês.</p>
       </div>
 
       {gerente && (
@@ -511,25 +610,40 @@ export default async function Resumos(props) {
             <li>
               <div>
                 <div className="titulo">Ponto de equilíbrio</div>
-                <div className="sub">faturar para pagar CMV, comissões e despesas, sem sobrar</div>
+                <div className="sub">faturar para pagar mercadoria, comissões e despesas, sem sobrar</div>
                 <div className="sub">
-                  já faturou {brl(total.vendas)} · {faltaFaturar(pontoEquilibrio)}
+                  já faturou {brl(total.vendas)} · {faltaFaturar(ind.pontoEquilibrio)}
                 </div>
               </div>
-              <span className="valor">{pontoEquilibrio === null ? "–" : brl(pontoEquilibrio)}</span>
+              <span className="valor">{ind.pontoEquilibrio === null ? "–" : brl(ind.pontoEquilibrio)}</span>
             </li>
             <li>
               <div>
                 <div className="titulo">Margem mínima</div>
-                <div className="sub">margem bruta atual {pc100(margemBruta)}</div>
+                <div className="sub">despesas ÷ vendas: quanto de cada R$ 1 vendido as despesas comem</div>
+                <div className="sub">
+                  margem de contribuição atual {pc100(ind.margemContrib)} ({ind.minimaOk ? "cobre" : "não cobre"})
+                </div>
               </div>
-              <span className={`valor ${margemBruta >= margemMinima ? "positivo" : "negativo"}`}>{pc100(margemMinima)}</span>
+              <span className={`valor ${ind.minimaOk ? "positivo" : "negativo"}`}>{pc100(ind.margemMinima)}</span>
             </li>
             <li>
-              <span className="titulo">% da meta atingida</span>
-              <span className={`valor ${pctMeta !== null && pctMeta >= 1 ? "positivo" : ""}`}>{pctMeta === null ? "–" : pc100(pctMeta)}</span>
+              <div>
+                <div className="titulo">Meta do mês</div>
+                <div className="sub">
+                  sobrar {qtd(META_SOBRA * 100)}% do lucro bruto antes do pró-labore (hoje sobra {brl(ind.sobra)} de {brl(ind.sobraMeta)})
+                </div>
+                <div className="sub">
+                  faturar {ind.metaFaturar === null ? "–" : brl(ind.metaFaturar)} · {faltaFaturar(ind.metaFaturar)}
+                </div>
+              </div>
+              <span className={`valor ${ind.pctMeta !== null && ind.pctMeta >= 1 ? "positivo" : ""}`}>{ind.pctMeta === null ? "–" : pc100(ind.pctMeta)}</span>
             </li>
           </ul>
+          <p className="info">
+            Margem de contribuição = (lucro bruto − comissões) ÷ vendas: o que cada R$ 1 vendido deixa para pagar as despesas. Ponto de equilíbrio e meta supõem que a margem do resto
+            do mês fica igual à de até agora.
+          </p>
         </div>
       )}
 
@@ -558,6 +672,7 @@ export default async function Resumos(props) {
               </tbody>
             </table>
           </div>
+          <p className="info">% lucro = sobre o lucro bruto.</p>
         </div>
       )}
 

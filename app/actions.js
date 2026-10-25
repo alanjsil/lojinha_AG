@@ -3,9 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
+import { clienteDaVenda } from "../lib/crm";
 import { numero, preenchido, qtd } from "../lib/formato";
 import { ABERTOS, avisoStatus, mudancaValida } from "../lib/pedido";
 import { avisarCliente } from "../lib/push";
+import { motivoDaContagem } from "../lib/resumo";
 import { ehEquipe } from "../lib/rotas";
 import { createClient, usuarioAtual } from "../lib/supabase/server";
 import { motivoSemAcessoVenda } from "../lib/vendas";
@@ -103,16 +105,19 @@ function atualizarTudo() {
 // itens: [{ produtoId, quantidade, preco }]; pagamento, parcelas, data e obs valem para a venda toda.
 // Cada item vira uma linha em `vendas`, ligadas por grupo_id quando há mais de um.
 // pedidoId: venda lançada a partir de um pedido da loja (vitrine); o pedido fica "entregue" e ligado à venda.
-export async function registrarVenda({ itens, pagamento, parcelas, primeiroVencimento, data, obs, pedidoId }) {
+// cliente { nome, telefone }: opcional (mig. 038); com pedido, vale o nome/WhatsApp digitado e a conta vem do pedido.
+export async function registrarVenda({ itens, pagamento, parcelas, primeiroVencimento, data, obs, pedidoId, cliente }) {
   return executar(async (supabase, user) => {
     if (!Array.isArray(itens) || itens.length === 0) falha("Adicione ao menos um item.");
     let ped = null;
     if (pedidoId) {
       if (!UUID.test(pedidoId)) falha("Pedido inválido.");
-      ({ data: ped } = await supabase.from("pedidos").select("numero, status, cliente_id").eq("id", pedidoId).single());
+      ({ data: ped } = await supabase.from("pedidos").select("numero, status, cliente_id, cliente_nome, cliente_telefone").eq("id", pedidoId).single());
       if (!ped) falha("Pedido não encontrado.");
       if (!ABERTOS.includes(ped.status)) falha("Este pedido já foi entregue ou cancelado.");
     }
+    const cli = clienteDaVenda(cliente ?? (ped ? { nome: ped.cliente_nome, telefone: ped.cliente_telefone } : {}));
+    if (cli.erro) falha(cli.erro);
     if (itens.length > 30) falha("Itens demais numa venda (máximo 30).");
     if (!PAGAMENTOS.includes(pagamento)) falha("Escolha a forma de pagamento.");
     const nParcelas = parcelasValidas(pagamento, parcelas);
@@ -148,6 +153,10 @@ export async function registrarVenda({ itens, pagamento, parcelas, primeiroVenci
           primeiro_vencimento: venc,
           obs: (obs ?? "").trim() || null,
           grupo_id: grupoId,
+          cliente_nome: cli.cliente_nome,
+          cliente_telefone: cli.cliente_telefone,
+          // a conta do cliente só vem do pedido (nunca do navegador)
+          cliente_id: ped?.cliente_id ?? null,
         })),
       )
       .select("id");
@@ -165,6 +174,20 @@ export async function registrarVenda({ itens, pagamento, parcelas, primeiroVenci
       else after(() => avisarCliente(ped.cliente_id, { ...avisoStatus(ped.numero, "entregue"), url: "/conta", tag: `pedido-${ped.numero}` }));
     }
     atualizarTudo();
+  });
+}
+
+// WhatsApp digitado na venda → nome do cliente na venda ou pedido mais recente com esse número (sugestão)
+export async function nomeDoCliente(telefone) {
+  return executar(async (supabase) => {
+    const { cliente_telefone: t } = clienteDaVenda({ telefone });
+    if (!t) return { nome: null };
+    const [{ data: venda }, { data: ped }] = await Promise.all([
+      supabase.from("vendas").select("cliente_nome, created_at").eq("cliente_telefone", t).not("cliente_nome", "is", null).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      supabase.from("pedidos").select("cliente_nome, criado_em").eq("cliente_telefone", t).order("criado_em", { ascending: false }).limit(1).maybeSingle(),
+    ]);
+    const nome = !venda ? ped?.cliente_nome : !ped || venda.created_at > ped.criado_em ? venda.cliente_nome : ped.cliente_nome;
+    return { nome: nome ?? null };
   });
 }
 
@@ -197,7 +220,8 @@ function conferirAcessoVenda(user, vendas) {
   }
 }
 
-export async function editarVenda({ id, quantidade, preco, pagamento, parcelas, primeiroVencimento, data, obs }) {
+// cliente { nome, telefone } (opcional): o cliente é da venda toda, então vale para todos os itens do grupo
+export async function editarVenda({ id, quantidade, preco, pagamento, parcelas, primeiroVencimento, data, obs, cliente }) {
   return executar(async (supabase, user) => {
     if (!UUID.test(id ?? "")) falha("Venda inválida.");
     const q = valorPositivo(quantidade, "a quantidade");
@@ -205,8 +229,10 @@ export async function editarVenda({ id, quantidade, preco, pagamento, parcelas, 
     if (!PAGAMENTOS.includes(pagamento)) falha("Escolha a forma de pagamento.");
     const nParcelas = parcelasValidas(pagamento, parcelas);
     const venc = vencimentoOpcional(pagamento, primeiroVencimento);
+    const cli = cliente === undefined ? null : clienteDaVenda(cliente);
+    if (cli?.erro) falha(cli.erro);
 
-    const { data: antiga, error: erroVenda } = await supabase.from("vendas").select("produto_id, quantidade, vendedor_id, created_at").eq("id", id).single();
+    const { data: antiga, error: erroVenda } = await supabase.from("vendas").select("produto_id, quantidade, vendedor_id, created_at, grupo_id").eq("id", id).single();
     if (erroVenda || !antiga) falha("Venda não encontrada.");
     conferirAcessoVenda(user, [antiga]);
 
@@ -231,6 +257,13 @@ export async function editarVenda({ id, quantidade, preco, pagamento, parcelas, 
     if (error?.code === "P0001") falha(error.message);
     if (error) throw error;
     if (!salvas?.length) falha("Você não pode editar esta venda.");
+    if (cli) {
+      const { error: erroCliente } = await supabase
+        .from("vendas")
+        .update({ cliente_nome: cli.cliente_nome, cliente_telefone: cli.cliente_telefone })
+        .or(antiga.grupo_id ? `id.eq.${id},grupo_id.eq.${antiga.grupo_id}` : `id.eq.${id}`);
+      if (erroCliente) throw erroCliente;
+    }
     atualizarTudo();
   });
 }
@@ -596,7 +629,8 @@ export async function restaurarRegistro({ tabela, id }) {
 
 // Guarda o que o sistema achava e o que foi contado; a diferença ajusta o estoque.
 // O "que o sistema achava" (quantidade_sistema) é calculado pelo banco na hora de gravar, não vem do navegador.
-export async function registrarContagem({ produtoId, quantidade, observacao, data }) {
+// motivo (mig. 039): perda, quebra, erro ou outro; obrigatório quando a contagem tem diferença.
+export async function registrarContagem({ produtoId, quantidade, observacao, data, motivo }) {
   return executar(async (supabase) => {
     // contagem é de gerente e sócia (o vendedor nem vê a aba); o banco também barra (mig. 037)
     const usuario = await usuarioAtual(supabase);
@@ -605,13 +639,17 @@ export async function registrarContagem({ produtoId, quantidade, observacao, dat
     const contada = valorPositivo(quantidade, "a quantidade contada", {
       permiteZero: true,
     });
-    await saldoDoProduto(supabase, produtoId);
+    const produto = await saldoDoProduto(supabase, produtoId);
+    // a diferença de verdade é do banco (contagens_preencher); esta é só para exigir o motivo
+    const m = motivoDaContagem(contada - Number(produto.saldo), motivo);
+    if (m.erro) falha(m.erro);
 
     const { error } = await supabase.from("contagens_estoque").insert({
       data: dataValida(data),
       produto_id: produtoId,
       quantidade_contada: contada,
       observacao: (observacao ?? "").trim() || null,
+      motivo: m.motivo,
     });
     if (error) throw error;
     atualizarTudo();
@@ -620,12 +658,14 @@ export async function registrarContagem({ produtoId, quantidade, observacao, dat
 
 // Só o gerente edita ou exclui contagem. quantidade_sistema é a fotografia do momento; só a contada muda
 // (a diferença é recalculada). Nenhuma das duas pode deixar o estoque negativo.
-export async function editarContagem({ id, quantidade, observacao, data }) {
+export async function editarContagem({ id, quantidade, observacao, data, motivo }) {
   return executar(
     async (supabase) => {
       const contada = valorPositivo(quantidade, "a quantidade contada", { permiteZero: true });
       const { data: antiga, error: erroContagem } = await supabase.from("contagens_estoque").select("produto_id, quantidade_sistema, diferenca").eq("id", id).single();
       if (erroContagem || !antiga) falha("Contagem não encontrada.");
+      const m = motivoDaContagem(contada - Number(antiga.quantidade_sistema), motivo);
+      if (m.erro) falha(m.erro);
 
       const produto = await saldoDoProduto(supabase, antiga.produto_id);
       const novoSaldo = produto.saldo - Number(antiga.diferenca) + (contada - Number(antiga.quantidade_sistema));
@@ -633,7 +673,7 @@ export async function editarContagem({ id, quantidade, observacao, data }) {
 
       const { data: linhas, error } = await supabase
         .from("contagens_estoque")
-        .update({ data: dataValida(data), quantidade_contada: contada, observacao: (observacao ?? "").trim() || null })
+        .update({ data: dataValida(data), quantidade_contada: contada, observacao: (observacao ?? "").trim() || null, motivo: m.motivo })
         .eq("id", id)
         .select("id");
       if (error) throw error;

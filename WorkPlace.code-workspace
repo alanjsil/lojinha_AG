@@ -24,6 +24,7 @@
       "opencode.json": true,
       ".gitattributes": true,
       "next.config.js": true,
+      ".playwright-mcp": true,
       "eslint.config.mjs": true,
       "package-lock.json": true,
     },

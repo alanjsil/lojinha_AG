@@ -1,7 +1,42 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { arcoRosca, caminhoLinha, escalaY, fatias } from "../lib/graficos.js";
-import { chavesPeriodo, indicadores, periodoPainel, resumoEstoque, seriePorTempo, somarPor } from "../lib/painel.js";
+import { chavesPeriodo, fluxoFuturo, indicadores, periodoAnterior, periodoPainel, resumoEstoque, seriePorTempo, somarPor } from "../lib/painel.js";
+
+test("período anterior: mês até o mesmo dia, mês fechado inteiro, ano passado, N dias", () => {
+  assert.deepEqual(periodoAnterior("mes", "2026-10-01", "2026-10-25"), { de: "2026-09-01", ate: "2026-09-25", rotulo: "vs. set/2026 até dia 25" });
+  assert.deepEqual(periodoAnterior("mes", "2026-03-01", "2026-03-31"), { de: "2026-02-01", ate: "2026-02-28", rotulo: "vs. fev/2026" });
+  // 30 de março corrente: fevereiro só vai até 28
+  assert.equal(periodoAnterior("mes", "2026-03-01", "2026-03-30").ate, "2026-02-28");
+  assert.deepEqual(periodoAnterior("ano", "2026-01-01", "2026-10-25"), { de: "2025-01-01", ate: "2025-10-25", rotulo: "vs. 2025 até 25/10" });
+  assert.equal(periodoAnterior("ano", "2028-01-01", "2028-02-29").ate, "2027-02-28");
+  assert.deepEqual(periodoAnterior("30", "2026-09-26", "2026-10-25"), { de: "2026-08-27", ate: "2026-09-25", rotulo: "vs. 30 dias anteriores" });
+});
+
+test("fluxo futuro: a receber − comissões − cartão a pagar, acumulado por mês", () => {
+  const f = fluxoFuturo({
+    caixaHoje: 100,
+    receber: [
+      { vencimento: "2026-11-08", valor: 200, comissao: 20, comissao_socia: 5 },
+      { vencimento: "2026-12-08", valor: 200, comissao: 20, comissao_socia: 0 },
+    ],
+    pagar: [
+      { vencimento: "2026-11-15", valor: 50 },
+      { vencimento: "2027-01-15", valor: 300 },
+    ],
+  });
+  assert.deepEqual(
+    f.meses.map((m) => [m.chave, m.receber, m.comissao, m.pagar, m.saldo]),
+    [
+      ["2026-11", 200, 25, 50, 225],
+      ["2026-12", 200, 20, 0, 405],
+      ["2027-01", 0, 0, 300, 105],
+    ],
+  );
+  assert.equal(f.receber, 400);
+  assert.equal(f.pagar, 350);
+  assert.equal(f.saldoFinal, 105);
+});
 
 const vendas = [
   { id: "1", grupo_id: "g", data: "2026-10-01", quantidade: 2, preco_unit: 10, lucro: 8, vendedor_id: "a" },

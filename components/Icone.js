@@ -13,6 +13,7 @@ import {
   faEyeSlash,
   faStore,
   faTriangleExclamation,
+  faUsers,
   faVault,
 } from "@fortawesome/free-solid-svg-icons";
 
@@ -31,6 +32,7 @@ const ICONES = {
   caixa: faCashRegister,
   olho: faEye,
   "olho-cortado": faEyeSlash,
+  clientes: faUsers,
 };
 
 export default function Icone({ nome, className }) {

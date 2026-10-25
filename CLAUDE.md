@@ -14,11 +14,17 @@ Edição acontece **no próprio item** da lista (toque abre o formulário no lug
 Campos `type="number"` só aceitam ponto decimal: preencha com `String(valor)`, nunca com vírgula.
 Carregamento = skeleton: cada rota tem `loading.js` montado com as peças de `components/Skeleton.js`.
 
-**PC (≥ 1024px):** as abas viram menu lateral (CSS em `globals.css`); o item Painel (`so-pc`) só aparece no PC.
-`/painel` (gerente e sócia; vendedor vai para Resumos) é a única tela larga (`.content:has(.painel)`, 1200px):
-contas puras em `lib/painel.js`, geometria em `lib/graficos.js`, gráficos SVG sem biblioteca em `components/Graficos.js`
+**PC (≥ 1024px):** as abas viram menu lateral (CSS em `globals.css`); os itens Painel e CRM (`so-pc`) só aparecem no PC
+(CRM só para gerente e sócia: `BottomNav` recebe `gerente`/`socia` do layout).
+`/painel` e `/crm` (gerente e sócia; vendedor vai para Resumos) são as telas largas (`.content:has(.painel)`, 1200px):
+contas puras em `lib/painel.js` (inclui `periodoAnterior` do comparativo e `fluxoFuturo` do bloco "A receber e a pagar") e
+`lib/crm.js` (cliente = `vendas.cliente_*`, identidade conta → WhatsApp → nome; compra vem só da venda, pedido não conta duas vezes),
+geometria em `lib/graficos.js`, gráficos SVG sem biblioteca em `components/Graficos.js`
 (cores validadas: azul `#2a78d6` = série 1, laranja `#eb6834` = série 2). Função não passa de server para client:
-a página calcula e entrega só dados ao `PainelClient`.
+a página calcula e entrega só dados ao `PainelClient`/`CrmClient`.
+**Leitura grande:** o PostgREST corta cada resposta em 1000 linhas (`max_rows`) sem avisar; lista que pode passar disso usa
+`todas()` de `lib/paginar.js` com `.order("id").range(a, b)` (nunca `.limit(5000)`).
+Manual de uso (tela por tela, cada número) em `docs/manual.md`: mudou tela ou conta, atualize o manual.
 
 **PWA:** `app/manifest.js` + `public/sw.js` (navegação pela rede, `/offline` sem conexão; cache só de `/_next/static` e ícones),
 registrado por `components/RegistrarSW.js` só em produção. `sw.js` fica fora do matcher do `proxy.js`.
@@ -52,7 +58,10 @@ registrado por `components/RegistrarSW.js` só em produção. `sw.js` fica fora 
   `resumo_acumulado` devolve `cartao_a_pagar` (gasto até a data que vence depois dela), mostrado nos Resumos.
 - Lançamentos dos sócios (`lancamentos`, aba em Saídas, só gerente): `pro_labore`, `pagamento_comissao` (exige
   vendedor), `saque`, `aporte`, `capital_inicial`, `repasse` (exige vendedor: dinheiro das vendas que ele entregou ao gerente; não mexe no caixa total; o vendedor lê só os próprios; Resumos mostra recebido/entregue/pendente = parcelas vencidas − repasses). Só o **pró-labore** entra no lucro líquido; os demais ficam na "Movimentação de caixa"
-  dos Resumos. Resumos tem aba Mês com setas ‹ › (`?p=mes&m=AAAA-MM`; mês corrente vai só até hoje).
+  dos Resumos. Resumos é **só mensal** (sem "7 dias"), setas ‹ › (`?m=AAAA-MM`; mês corrente vai só até hoje; mês futuro mostra "Saldo projetado").
+  Contas do Resumos em `lib/resumo.js`: margem mínima compara com a margem de **contribuição** (lucro − comissões), meta fixa `META_SOBRA` (20% do lucro bruto antes do pró-labore) mostrada com o faturamento-alvo, despesas por tipo, perdas da contagem por motivo; estoque só de ativos (`resumoEstoque`, mesmo número do Painel).
+- **Cliente na venda (mig. 038):** `vendas.cliente_nome`/`cliente_telefone` opcionais (validados por `clienteDaVenda` de `lib/crm.js`), iguais em todos os itens do grupo (editar troca no grupo todo); `cliente_id` só vem do pedido (a Server Action copia, nunca do navegador). Venda de pedido herda nome/WhatsApp/conta. `nomeDoCliente` sugere o nome pelo WhatsApp.
+- **Motivo da contagem (mig. 039):** `contagens_estoque.motivo` (perda/quebra/erro/outro), obrigatório quando há diferença (`motivoDaContagem`).
 - Resumos (gerente) tem o card "Acumulado até <fim do período>" via função `resumo_acumulado(ate)` (mig. 012):
   **saldo = caixa real**: recebido (parcelas vencidas) + capital inicial + aportes − compras − despesas − saques − pró-labore − comissões pagas.
   Aparece em destaque no topo e na "Movimentação de caixa" (saldo anterior = `resumo_acumulado(de − 1 dia)`; passa de um período para o outro). Mig. 013/014 acrescentaram `recebido`, `compras` e `capital_inicial`.
@@ -60,6 +69,7 @@ registrado por `components/RegistrarSW.js` só em produção. `sw.js` fica fora 
   além da comissão normal nas próprias vendas, recebe `comissao_pct` do perfil dela sobre o lucro das vendas de **todos os outros** vendedores,
   como adicional (não sai da comissão do vendedor). Fotografada na venda (`socia_id`, `socia_pct`, `comissao_socia`), parcelada em `parcelas.comissao_socia`,
   somada em Comissões/lucro líquido/caixa e listada no Resumos como a comissão dela. Vendas anteriores à 018 não têm comissão de sócia. Uma sócia só (a mais antiga).
+  Mesmo com Resumos completo, a sócia **não** vê o lucro de cada vendedor em Performance (comparar lucro entre vendedores é só do gerente, `ehGerente`; a sócia vê o valor vendido de cada um, não o lucro).
 - Dois papéis básicos (`perfis.papel`): **gerente** vê e cadastra despesas e vê o resumo de todos os vendedores;
   **vendedor** não vê custo nem lucro por venda (só a própria comissão), nem detalhes da venda de outro vendedor (só nome do vendedor), nem "Margem bruta" nos Resumos; não acessa despesas (aba some em Saídas, Server Action recusa) e no resumo só vê as
   próprias vendas/comissão (sem despesas, lucro líquido ou comparativo entre vendedores). Só o admin
@@ -101,7 +111,7 @@ registrado por `components/RegistrarSW.js` só em produção. `sw.js` fica fora 
 - Schema em `db/schema.sql` (estado atual completo); mudanças em `supabase/migrations/<timestamp>_nome.sql` (formato da
   Supabase CLI; as antigas 003–032 foram renomeadas, o número original continua no nome do arquivo), sempre
   refletidas no schema. Nova migração: `npx supabase migration new nome`. `db/migracoes/` guarda só a 001 e a 002
-  (anteriores ao histórico do banco). Produção está em dia até a 035 `vencimento_dia8`; a 037 `contagem_so_gerente_socia` entra pelo workflow junto com o deploy; a 036 `seguranca_auditoria` entra pelo workflow, colada no deploy do app (entre um e outro, pedido da loja e contagem de estoque falham: a assinatura de `criar_pedido` e o `INSERT` de contagem mudaram); confira `SUPABASE_SERVICE_ROLE_KEY` na Vercel antes; migrações novas entram pelo workflow manual
+  (anteriores ao histórico do banco). Produção está em dia até a 037 `contagem_so_gerente_socia` (conferido em 2026-10-25); o dev já tem até a 039. A 038 `clientes_na_venda` e a 039 `contagem_motivo` entram pelo workflow **antes** do deploy do app (Vendas, Resumos e CRM leem as colunas novas); desde a 036 o pedido da loja só grava com `SUPABASE_SERVICE_ROLE_KEY` na Vercel; migrações novas entram pelo workflow manual
   `.github/workflows/db.yml` (só produção; o dev em rede local recebe por `db push --db-url`) (secrets `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_ID`; rode
   primeiro com dry_run). CI de lint/testes em `ci.yml`. Passo a passo de migrações e das chaves VAPID/variáveis de
   ambiente em `docs/supabase-e-vapid.md` (nomes das variáveis em `.env.example`). Confira com `npx supabase migration list` ou o MCP

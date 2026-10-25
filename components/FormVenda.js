@@ -2,9 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { registrarVenda } from "../app/actions";
+import { nomeDoCliente, registrarVenda } from "../app/actions";
 import { brl, dataBR, hoje, numero, preenchido, qtd } from "../lib/formato";
 import { primeiroVencimentoVenda } from "../lib/parcelas";
+import { formatarTelefone, telefoneValido } from "../lib/pedido";
 import useEnvio, { Mensagem } from "./useEnvio";
 
 const FORMAS = [
@@ -34,7 +35,17 @@ export default function FormVenda({ produtos, comissaoPct, mostraLucro = false, 
   const [parcelas, setParcelas] = useState("1");
   const [data, setData] = useState("");
   const [venc, setVenc] = useState(""); // vazio = padrão (dia 8 do mês seguinte)
-  const [obs, setObs] = useState(pedido ? `Pedido nº ${pedido.numero} · ${pedido.cliente_nome}`.slice(0, 200) : "");
+  const [obs, setObs] = useState(pedido ? `Pedido nº ${pedido.numero}` : "");
+  // cliente opcional (CRM); a venda de um pedido já vem com o cliente do pedido
+  const [cliNome, setCliNome] = useState(pedido?.cliente_nome ?? "");
+  const [cliTel, setCliTel] = useState(pedido?.cliente_telefone ? formatarTelefone(pedido.cliente_telefone) : "");
+
+  // WhatsApp conhecido e nome vazio: sugere o nome da última venda/pedido com esse número
+  async function sugerirNome() {
+    if (cliNome.trim() || !telefoneValido(cliTel)) return;
+    const r = await nomeDoCliente(cliTel);
+    if (r?.ok && r.nome) setCliNome((atual) => atual || r.nome);
+  }
 
   // data local só no navegador (o servidor roda em UTC)
   useEffect(() => setData(hoje()), []);
@@ -82,7 +93,16 @@ export default function FormVenda({ produtos, comissaoPct, mostraLucro = false, 
     e.preventDefault();
     await enviar(
       registrarVenda,
-      { itens: itens.map(({ produtoId, quantidade, preco }) => ({ produtoId, quantidade, preco })), pagamento, parcelas: nParcelas, primeiroVencimento: venc, data, obs, pedidoId: pedido?.id },
+      {
+        itens: itens.map(({ produtoId, quantidade, preco }) => ({ produtoId, quantidade, preco })),
+        pagamento,
+        parcelas: nParcelas,
+        primeiroVencimento: venc,
+        data,
+        obs,
+        pedidoId: pedido?.id,
+        cliente: { nome: cliNome, telefone: cliTel },
+      },
       {
         textoOk: itens.length > 1 ? `Venda registrada (${itens.length} itens)!` : "Venda registrada!",
         aoConcluir: () => {
@@ -91,6 +111,8 @@ export default function FormVenda({ produtos, comissaoPct, mostraLucro = false, 
           setParcelas("1");
           setVenc("");
           setObs("");
+          setCliNome("");
+          setCliTel("");
           if (pedido) router.replace("/vendas"); // sai do modo pedido
         },
       },
@@ -196,6 +218,13 @@ export default function FormVenda({ produtos, comissaoPct, mostraLucro = false, 
 
       <label htmlFor="data">Data</label>
       <input id="data" type="date" value={data} onChange={(e) => setData(e.target.value)} required />
+
+      <label htmlFor="cli-tel">WhatsApp do cliente (opcional)</label>
+      <input id="cli-tel" type="tel" inputMode="tel" autoComplete="off" maxLength={20} placeholder="(54) 98888-1234" value={cliTel} onChange={(e) => setCliTel(e.target.value)} onBlur={sugerirNome} />
+
+      <label htmlFor="cli-nome">Nome do cliente (opcional)</label>
+      <input id="cli-nome" type="text" autoComplete="off" maxLength={80} value={cliNome} onChange={(e) => setCliNome(e.target.value)} />
+      <span className="info">Com o cliente, a venda entra no histórico dele (CRM).</span>
 
       <label htmlFor="obs">Obs (opcional)</label>
       <input id="obs" type="text" maxLength={200} value={obs} onChange={(e) => setObs(e.target.value)} />

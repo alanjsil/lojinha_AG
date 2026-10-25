@@ -35,16 +35,18 @@ const links = [
     icone: icone("M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z"),
     className: "so-pc",
   },
+  // só no PC e só para gerente e sócia (clientes, recorrência e funil dos pedidos)
+  { href: "/crm", label: "CRM", icone: <Icone nome="clientes" />, className: "so-pc", resumoCompleto: true },
 ];
 
 // Navegação em abas fixas no rodapé: é onde o polegar alcança no celular
-export default function BottomNav({ gerente = false }) {
+export default function BottomNav({ gerente = false, socia = false }) {
   const pathname = usePathname();
   if (rotaPublica(pathname) || rotaCliente(pathname)) return null; // vitrine/login/offline: não tem para onde navegar
 
   return (
     <nav className="bottom-nav">
-      {links.filter((link) => gerente || !link.soGerente).map((link) => (
+      {links.filter((link) => (gerente || !link.soGerente) && (gerente || socia || !link.resumoCompleto)).map((link) => (
         <Link key={link.href} href={link.href} className={[link.className, pathname.startsWith(link.href) ? "active" : ""].filter(Boolean).join(" ")}>
           {link.icone}
           {link.label}

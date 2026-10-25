@@ -9,7 +9,7 @@ import { BarrasH, GraficoLinha, Rosca } from "./Graficos";
 const MES_CURTO = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const pct = (x) => `${qtd(x * 100)}%`;
 
-// variação contra o período anterior de mesmo tamanho ("–" quando não há base)
+// variação contra o período anterior (periodoAnterior em lib/painel.js; "–" quando não há base)
 function Variacao({ atual, anterior, pontos = false }) {
   if (pontos) {
     const d = (atual - anterior) * 100;
@@ -39,7 +39,7 @@ const COLUNAS_TABELA = [
   { campo: "margem", rotulo: "Margem" },
 ];
 
-export default function PainelClient({ periodo, indicadores: ind, anterior, caixa, pedidosNovos, serie, porCategoria, porVendedor, porProduto, tabelaProdutos, porPagamento, estoque }) {
+export default function PainelClient({ periodo, indicadores: ind, anterior, caixa, pedidosNovos, serie, porCategoria, porVendedor, porProduto, tabelaProdutos, porPagamento, estoque, futuro }) {
   const { p, mes, de, ate, por, hoje } = periodo;
   const [ordem, setOrdem] = useState({ campo: "nome", asc: true });
   const linhas = useMemo(() => {
@@ -63,7 +63,7 @@ export default function PainelClient({ periodo, indicadores: ind, anterior, caix
       <div className="titulo-linha">
         <h1>Painel</h1>
         <span className="sub">
-          {dataBR(de, true)} a {dataBR(ate, true)}
+          {dataBR(de, true)} a {dataBR(ate, true)} · variações {anterior.rotulo}
         </span>
       </div>
 
@@ -124,6 +124,62 @@ export default function PainelClient({ periodo, indicadores: ind, anterior, caix
       </div>
 
       <div className="painel-grade">
+        <section className="card painel-largo">
+          <h2>A receber e a pagar (a partir de amanhã)</h2>
+          {futuro.meses.length === 0 ? (
+            <p className="vazio">Nenhuma parcela ou fatura a vencer.</p>
+          ) : (
+            <>
+              <div className="kpis">
+                <Kpi rotulo="A receber (parcelas)" valor={brl(futuro.receber)}>
+                  <span className="variacao">comissões embutidas {brl(futuro.comissao)}</span>
+                </Kpi>
+                <Kpi rotulo="Cartão a pagar" valor={brl(futuro.pagar)} />
+                <Kpi rotulo="Caixa hoje" valor={futuro.caixaHoje === null ? "–" : brl(futuro.caixaHoje)} />
+                <Kpi rotulo="Saldo projetado" valor={<span className={futuro.saldoFinal < 0 ? "negativo" : undefined}>{brl(futuro.saldoFinal)}</span>}>
+                  <span className="variacao">em {nomeMes(futuro.meses.at(-1).chave).toLowerCase()}</span>
+                </Kpi>
+              </div>
+              <GraficoLinha
+                pontos={futuro.meses}
+                rotuloX={(k, longo) => (longo ? nomeMes(k) : MES_CURTO[Number(k.slice(5, 7)) - 1])}
+                series={[
+                  { campo: "receber", nome: "A receber" },
+                  { campo: "pagar", nome: "Cartão a pagar" },
+                ]}
+              />
+              <div className="tabela-rolagem">
+                <table className="tabela-painel">
+                  <thead>
+                    <tr>
+                      <th>Mês</th>
+                      <th>A receber</th>
+                      <th>Comissões</th>
+                      <th>Cartão a pagar</th>
+                      <th>Saldo projetado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {futuro.meses.map((m) => (
+                      <tr key={m.chave}>
+                        <td>{nomeMes(m.chave)}</td>
+                        <td>{brl(m.receber)}</td>
+                        <td>{brl(m.comissao)}</td>
+                        <td>{brl(m.pagar)}</td>
+                        <td className={m.saldo < 0 ? "negativo" : undefined}>{brl(m.saldo)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+          <p className="info">
+            A receber = parcelas de vendas no cartão que ainda vão vencer. Cartão a pagar = faturas de despesas e compras no cartão. Saldo projetado = caixa de hoje + a receber −
+            comissões dessas parcelas − faturas, mês a mês (sem as despesas e vendas que ainda não foram lançadas).
+          </p>
+        </section>
+
         <section className="card painel-largo">
           <h2>Vendas e lucro por {por === "mes" ? "mês" : "dia"}</h2>
           <GraficoLinha
@@ -258,7 +314,10 @@ export default function PainelClient({ periodo, indicadores: ind, anterior, caix
         <Link href="/saidas" className="link-cartao">
           Saídas
         </Link>
-        <Link href={`/resumos?p=mes&m=${mes}`} className="link-cartao">
+        <Link href="/crm" className="link-cartao">
+          CRM (clientes e pedidos)
+        </Link>
+        <Link href={`/resumos?m=${mes}`} className="link-cartao">
           Resumos (DRE e caixa)
         </Link>
       </div>

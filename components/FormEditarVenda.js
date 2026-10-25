@@ -20,7 +20,7 @@ export default function FormEditarVenda({ venda, aoFechar }) {
       className="form-inline"
       onSubmit={(e) => {
         e.preventDefault();
-        enviar(editarVenda, { ...f, id: venda.id }, { textoOk: "Venda atualizada!", aoConcluir: aoFechar });
+        enviar(editarVenda, { ...f, id: venda.id, cliente: { nome: f.clienteNome, telefone: f.clienteTelefone } }, { textoOk: "Venda atualizada!", aoConcluir: aoFechar });
       }}
     >
       <div className="linha-2">
@@ -37,6 +37,10 @@ export default function FormEditarVenda({ venda, aoFechar }) {
       <input id={`edata-${venda.id}`} type="date" value={f.data} onChange={set("data")} required />
       <label htmlFor={`eobs-${venda.id}`}>Obs (opcional)</label>
       <input id={`eobs-${venda.id}`} type="text" maxLength={200} value={f.obs} onChange={set("obs")} />
+      <label htmlFor={`ecli-tel-${venda.id}`}>WhatsApp do cliente (vale para a venda toda)</label>
+      <input id={`ecli-tel-${venda.id}`} type="tel" inputMode="tel" autoComplete="off" maxLength={20} value={f.clienteTelefone} onChange={set("clienteTelefone")} />
+      <label htmlFor={`ecli-nome-${venda.id}`}>Nome do cliente</label>
+      <input id={`ecli-nome-${venda.id}`} type="text" autoComplete="off" maxLength={80} value={f.clienteNome} onChange={set("clienteNome")} />
       <label>Pagamento</label>
       <div className="segmentos" style={{ marginBottom: 0 }}>
         {FORMAS.map(([valor, rotulo]) => (

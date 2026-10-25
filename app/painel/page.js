@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import PainelClient from "../../components/PainelClient";
-import { somarDias } from "../../lib/formato";
-import { indicadores, periodoPainel, PERIODOS_PAINEL, resumoEstoque, seriePorTempo, somarPor } from "../../lib/painel";
+import { todas } from "../../lib/paginar";
+import { fluxoFuturo, indicadores, periodoAnterior, periodoPainel, PERIODOS_PAINEL, resumoEstoque, seriePorTempo, somarPor } from "../../lib/painel";
 import { createClient, usuarioAtual } from "../../lib/supabase/server";
 
 export const metadata = { title: "Painel — Lojinha A&G" };
@@ -26,37 +26,54 @@ export default async function Painel({ searchParams }) {
   const p = PERIODOS_PAINEL[sp?.p] ? sp.p : "mes";
   const mes = /^\d{4}-(0[1-9]|1[0-2])$/.test(sp?.m ?? "") ? sp.m : hoje.slice(0, 7);
   const { de, ate, por } = periodoPainel(p, hoje, mes);
-  // período anterior de mesmo tamanho, para a variação dos indicadores
-  const dias = Math.round((new Date(`${ate}T12:00:00`) - new Date(`${de}T12:00:00`)) / 864e5) + 1;
-  const deAnt = somarDias(de, -dias);
-  const ateAnt = somarDias(de, -1);
+  // base da variação dos indicadores (mês anterior até o mesmo dia, ano passado, N dias antes)
+  const ant = periodoAnterior(p, de, ate);
 
   const camposVenda = "id, grupo_id, data, quantidade, preco_unit, lucro, pagamento, vendedor_id, produto_id, produtos(nome, categoria_id), perfis!vendas_vendedor_id_fkey(nome)";
-  const [{ data: vendas }, { data: vendasAnt }, { data: parcelas }, { data: despesas }, { data: proLabore }, { data: acumulado }, { data: estoque }, { data: categorias }, { count: pedidosNovos }] =
-    await Promise.all([
-      supabase.from("vendas").select(camposVenda).gte("data", de).lte("data", ate).limit(10000),
-      supabase.from("vendas").select("id, grupo_id, quantidade, preco_unit, lucro").gte("data", deAnt).lte("data", ateAnt).limit(10000),
-      supabase.from("parcelas").select("comissao, comissao_socia").gte("vencimento", de).lte("vencimento", ate).limit(10000),
-      supabase.from("despesas").select("valor").gte("data", de).lte("data", ate).limit(10000),
-      supabase.from("lancamentos").select("valor").eq("tipo", "pro_labore").gte("data", de).lte("data", ate).limit(1000),
-      supabase.rpc("resumo_acumulado", { ate }),
-      supabase.from("estoque_atual").select("id, nome, unidade, custo, preco, saldo, ativo").limit(5000),
-      supabase.from("categorias").select("id, nome"),
-      supabase.from("pedidos").select("id", { count: "exact", head: true }).eq("status", "novo"),
-    ]);
+  // todas() busca página a página: o PostgREST corta cada resposta em 1000 linhas
+  const [
+    { data: vendas },
+    { data: vendasAnt },
+    { data: parcelas },
+    { data: despesas },
+    { data: proLabore },
+    { data: acumulado },
+    { data: acumuladoHoje },
+    { data: estoque },
+    { data: categorias },
+    { count: pedidosNovos },
+    { data: receber },
+    { data: pagar },
+  ] = await Promise.all([
+    todas((a, b) => supabase.from("vendas").select(camposVenda).gte("data", de).lte("data", ate).order("id").range(a, b)),
+    todas((a, b) => supabase.from("vendas").select("id, grupo_id, quantidade, preco_unit, lucro").gte("data", ant.de).lte("data", ant.ate).order("id").range(a, b)),
+    todas((a, b) => supabase.from("parcelas").select("id, comissao, comissao_socia").gte("vencimento", de).lte("vencimento", ate).order("id").range(a, b)),
+    todas((a, b) => supabase.from("despesas").select("id, valor").gte("data", de).lte("data", ate).order("id").range(a, b)),
+    todas((a, b) => supabase.from("lancamentos").select("id, valor").eq("tipo", "pro_labore").gte("data", de).lte("data", ate).order("id").range(a, b)),
+    supabase.rpc("resumo_acumulado", { ate }),
+    // a projeção do A receber parte do caixa de hoje, seja qual for o período escolhido
+    ate === hoje ? Promise.resolve({ data: null }) : supabase.rpc("resumo_acumulado", { ate: hoje }),
+    todas((a, b) => supabase.from("estoque_atual").select("id, nome, unidade, custo, preco, saldo, ativo").order("id").range(a, b)),
+    supabase.from("categorias").select("id, nome"),
+    supabase.from("pedidos").select("id", { count: "exact", head: true }).eq("status", "novo"),
+    // o que ainda vai entrar (parcelas de venda) e sair (faturas de despesa/compra no cartão) a partir de amanhã
+    todas((a, b) => supabase.from("parcelas").select("id, vencimento, valor, comissao, comissao_socia").gt("vencimento", hoje).order("id").range(a, b)),
+    todas((a, b) => supabase.from("saidas_parcelas").select("id, vencimento, valor").gt("vencimento", hoje).order("id").range(a, b)),
+  ]);
 
   const lista = vendas ?? [];
   const ind = indicadores({ vendas: lista, parcelas: parcelas ?? [], despesas: despesas ?? [], proLabore: (proLabore ?? []).reduce((s, l) => s + Number(l.valor), 0) });
-  const ant = indicadores({ vendas: vendasAnt ?? [] });
+  const anterior = indicadores({ vendas: vendasAnt ?? [] });
   const nomeCategoria = new Map((categorias ?? []).map((c) => [c.id, c.nome]));
   const est = resumoEstoque(estoque ?? [], new Set(lista.map((v) => v.produto_id)));
   const enxuto = (e) => ({ id: e.id, nome: e.nome, unidade: e.unidade, saldo: Number(e.saldo), valor: Number(e.saldo) * Number(e.custo) });
+  const caixaHoje = caixaAte((ate === hoje ? acumulado : acumuladoHoje)?.[0]);
 
   return (
     <PainelClient
       periodo={{ p, mes, de, ate, por, hoje }}
       indicadores={ind}
-      anterior={{ receita: ant.receita, lucro: ant.lucro, nVendas: ant.nVendas, ticketMedio: ant.ticketMedio, margemBruta: ant.margemBruta }}
+      anterior={{ receita: anterior.receita, lucro: anterior.lucro, nVendas: anterior.nVendas, ticketMedio: anterior.ticketMedio, margemBruta: anterior.margemBruta, rotulo: ant.rotulo }}
       caixa={caixaAte(acumulado?.[0])}
       pedidosNovos={pedidosNovos ?? 0}
       serie={seriePorTempo(lista, de, ate, por)}
@@ -84,6 +101,7 @@ export default async function Painel({ searchParams }) {
         .map((g) => ({ chave: g.chave, nome: g.nome, quantidade: g.quantidade, custo: g.receita - g.lucro, receita: g.receita, lucro: g.lucro }))}
       porPagamento={["a_vista", "cartao"].map((f) => ({ nome: FORMA[f], valor: lista.filter((v) => v.pagamento === f).reduce((s, v) => s + Number(v.quantidade) * Number(v.preco_unit), 0) }))}
       estoque={{ valorCusto: est.valorCusto, valorVenda: est.valorVenda, esgotados: est.esgotados.map(enxuto), parados: est.parados.slice(0, 10).map(enxuto), nParados: est.parados.length }}
+      futuro={{ caixaHoje, ...fluxoFuturo({ receber: receber ?? [], pagar: pagar ?? [], caixaHoje: caixaHoje ?? 0 }) }}
     />
   );
 }

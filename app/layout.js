@@ -48,12 +48,13 @@ export default async function RootLayout({ children }) {
     data: { user },
   } = await supabase.auth.getUser();
   const gerente = user?.app_metadata?.papel === "gerente";
+  const socia = user?.app_metadata?.papel === "socia";
 
   return (
     <html lang="pt-BR" className={`${textoFonte.variable} ${tituloFonte.variable}`}>
       <body>
         <main className="content">{children}</main>
-        <BottomNav gerente={gerente} />
+        <BottomNav gerente={gerente} socia={socia} />
         <Novidades />
         <RegistrarSW />
       </body>

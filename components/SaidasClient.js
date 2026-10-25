@@ -3,20 +3,10 @@
 import { useEffect, useState } from "react";
 import { editarCartao, editarDespesa, editarLancamento, excluirDespesa, excluirLancamento, registrarCartao, registrarDespesa, registrarLancamento } from "../app/actions";
 import { brl, dataBR, hoje } from "../lib/formato";
+import { TIPOS_DESPESA as TIPOS } from "../lib/resumo";
 import CamposPagamento from "./CamposPagamento";
 import ListaExpansivel from "./ListaExpansivel";
 import useEnvio, { Mensagem } from "./useEnvio";
-
-const TIPOS = {
-  gasolina: "Gasolina",
-  alimentacao: "Alimentação",
-  pedagio: "Pedágio",
-  outros: "Outros",
-  aluguel: "Aluguel",
-  agua: "Água",
-  luz: "Luz",
-  internet: "Internet",
-};
 
 const TIPOS_LANCAMENTO = {
   pro_labore: "Pró-labore",
