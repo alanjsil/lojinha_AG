@@ -104,7 +104,8 @@ export default function Vitrine({ produtos, visitante, whatsapp, erro }) {
     const g = agruparPorCategoria(filtrados, categorias);
     // sem nenhuma categoria cadastrada, "Outros" não faz sentido
     if (g.length === 1 && g[0].id === null) g[0] = { ...g[0], nome: "Produtos" };
-    return g;
+    // esgotados vão para o fim de cada categoria (sort estável: o resto mantém a ordem)
+    return g.map((x) => ({ ...x, produtos: [...x.produtos].sort((a, b) => Number(Boolean(a.esgotado)) - Number(Boolean(b.esgotado))) }));
   }, [produtos, busca]);
 
   async function enviar(e) {
@@ -134,16 +135,20 @@ export default function Vitrine({ produtos, visitante, whatsapp, erro }) {
 
   return (
     <div className="vitrine">
-      <header className="loja-topo">
-        {/* eslint-disable-next-line @next/next/no-img-element -- ícone local */}
-        <img src="/icons/icon-192.png" alt="" className="loja-logo" />
-        <strong>Lojinha A&amp;G</strong>
-        <Link href={!visitante ? "/login" : visitante.equipe ? "/vendas" : "/conta"} className="loja-entrar">
-          {!visitante ? "Entrar" : visitante.equipe ? "Abrir app" : "Minha conta"}
-        </Link>
-      </header>
+      <div className="loja-fixo">
+        <header className="loja-topo">
+          {/* eslint-disable-next-line @next/next/no-img-element -- ícone local */}
+          <img src="/icons/icon-192.png" alt="" className="loja-logo" />
+          <strong>Lojinha A&amp;G</strong>
+          <Link href={!visitante ? "/login" : visitante.equipe ? "/vendas" : "/conta"} className="loja-entrar">
+            {!visitante ? "Entrar" : visitante.equipe ? "Abrir app" : "Minha conta"}
+          </Link>
+        </header>
 
-      <input type="search" className="loja-busca" placeholder="Buscar produto" aria-label="Buscar produto" value={busca} onChange={(e) => setBusca(e.target.value)} />
+        <div className="loja-busca-caixa">
+          <input type="search" className="loja-busca" placeholder="Buscar produto" aria-label="Buscar produto" value={busca} onChange={(e) => setBusca(e.target.value)} />
+        </div>
+      </div>
 
       {erro && <p className="msg-erro">Não foi possível carregar os produtos. Tente de novo em instantes.</p>}
       {!erro && grupos.length === 0 && (
@@ -191,11 +196,15 @@ export default function Vitrine({ produtos, visitante, whatsapp, erro }) {
       ))}
 
       {resumo.quantidade > 0 && !aberto && (
-        <button type="button" className="barra-carrinho" onClick={() => setAberto(true)}>
-          <span>
-            🛒 {resumo.quantidade} {resumo.quantidade === 1 ? "item" : "itens"}
-          </span>
-          <span>Ver carrinho · {brl(resumo.total)}</span>
+        <button
+          type="button"
+          className="badge-carrinho"
+          onClick={() => setAberto(true)}
+          aria-label={`Ver carrinho: ${resumo.quantidade} ${resumo.quantidade === 1 ? "item" : "itens"}, ${brl(resumo.total)}`}
+        >
+          <span aria-hidden="true">🛒</span>
+          <span className="badge-carrinho-qtd">{resumo.quantidade}</span>
+          <span>{brl(resumo.total)}</span>
         </button>
       )}
 

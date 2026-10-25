@@ -877,14 +877,23 @@ button:disabled {
 
 /* ---------- Vitrine pública (/) ---------- */
 
-.loja-topo {
+/* topo + busca ficam juntos e fixos ao rolar */
+.loja-fixo {
   position: sticky;
   top: 0;
   z-index: 5;
+  margin: -16px -16px 0;
+}
+
+.loja-busca-caixa {
+  padding: 10px 16px;
+  background: var(--fundo);
+}
+
+.loja-topo {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: -16px -16px 12px;
   padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
   background: var(--nav);
   color: #fff;
@@ -920,7 +929,7 @@ button:disabled {
 }
 
 .loja-busca {
-  margin-bottom: 16px;
+  margin: 0;
 }
 
 .loja-grade {
@@ -1046,24 +1055,37 @@ button:disabled {
   margin: 0;
 }
 
-.barra-carrinho {
+/* Badge fixo no canto da tela: não depende da rolagem */
+.badge-carrinho {
   position: fixed;
-  left: 50%;
-  bottom: calc(12px + env(safe-area-inset-bottom));
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  right: calc(16px + env(safe-area-inset-right));
   z-index: 10;
-  transform: translateX(-50%);
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  width: calc(100% - 32px);
-  max-width: 528px;
+  align-items: center;
+  gap: 8px;
+  width: auto;
+  min-height: 48px;
   margin: 0;
+  padding: 0 16px;
+  border-radius: 999px;
   background: var(--verde);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
-.barra-carrinho:active {
+.badge-carrinho:active {
   background: var(--verde-escuro);
+}
+
+.badge-carrinho-qtd {
+  min-width: 24px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--verde-escuro);
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
 }
 
 .botao-whatsapp {
@@ -1568,8 +1590,8 @@ textarea:focus {
   border-radius: 999px;
   padding: 3px 10px;
 }
-.loja-topo {
-  box-shadow: 0 2px 8px rgb(0 0 0 / 0.25);
+.loja-busca-caixa {
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
 }
 
 /* estado vazio: caixa tracejada centralizada */
@@ -1593,7 +1615,8 @@ textarea:focus {
   }
 }
 .content > * {
-  animation: aparecer 0.2s ease-out both;
+  /* backwards (não both): um transform que sobra depois da animação prende os position: fixed filhos */
+  animation: aparecer 0.2s ease-out backwards;
 }
 @media (prefers-reduced-motion: reduce) {
   .content > *,
