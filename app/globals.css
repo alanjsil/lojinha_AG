@@ -1188,6 +1188,42 @@ button:disabled {
   cursor: pointer;
 }
 
+/* seções recolhíveis do Painel/CRM: cada card é um <details>, com a setinha no título */
+.painel-secao > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  list-style: none;
+}
+.painel-secao > summary::-webkit-details-marker {
+  display: none;
+}
+.painel-secao > summary h2 {
+  margin: 0;
+}
+.painel-secao > summary::after {
+  content: "▸";
+  flex: none;
+  color: var(--texto-suave);
+  font-size: 14px;
+}
+.painel-secao[open] > summary::after {
+  content: "▾";
+}
+.painel-secao > summary:focus-visible {
+  outline: 2px solid var(--primaria);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+.painel-secao:not([open]) > summary {
+  margin-bottom: 0;
+}
+.painel-secao[open] > summary {
+  margin-bottom: 12px;
+}
+
 .barras {
   list-style: none;
   margin: 0;

@@ -9,13 +9,20 @@ export default async function Saidas() {
   const desde = somarDias(new Date().toLocaleDateString("sv-SE"), -30);
 
   const [{ data: despesas }, { data: lancamentos }, { data: vendedores }, { data: cartoes }] = await Promise.all([
-    supabase.from("despesas").select("id, data, tipo, descricao, valor, cartao_id, parcelas").gte("data", desde).order("data", { ascending: false }).limit(100),
+    supabase
+      .from("despesas")
+      .select("id, data, tipo, descricao, valor, cartao_id, parcelas")
+      .gte("data", desde)
+      .order("data", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(100),
     usuario?.gerente
       ? supabase
           .from("lancamentos")
           .select("id, data, tipo, valor, descricao, vendedor_id, perfis!lancamentos_vendedor_id_fkey(nome)")
           .gte("data", desde)
           .order("data", { ascending: false })
+          .order("created_at", { ascending: false })
           .limit(100)
       : Promise.resolve({ data: [] }),
     usuario?.gerente ? supabase.from("perfis").select("id, nome").in("papel", PAPEIS_EQUIPE).order("nome") : Promise.resolve({ data: [] }),

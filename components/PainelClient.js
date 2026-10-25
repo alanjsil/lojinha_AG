@@ -124,8 +124,10 @@ export default function PainelClient({ periodo, indicadores: ind, anterior, caix
       </div>
 
       <div className="painel-grade">
-        <section className="card painel-largo">
-          <h2>A receber e a pagar (a partir de amanhã)</h2>
+        <details open className="card painel-largo painel-secao">
+          <summary>
+            <h2>A receber e a pagar (a partir de amanhã)</h2>
+          </summary>
           {futuro.meses.length === 0 ? (
             <p className="vazio">Nenhuma parcela ou fatura a vencer.</p>
           ) : (
@@ -175,13 +177,15 @@ export default function PainelClient({ periodo, indicadores: ind, anterior, caix
             </>
           )}
           <p className="info">
-            A receber = parcelas de vendas no cartão que ainda vão vencer. Cartão a pagar = faturas de despesas e compras no cartão. Saldo projetado = caixa de hoje + a receber −
-            comissões dessas parcelas − faturas, mês a mês (sem as despesas e vendas que ainda não foram lançadas).
+            A receber = parcelas de vendas no cartão que ainda vão vencer. Cartão a pagar = faturas de despesas e compras no cartão. Saldo projetado = caixa de hoje + a receber − comissões dessas
+            parcelas − faturas, mês a mês (sem as despesas e vendas que ainda não foram lançadas).
           </p>
-        </section>
+        </details>
 
-        <section className="card painel-largo">
-          <h2>Vendas e lucro por {por === "mes" ? "mês" : "dia"}</h2>
+        <details open className="card painel-largo painel-secao">
+          <summary>
+            <h2>Vendas e lucro por {por === "mes" ? "mês" : "dia"}</h2>
+          </summary>
           <GraficoLinha
             pontos={serie}
             rotuloX={rotuloX}
@@ -190,30 +194,40 @@ export default function PainelClient({ periodo, indicadores: ind, anterior, caix
               { campo: "lucro", nome: "Lucro" },
             ]}
           />
-        </section>
+        </details>
 
-        <section className="card">
-          <h2>Por categoria</h2>
+        <details open className="card painel-secao">
+          <summary>
+            <h2>Por categoria</h2>
+          </summary>
           <BarrasH itens={porCategoria} detalhe={detalheVendas} />
-        </section>
+        </details>
 
-        <section className="card">
-          <h2>Por vendedor</h2>
+        <details open className="card painel-secao">
+          <summary>
+            <h2>Por vendedor</h2>
+          </summary>
           <BarrasH itens={porVendedor} detalhe={detalheVendas} />
-        </section>
+        </details>
 
-        <section className="card">
-          <h2>10 produtos que mais venderam</h2>
+        <details open className="card painel-secao">
+          <summary>
+            <h2>10 produtos que mais venderam</h2>
+          </summary>
           <BarrasH itens={porProduto} detalhe={(i) => `${qtd(i.quantidade)} un. · lucro ${brl(i.lucro)}`} />
-        </section>
+        </details>
 
-        <section className="card">
-          <h2>Forma de pagamento</h2>
+        <details open className="card painel-secao">
+          <summary>
+            <h2>Forma de pagamento</h2>
+          </summary>
           <Rosca itens={porPagamento} />
-        </section>
+        </details>
 
-        <section className="card painel-largo">
-          <h2>Estoque</h2>
+        <details open className="card painel-largo painel-secao">
+          <summary>
+            <h2>Estoque</h2>
+          </summary>
           <div className="kpis">
             <Kpi rotulo="Parado a custo" valor={brl(estoque.valorCusto)} />
             <Kpi rotulo="Valor de venda" valor={brl(estoque.valorVenda)} />
@@ -257,10 +271,12 @@ export default function PainelClient({ periodo, indicadores: ind, anterior, caix
               )}
             </div>
           </div>
-        </section>
+        </details>
 
-        <section className="card painel-largo">
-          <h2>Produtos vendidos no período</h2>
+        <details open className="card painel-largo painel-secao">
+          <summary>
+            <h2>Produtos vendidos no período</h2>
+          </summary>
           {tabelaProdutos.length === 0 ? (
             <p className="vazio">Nenhuma venda no período.</p>
           ) : (
@@ -301,7 +317,7 @@ export default function PainelClient({ periodo, indicadores: ind, anterior, caix
               </table>
             </div>
           )}
-        </section>
+        </details>
       </div>
 
       <div className="painel-atalhos">
