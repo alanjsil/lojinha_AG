@@ -32,6 +32,9 @@ export default function Login() {
         <button type="submit" disabled={entrando}>
           {entrando ? "Entrando..." : "Entrar"}
         </button>
+        <Link href="/esqueci-senha" className="link-simples">
+          Esqueci a senha
+        </Link>
       </form>
       <div className="card">
         <p className="info" style={{ marginTop: 0 }}>

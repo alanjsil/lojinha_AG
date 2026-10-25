@@ -9,6 +9,8 @@ import {
   faCircleArrowUp,
   faCircleInfo,
   faDeleteLeft,
+  faEye,
+  faEyeSlash,
   faStore,
   faTriangleExclamation,
   faVault,
@@ -27,6 +29,8 @@ const ICONES = {
   entrada: faCircleArrowDown,
   saida: faCircleArrowUp,
   caixa: faCashRegister,
+  olho: faEye,
+  "olho-cortado": faEyeSlash,
 };
 
 export default function Icone({ nome, className }) {

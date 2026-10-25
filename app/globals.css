@@ -426,6 +426,29 @@ button:disabled {
 .login {
   margin-top: 12vh;
 }
+.campo-senha {
+  position: relative;
+}
+.campo-senha input {
+  padding-right: 56px;
+}
+.campo-senha .olho {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 52px;
+  min-height: 52px;
+  margin: 0;
+  padding: 0;
+  font-size: 18px;
+  background: transparent;
+  color: var(--texto-suave);
+  border-radius: 10px;
+}
+.campo-senha .olho:active {
+  background: transparent;
+  color: var(--primaria);
+}
 .kpis {
   display: grid;
   grid-template-columns: 1fr 1fr;

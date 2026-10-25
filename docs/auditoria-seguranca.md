@@ -13,19 +13,18 @@ usando a interface **ou** chamando o PostgREST direto (a chave anon é pública;
 
 ## Status das correções (24/10/2026)
 
-Implementadas no repositório, **ainda não aplicadas em produção**: migração `20261024201255_seguranca_auditoria.sql` (espelhada em `db/schema.sql`) + ajustes no app.
-A 035 já está em produção (informado por Alan).
+Implementadas no repositório, : migração `20261024201255_seguranca_auditoria.sql` (espelhada em `db/schema.sql`) + ajustes no app.
 
-| # | Achado | Correção |
-|---|--------|----------|
-| 1 | Comissão inflada com compra a custo 0 | Lançar e excluir compra: só o gerente (policy + Server Action + aba oculta) |
-| 2 | Qualquer um apaga venda alheia | Vendedor/sócia: só a própria, até 48 h do lançamento; depois só o gerente (`pode_mexer_venda` no banco, `lib/vendas.js` na tela) |
-| 3 | Regras só na Server Action | Triggers de saldo e de contagem, `INSERT` por coluna, trigger de status do pedido |
-| 4 | Travar a vitrine | `criar_pedido` só pela service role; limite por rede (HMAC do IP; IPv6 pelo /64) de 5 em 10 min e 30 em 24 h, além dos limites por telefone e total |
-| 5 | Saldo vaza no erro | Acima de 10 unidades a mensagem é genérica |
-| 6 | SSRF no push | Lista de hosts (`lib/push-endpoint.js` + constraint no banco); INSERT direto removido; envio ignora endpoint fora da lista |
-| 7 | INSERT em `perfis` | `revoke insert` |
-| 8 | Auth | `config.toml` local com senha mínima 8; **produção: ver abaixo** |
+| #   | Achado                                | Correção                                                                                                                                            |
+| --- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Comissão inflada com compra a custo 0 | Lançar e excluir compra: só o gerente (policy + Server Action + aba oculta)                                                                         |
+| 2   | Qualquer um apaga venda alheia        | Vendedor/sócia: só a própria, até 48 h do lançamento; depois só o gerente (`pode_mexer_venda` no banco, `lib/vendas.js` na tela)                    |
+| 3   | Regras só na Server Action            | Triggers de saldo e de contagem, `INSERT` por coluna, trigger de status do pedido                                                                   |
+| 4   | Travar a vitrine                      | `criar_pedido` só pela service role; limite por rede (HMAC do IP; IPv6 pelo /64) de 5 em 10 min e 30 em 24 h, além dos limites por telefone e total |
+| 5   | Saldo vaza no erro                    | Acima de 10 unidades a mensagem é genérica                                                                                                          |
+| 6   | SSRF no push                          | Lista de hosts (`lib/push-endpoint.js` + constraint no banco); INSERT direto removido; envio ignora endpoint fora da lista                          |
+| 7   | INSERT em `perfis`                    | `revoke insert`                                                                                                                                     |
+| 8   | Auth                                  | `config.toml` local com senha mínima 8; **produção: ver abaixo**                                                                                    |
 
 **Testado** (banco de dev, dentro de transação desfeita, simulando cada papel): compra, exclusão/edição de venda por dono/outro/sócia/gerente, venda acima do saldo (inclusive dois itens do mesmo produto no mesmo comando), `vendedor_id`/`custo_unit` forjados, contagem forjada, `criar_pedido` como anon/authenticated/service_role, limite por IP, transições do pedido, push com host interno e com host parecido, `perfis`, `saldo_do_produto`. Também `npm run lint`, `npm test` (65 testes) e `next build`.
 **Não testado:** o fluxo pelas telas do app contra o banco já migrado (o dev não está migrado), e a concorrência real de duas vendas simultâneas (o lock por produto foi escrito, não exercitado).
