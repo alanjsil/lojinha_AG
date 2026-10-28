@@ -30,7 +30,7 @@ jobs:
       - name: Aplicar migrações
         run: |
           if [ "${{ inputs.dry_run }}" = "true" ]; then
-            npx supabase db push --dry-run
+            npx supabase db push --include-all --dry-run
           else
-            npx supabase db push
+            npx supabase db push --include-all
           fi
