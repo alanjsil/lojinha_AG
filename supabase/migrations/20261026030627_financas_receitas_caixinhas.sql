@@ -1,0 +1,2 @@
+-- Placeholder: já aplicada em produção pelo app de finanças (schema financas), que divide este projeto Supabase.
+-- Existe só para o histórico local bater com o remoto e o db push funcionar. Não editar nem apagar.
