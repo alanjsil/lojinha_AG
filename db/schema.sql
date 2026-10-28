@@ -7,7 +7,8 @@
 create table if not exists perfis (
   id uuid primary key references auth.users (id) on delete cascade,
   nome text not null,
-  comissao_pct numeric(5, 2) not null default 40 check (comissao_pct between 0 and 100),
+  -- 040: padrão 10; vendedor só de 10 a 40 (constraint perfis_comissao_vendedor, no fim)
+  comissao_pct numeric(5, 2) not null default 10 check (comissao_pct between 0 and 100),
   -- gerente vê/cadastra despesas e vê o resumo de todos; vendedor só o próprio; socia = vendedor + comissão extra
   -- sobre as vendas dos outros (018). Só o admin muda (SQL/painel).
   papel text not null default 'vendedor' check (papel in ('gerente', 'vendedor', 'socia')),
@@ -229,7 +230,7 @@ create table if not exists vendas (
   lucro numeric(12, 2) generated always as (round((preco_unit - custo_unit) * quantidade, 2)) stored,
   -- comissão = % do lucro; venda no prejuízo não gera comissão negativa
   comissao numeric(12, 2) generated always as (round(greatest((preco_unit - custo_unit) * quantidade, 0) * comissao_pct / 100, 2)) stored,
-  -- 018: a sócia ganha comissão extra (socia_pct do perfil dela) sobre vendas de outros vendedores
+  -- 018: a sócia ganha comissão extra sobre vendas de outros vendedores (040: 35% menos o que o vendedor ganha acima de 10%)
   socia_id uuid,
   socia_pct numeric(5, 2) not null default 0,
   comissao_socia numeric(12, 2) generated always as (round(greatest((preco_unit - custo_unit) * quantidade, 0) * socia_pct / 100, 2)) stored,
@@ -267,18 +268,25 @@ create index if not exists vendas_produto on vendas (produto_id);
 create or replace function vendas_preencher () returns trigger language plpgsql
 set
   search_path = '' as $$
+declare
+  v_papel text;
 begin
   new.vendedor_id := coalesce((select auth.uid()), new.vendedor_id);
   new.custo_unit := (select custo from public.produtos where id = new.produto_id);
-  new.comissao_pct := (select comissao_pct from public.perfis where id = new.vendedor_id);
+  select comissao_pct, papel into new.comissao_pct, v_papel from public.perfis where id = new.vendedor_id;
   -- a sócia ganha também sobre as vendas dos outros (as dela já pagam a comissão normal)
-  select id, comissao_pct into new.socia_id, new.socia_pct
+  select id into new.socia_id
     from public.perfis
     where papel = 'socia' and id <> new.vendedor_id
     order by created_at
     limit 1;
+  -- 040: venda de vendedor = 35% menos o que ele ganha acima de 10% (12% → 33%); venda do gerente = 35%
   if new.socia_id is null then
     new.socia_pct := 0;
+  elsif v_papel = 'vendedor' then
+    new.socia_pct := greatest(35 - greatest(new.comissao_pct - 10, 0), 0);
+  else
+    new.socia_pct := 35;
   end if;
   return new;
 end $$;
@@ -2610,3 +2618,13 @@ grant insert (motivo) on contagens_estoque to authenticated;
 
 grant
 update (motivo) on contagens_estoque to authenticated;
+
+-- 040: comissão do vendedor de 10 a 40% (a sócia fica com 35% menos o que passar de 10; vendas_preencher, acima)
+alter table perfis
+drop constraint if exists perfis_comissao_vendedor;
+
+alter table perfis
+add constraint perfis_comissao_vendedor check (
+  papel <> 'vendedor'
+  or comissao_pct between 10 and 40
+);

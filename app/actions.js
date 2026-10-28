@@ -9,7 +9,9 @@ import { ABERTOS, avisoStatus, mudancaValida } from "../lib/pedido";
 import { avisarCliente } from "../lib/push";
 import { motivoDaContagem } from "../lib/resumo";
 import { ehEquipe } from "../lib/rotas";
+import { criarAdmin } from "../lib/supabase/admin";
 import { createClient, usuarioAtual } from "../lib/supabase/server";
+import { validarVendedor } from "../lib/vendedores";
 import { motivoSemAcessoVenda } from "../lib/vendas";
 
 const PAGAMENTOS = ["a_vista", "cartao"];
@@ -550,6 +552,65 @@ export async function editarCartao({ id, nome, fechamento, vencimento, ativo }) 
     },
     { exigeGerente: true },
   );
+}
+
+// ---------- Vendedores (gerente e sócia) ----------
+
+async function exigeGerenteOuSocia(supabase) {
+  const usuario = await usuarioAtual(supabase);
+  if (!usuario?.gerente && usuario?.papel !== "socia") falha("Só o gerente ou a sócia cadastram vendedor.");
+}
+
+// papel e comissão só mudam pela service role (o usuário não tem grant nessas colunas);
+// a faixa de 10–40% também é conferida no banco (perfis_comissao_vendedor)
+function adminOuFalha() {
+  const admin = criarAdmin();
+  if (!admin) falha("Cadastro indisponível: falta configurar a chave do servidor.");
+  return admin;
+}
+
+export async function cadastrarVendedor(dados) {
+  return executar(async (supabase) => {
+    await exigeGerenteOuSocia(supabase);
+    const v = validarVendedor(dados);
+    if (v.erro) falha(v.erro);
+    const admin = adminOuFalha();
+
+    const { data, error } = await admin.auth.admin.createUser({
+      email: v.email,
+      password: v.senha,
+      email_confirm: true,
+      user_metadata: { nome: v.nome, telefone: v.telefone },
+      // o gatilho cria o perfil com o papel do app_metadata (mig. 031)
+      app_metadata: { papel: "vendedor" },
+    });
+    if (error) {
+      if (/already|registered|exists/i.test(error.message)) falha("Já existe uma conta com esse e-mail.");
+      throw error;
+    }
+    const { error: e2 } = await admin.from("perfis").update({ papel: "vendedor", nome: v.nome, telefone: v.telefone, comissao_pct: v.comissao_pct }).eq("id", data.user.id);
+    if (e2) {
+      await admin.auth.admin.deleteUser(data.user.id);
+      throw e2;
+    }
+    revalidatePath("/vendedores");
+  });
+}
+
+// muda só as próximas vendas (o % é fotografado em cada venda); gerente, sócia e cliente não passam por aqui
+export async function editarVendedor({ id, ...dados }) {
+  return executar(async (supabase) => {
+    await exigeGerenteOuSocia(supabase);
+    if (!UUID.test(id ?? "")) falha("Vendedor inválido.");
+    const v = validarVendedor(dados, { novo: false });
+    if (v.erro) falha(v.erro);
+    const { data: linhas, error } = await adminOuFalha().from("perfis").update(v).eq("id", id).eq("papel", "vendedor").select("id");
+    if (error) throw error;
+    if (!linhas?.length) falha("Vendedor não encontrado.");
+    revalidatePath("/vendedores");
+    revalidatePath("/vendas");
+    revalidatePath("/resumos");
+  });
 }
 
 // ---------- Lançamentos dos sócios ----------

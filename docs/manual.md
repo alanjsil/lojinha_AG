@@ -25,11 +25,14 @@ A tabela completa de quem pode o quê está em [papeis-e-permissoes.md](papeis-e
 | Papel | Quem é | Resumo do acesso |
 | --- | --- | --- |
 | **Vendedor** | Equipe de vendas | Lança vendas e vê só a própria comissão. Não vê custo nem lucro. |
-| **Sócia** | A sócia (uma só) | Acesso de vendedor + Resumos completo, Painel e CRM (só leitura) + contagem de estoque. Ganha comissão extra sobre as vendas dos outros. |
+| **Sócia** | A sócia (uma só) | Acesso de vendedor + Resumos completo, Painel e CRM (só leitura) + contagem de estoque. Ganha comissão extra sobre as vendas dos outros. Cadastra vendedores. |
 | **Gerente** | Dono do dia a dia | Tudo: produtos, custo, compras, despesas, cartões, lançamentos, histórico. |
 | **Cliente** | Quem compra pela vitrine | Faz pedidos e acompanha os próprios em **Minha conta**. |
 
-Só o administrador do banco muda o papel e a % de comissão de alguém.
+Gerente e sócia cadastram vendedores e definem a comissão deles em **Vendedores** (link no fim dos Resumos). O papel e a comissão da sócia e do gerente só o administrador do banco muda.
+
+### Comissão do vendedor e da sócia
+A comissão é uma % do **lucro** da venda. O vendedor ganha de **10%** (padrão) a **40%**. Nas vendas de um vendedor a sócia ganha **35%**, e o que o vendedor ganhar acima de 10% sai da parte dela: vendedor 10% → sócia 35%; 12% → 33%; 15% → 30%; 40% → 5%. Nas vendas do gerente a sócia ganha 35%. Nas vendas da própria sócia vale a comissão do perfil dela, sem adicional. Mudar a % vale só para as próximas vendas.
 
 ### Celular e computador
 
@@ -249,6 +252,9 @@ Ponto de equilíbrio e meta supõem que o resto do mês terá a mesma margem do 
 ### Histórico de alterações (`/log`, só gerente)
 Quem criou, editou, apagou ou restaurou vendas, compras, despesas, lançamentos, produtos, contagens e categorias, com o antes e o depois. **Restaurar** traz de volta o que foi apagado. Uma venda só volta se ainda houver estoque.
 
+### Vendedores (`/vendedores`, gerente e sócia)
+Link no fim dos Resumos, logo abaixo do Histórico. **Novo vendedor:** nome, celular (WhatsApp), e-mail e senha inicial (é com eles que o vendedor entra no app) e comissão (padrão 10%, de 10% a 40%). Enquanto digita, a tela mostra quanto fica para a sócia. Toque num vendedor para mudar nome, celular ou comissão; e-mail e senha não mudam por aqui (o vendedor troca a senha em "Esqueci a senha").
+
 ---
 
 ## 7. Painel (`/painel`, só no computador; gerente e sócia)
@@ -342,7 +348,7 @@ Toda conta pura tem teste em `tests/` (`npm test`).
 ## B. Fórmulas
 
 - **Lucro da venda** = `round((preco_unit − custo_unit) × quantidade, 2)`, coluna gerada.
-- **Comissão da venda** = `round(max(lucro, 0) × comissao_pct / 100, 2)`. Comissão da sócia: o mesmo com `socia_pct`, só em venda de outro vendedor.
+- **Comissão da venda** = `round(max(lucro, 0) × comissao_pct / 100, 2)`. Comissão da sócia: o mesmo com `socia_pct`, só em venda de outro vendedor. `socia_pct` (040, `vendas_preencher`) = `35 − max(comissao_pct − 10, 0)` em venda de vendedor e `35` em venda do gerente. Vendedor só de 10 a 40% (constraint `perfis_comissao_vendedor`).
 - **Parcelas** (`vendas_gerar_parcelas`): à vista = 1 parcela na data. Cartão = 1ª em `primeiro_vencimento` ou no dia 8 do mês seguinte, depois mês a mês. Valor e comissão são divididos entre as parcelas.
 - **Custo médio móvel** (`recalcular_custo_medio`): refaz o histórico em ordem cronológica. Na compra: `(saldo × custo + qtd × custo_compra) ÷ (saldo + qtd)`. Saldo ≤ 0 antes da compra vale o custo da compra. Venda e contagem só mexem na quantidade.
 - **Estoque** (`estoque_atual`) = compras − vendas + diferenças das contagens, sem as apagadas.
@@ -378,6 +384,7 @@ Toda conta pura tem teste em `tests/` (`npm test`).
 | `/conta` | cliente | |
 | `/vendas`, `/estoque`, `/resumos` | equipe | o conteúdo varia por papel |
 | `/saidas`, `/log` | gerente | |
+| `/vendedores` | gerente e sócia | cadastro pela Server Action com a service role (`criarAdmin()`) |
 | `/painel`, `/crm` | gerente e sócia | só no menu do PC (`so-pc`); vendedor é mandado para `/resumos` |
 
 O menu (`components/BottomNav.js`) recebe `gerente` e `socia` do layout, que lê o papel do `app_metadata` do Auth.

@@ -32,7 +32,7 @@ registrado por `components/RegistrarSW.js` só em produção. `sw.js` fica fora 
 ## Regras de negócio
 
 - Venda com vários itens (mig. 027): cada item é uma linha de `vendas` (custo, comissão, parcelas e estoque são por item); `grupo_id` liga os itens lançados juntos (null = um item só). Pagamento/parcelas/data/obs são os mesmos na criação (`registrarVenda({ itens, ... })`, um único insert; saldo conferido pela soma por produto); a lista agrupa por `grupo_id`, excluir um grupo apaga todos os itens, editar é item a item. Custo e % de comissão são fotografados por trigger (`vendas_preencher`).
-- Comissão = % (padrão 40) do **lucro** da venda; prejuízo não gera comissão negativa.
+- Comissão = % do **lucro** da venda; prejuízo não gera comissão negativa. Vendedor: 10% (padrão) a 40% (mig. 040, constraint `perfis_comissao_vendedor`).
 - Pagamento: `a_vista` ou `cartao` (sem Pix). Só cartão parcela (1–12x). `parcelas` guarda uma linha por
   parcela (trigger `vendas_gerar_parcelas`; cartão: 1ª no dia 8 do mês seguinte à venda ou em `vendas.primeiro_vencimento` (mig. 035), as demais mês a mês; à vista: na data da venda) com a fatia da comissão; nos Resumos
   a comissão conta no **vencimento da parcela**, não na data da venda.
@@ -66,14 +66,14 @@ registrado por `components/RegistrarSW.js` só em produção. `sw.js` fica fora 
   **saldo = caixa real**: recebido (parcelas vencidas) + capital inicial + aportes − compras − despesas − saques − pró-labore − comissões pagas.
   Aparece em destaque no topo e na "Movimentação de caixa" (saldo anterior = `resumo_acumulado(de − 1 dia)`; passa de um período para o outro). Mig. 013/014 acrescentaram `recebido`, `compras` e `capital_inicial`.
 - Papel **socia** (mig. 018, ex.: Glasi): tem acesso de **vendedor** (despesas/lançamentos/resumo geral seguem só do gerente, `eh_gerente()`; mig. 019) e **sempre ganha comissão**:
-  além da comissão normal nas próprias vendas, recebe `comissao_pct` do perfil dela sobre o lucro das vendas de **todos os outros** vendedores,
-  como adicional (não sai da comissão do vendedor). Fotografada na venda (`socia_id`, `socia_pct`, `comissao_socia`), parcelada em `parcelas.comissao_socia`,
+  além da comissão normal nas próprias vendas (`comissao_pct` do perfil dela), recebe sobre o lucro das vendas de **todos os outros**, como adicional:
+  **35%** na venda do gerente e `35 − (X − 10)` na venda de vendedor com X% (o que ele ganha acima de 10% sai dela; mig. 040, `vendas_preencher`, espelhado em `comissaoDaSocia` de `lib/vendedores.js`). Fotografada na venda (`socia_id`, `socia_pct`, `comissao_socia`), parcelada em `parcelas.comissao_socia`,
   somada em Comissões/lucro líquido/caixa e listada no Resumos como a comissão dela. Vendas anteriores à 018 não têm comissão de sócia. Uma sócia só (a mais antiga).
   Mesmo com Resumos completo, a sócia **não** vê o lucro de cada vendedor em Performance (comparar lucro entre vendedores é só do gerente, `ehGerente`; a sócia vê o valor vendido de cada um, não o lucro).
 - Dois papéis básicos (`perfis.papel`): **gerente** vê e cadastra despesas e vê o resumo de todos os vendedores;
   **vendedor** não vê custo nem lucro por venda (só a própria comissão), nem detalhes da venda de outro vendedor (só nome do vendedor), nem "Margem bruta" nos Resumos; não acessa despesas (aba some em Saídas, Server Action recusa) e no resumo só vê as
   próprias vendas/comissão (sem despesas, lucro líquido ou comparativo entre vendedores). Só o admin
-  altera `papel`/`comissao_pct` (SQL/painel ou `--` do `criar-usuario`).
+  altera `papel` e a comissão de gerente/sócia (SQL/painel ou `--` do `criar-usuario`); a do vendedor, gerente e sócia mudam em `/vendedores`.
 - **Categorias e fotos (mig. 029):** `categorias` (nome, ordem, foto, ativo; só o gerente cadastra, aba Categorias no Estoque)
   e `produtos.categoria_id`/`foto_url`/`descricao` (sem categoria = "Outros"; excluir a categoria solta os produtos).
   Fotos no bucket público `fotos` (só o gerente envia; até 2 MB): o navegador reduz para WebP 800px (`lib/imagem.js`)
@@ -111,7 +111,7 @@ registrado por `components/RegistrarSW.js` só em produção. `sw.js` fica fora 
 - Schema em `db/schema.sql` (estado atual completo); mudanças em `supabase/migrations/<timestamp>_nome.sql` (formato da
   Supabase CLI; as antigas 003–032 foram renomeadas, o número original continua no nome do arquivo), sempre
   refletidas no schema. Nova migração: `npx supabase migration new nome`. `db/migracoes/` guarda só a 001 e a 002
-  (anteriores ao histórico do banco). Produção está em dia até a 037 `contagem_so_gerente_socia` (conferido em 2026-10-25); o dev já tem até a 039. A 038 `clientes_na_venda` e a 039 `contagem_motivo` entram pelo workflow **antes** do deploy do app (Vendas, Resumos e CRM leem as colunas novas); desde a 036 o pedido da loja só grava com `SUPABASE_SERVICE_ROLE_KEY` na Vercel; migrações novas entram pelo workflow manual
+  (anteriores ao histórico do banco). Produção está em dia até a 037 `contagem_so_gerente_socia` (conferido em 2026-10-25); o dev já tem até a 040. A 038 `clientes_na_venda`, a 039 `contagem_motivo` e a 040 `comissao_socia_por_vendedor` entram pelo workflow **antes** do deploy do app (Vendas, Resumos e CRM leem as colunas novas); desde a 036 o pedido da loja só grava com `SUPABASE_SERVICE_ROLE_KEY` na Vercel; migrações novas entram pelo workflow manual
   `.github/workflows/db.yml` (só produção; o dev em rede local recebe por `db push --db-url`) (secrets `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_ID`; rode
   primeiro com dry_run). CI de lint/testes em `ci.yml`. Passo a passo de migrações e das chaves VAPID/variáveis de
   ambiente em `docs/supabase-e-vapid.md` (nomes das variáveis em `.env.example`). Confira com `npx supabase migration list` ou o MCP
@@ -119,7 +119,8 @@ registrado por `components/RegistrarSW.js` só em produção. `sw.js` fica fora 
   anon/authenticated; funções que chamam outras revogadas precisam ser `security definer`.
 - **Edição pelo gerente (mig. 023):** custo de produto só o gerente vê/edita no cadastro (Estoque); contagens (`contagens_estoque`, agora com exclusão lógica) e compras/lançamentos (Saídas) são editáveis pelo gerente em colunas limitadas (contagem: data/contada/observação; compra: data/quantidade/custo/fornecedor; lançamento: data/valor/descrição/vendedor), com checagem na Server Action para não deixar o estoque negativo; editar compra/contagem refaz o custo médio por trigger.
 - **Exclusão lógica + log (mig. 021):** `vendas`, `compras`, `despesas` e `lancamentos` nunca são apagadas de verdade: o trigger `apagar_suave` transforma o `DELETE` em `apagado_em`/`apagado_por`, e uma policy restritiva esconde as apagadas do app (o código do app continua usando `.delete()`). Efeitos derivados reagem: compra apagada/restaurada refaz o custo médio, venda apagada perde as parcelas (restaurar regera), `estoque_atual` e `resumo_acumulado` filtram `apagado_em is null`. Restaurar: tela `/log` (gerente, link no fim de Resumos) chama a Server Action `restaurarRegistro` → RPC `restaurar_registro` (mig. 022, security definer; venda só volta se houver saldo em estoque); apagar de verdade exige desligar o trigger. `log_auditoria` (só o gerente lê; o app não escreve) guarda criou/editou/apagou/restaurou com `antes`/`depois` via trigger `auditar` em vendas, compras, despesas, lançamentos, produtos, contagens e categorias (edição guarda só as colunas alteradas; recálculo automático do custo médio não é logado). Como `apagado_por` liga essas tabelas a `perfis` uma 2ª vez, embed do PostgREST precisa de hint: `perfis!vendas_vendedor_id_fkey(nome)` (sem ele a consulta falha e a lista vem vazia). Query nova que ignora a RLS (função `security definer`) precisa filtrar `apagado_em is null`.
-- Usuários da equipe: `npm run criar-usuario -- "Nome" email senha [comissao] [papel]` (papel: gerente|vendedor|socia, padrão vendedor; grava o papel no `app_metadata`). Cliente se cadastra sozinho em `/cadastro`.
+- Vendedores: gerente e sócia cadastram na tela `/vendedores` (link no fim dos Resumos; nome, celular, e-mail, senha inicial, comissão), pelas Server Actions `cadastrarVendedor`/`editarVendedor` com a service role (`criarAdmin()`; papel/comissão não têm grant para o usuário; editar só toca `papel = 'vendedor'`).
+  Gerente/sócia: `npm run criar-usuario -- "Nome" email senha [comissao] [papel]` (papel: gerente|vendedor|socia, padrão vendedor, comissão padrão 10; grava o papel no `app_metadata`). Cliente se cadastra sozinho em `/cadastro`.
 
 ## Qualidade
 
