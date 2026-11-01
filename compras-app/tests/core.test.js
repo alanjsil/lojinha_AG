@@ -233,9 +233,10 @@ test("falha no meio: ao repetir continua de onde parou, sem duplicar", async () 
   await assert.rejects(() => Core.enviar(cli, Core.montarPlano(S, catalogo, sent), sent, hooks), /queda de rede/);
   assert.equal(Object.keys(sent.compras).length, 3);
   assert.equal(Object.keys(sent.produtos).length, 5);
+  assert.equal(Object.keys(sent.despesas).length, 6); // despesas vao primeiro
   assert.ok(persistidas >= 8);
   const res = await Core.enviar(cli, Core.montarPlano(S, catalogo, sent), sent, hooks);
-  assert.deepEqual(res, { produtos: 0, compras: 13, despesas: 6 });
+  assert.deepEqual(res, { produtos: 0, compras: 13, despesas: 0 });
   assert.equal(srv.db.compras.length, 16);
   assert.equal(srv.db.produtos.length, 5);
 });
@@ -246,5 +247,15 @@ test("não envia com pendências", async () => {
   await cli.login("gerente@teste", "certa");
   const sent = Core.novoControle();
   await assert.rejects(() => Core.enviar(cli, Core.montarPlano(clone(viagem), catalogo, sent), sent, {}), /pendências/);
+  assert.equal(srv.db.compras.length, 0);
+});
+
+test("despesa recusada pelo banco (ex.: falta a migracao Onibus) falha ANTES de gravar produtos e compras", async () => {
+  const srv = servidorFalso({ key: "ANON", falhas: { despesas: 1 } });
+  const cli = clienteDe(srv);
+  await cli.login("gerente@teste", "certa");
+  const sent = Core.novoControle();
+  await assert.rejects(() => Core.enviar(cli, Core.montarPlano(resolvido(), catalogo, sent), sent, {}), /queda de rede/);
+  assert.equal(srv.db.produtos.length, 0);
   assert.equal(srv.db.compras.length, 0);
 });

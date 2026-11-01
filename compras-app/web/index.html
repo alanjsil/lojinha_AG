@@ -142,7 +142,7 @@ pre.log{background:#0f172a;color:#e2e8f0;border-radius:12px;padding:10px;font-si
 <div class="ov" id="mdol"><div class="sheet">
   <h3>Dólar e orçamento</h3>
   <label>Cotação do dólar (R$)</label><input id="dDolar" inputmode="decimal">
-  <label>Orçamento (R$) — compras + despesas</label><input id="dOrc" inputmode="decimal">
+  <label>Or&ccedil;amento de compras (R$)</label><input id="dOrc" inputmode="decimal">
   <div class="row"><button class="btn" id="dCan">Cancelar</button><button class="btn pri" id="dOk"><i class="fa-solid fa-check"></i> Aplicar</button></div>
 </div></div>
 
@@ -162,6 +162,10 @@ pre.log{background:#0f172a;color:#e2e8f0;border-radius:12px;padding:10px;font-si
     <button class="btn" id="bColar">Carregar texto colado</button>
     <button class="btn per" id="bReset"><i class="fa-solid fa-rotate-left"></i> Restaurar lista original</button>
   </div>
+  <h4>Compras</h4>
+  <div class="mut">Ao terminar e enviar uma compra, comece a pr&oacute;xima: o app guarda um resumo, zera quantidades, pre&ccedil;os e despesas e j&aacute; liga os produtos novos criados na produ&ccedil;&atilde;o.</div>
+  <div class="row"><button class="btn" id="bNova"><i class="fa-solid fa-cart-plus"></i> Fechar esta compra e come&ccedil;ar outra</button></div>
+  <div id="histCompras" class="mut" style="margin-top:8px"></div>
   <div class="row"><button class="btn pri" id="bFechar">Fechar</button></div>
 </div></div>
 
@@ -276,17 +280,18 @@ function fmtDataHora(ms){const d=new Date(ms);return d.toLocaleDateString('pt-BR
 
 /* ---------- estado ---------- */
 function mk(r){return {id:uid(),nome:r[0],cat:CAT_ICON[r[1]]?r[1]:'Outros',qtd:r[2],qtdc:0,usd:0,lucro:r[3],pid:r[4]||null,novo:null,vincOk:null,comprado:false,nota:''};}
-function padrao(){return normaliza({config:{dolar:5.5,orcamento:6000,data:hoje(),ambiente:'dev'},itens:PADRAO.map(mk)});}
+function padrao(){return normaliza({config:{dolar:5.5,orcamento:6000,data:hoje(),ambiente:'prod'},itens:PADRAO.map(mk)});}
 function normaliza(x){
   x.v=3;
-  x.config=Object.assign({dolar:5.5,orcamento:6000,data:hoje(),ambiente:'dev'},x.config||{});
-  if(x.config.ambiente!=='prod')x.config.ambiente='dev';
+  x.config=Object.assign({dolar:5.5,orcamento:6000,data:hoje(),ambiente:'prod'},x.config||{});
+  if(x.config.ambiente!=='dev')x.config.ambiente='prod';
   x.ui=Object.assign({pend:false,q:'',fechadas:{}},x.ui||{});x.ui.fechadas=x.ui.fechadas||{};
   x.itens=(x.itens||[]).map(i=>Object.assign({id:uid(),qtd:1,qtdc:0,usd:0,lucro:0,pid:null,novo:null,vincOk:null,comprado:false,nota:''},i,{cat:CAT_ICON[i.cat]?i.cat:'Outros'}));
   x.despesas=Array.isArray(x.despesas)?x.despesas:[];
   x.sent=x.sent||{};
   ['dev','prod'].forEach(a=>{x.sent[a]=Object.assign(Core.novoControle(),x.sent[a]||{});});
   x.cat=x.cat||{dev:null,prod:null};
+  x.historico=Array.isArray(x.historico)?x.historico:[];
   return x;
 }
 let S=null;
@@ -296,6 +301,7 @@ if(!S||!S.itens||!S.itens.length){
   S=(v2&&v2.itens&&v2.itens.length)?{config:v2.config||{},ui:v2.ui||{},itens:v2.itens}:padrao();
 }
 S=normaliza(S);
+S.config.ambiente='prod'; // o app sempre abre em producao; DEV e uma escolha temporaria
 function salvar(){try{localStorage.setItem('compras_v3',JSON.stringify(S))}catch(e){}}
 const amb=()=>S.config.ambiente;
 const catalogo=()=>S.cat[amb()];
@@ -350,13 +356,13 @@ function faixa(){const f=$('faixa');f.className=amb();f.textContent=amb()==='dev
 function resumo(){
   const n=S.itens.length,ok=S.itens.filter(i=>i.comprado).length;
   const t=totais(),d=t.d,orc=num(S.config.orcamento);
-  const gasto=t.comp*d+t.desp,previsto=t.prev*d+t.desp,saldo=orc-gasto,sobra=orc-previsto;
+  const gasto=t.comp*d,previsto=t.prev*d,saldo=orc-gasto,sobra=orc-previsto;
   $('prog').style.width=(n?ok/n*100:0)+'%';
   $('ptxt').textContent=ok+'/'+n+' itens comprados';
   $('tot').innerHTML='<b>Comprado</b> US$ '+f2(t.comp)+' <small>(R$ '+f2(t.comp*d)+')</small> &middot; <b>Previsto</b> US$ '+f2(t.prev)+' <small>(R$ '+f2(t.prev*d)+')</small>'+
     (t.desp?'<br><b>Despesas</b> R$ '+f2(t.desp):'')+'<br>'+
     '<button class="chip" id="bDol" style="padding:3px 10px;font-size:12px;color:var(--ac)"><i class="fa-solid fa-dollar-sign"></i> R$ '+f2(d)+' &middot; '+fmtData(S.config.data)+' <i class="fa-solid fa-pen"></i></button>'+
-    (orc?' <span style="font-weight:700;color:'+(saldo<0?'var(--err)':'var(--ok)')+'">Saldo R$ '+f2(saldo)+'</span> <small>de R$ '+f2(orc)+(t.desp?' (com despesas)':'')+'</small>':'')+
+    (orc?' <span style="font-weight:700;color:'+(saldo<0?'var(--err)':'var(--ok)')+'">Saldo R$ '+f2(saldo)+'</span> <small>de R$ '+f2(orc)+'</small>':'')+
     (orc&&sobra<0?'<br><span style="color:var(--err);font-weight:600"><i class="fa-solid fa-triangle-exclamation"></i> Previsto passa R$ '+f2(-sobra)+' do orçamento</span>':'');
 }
 $('tot').onclick=e=>{if(e.target.closest&&e.target.closest('#bDol'))abrirDol();};
@@ -382,12 +388,14 @@ function card(i){
    '<div class="sub"></div>'+
    '<input class="nota" placeholder="Nota (ex.: só tinha o preto)" value="'+esc(i.nota)+'" style="display:'+(i.nota?'block':'none')+'"></div>';
   const q=d.querySelector('.q'),p=d.querySelector('.p'),nota=d.querySelector('.nota'),sub=d.querySelector('.sub');
+  const jaEnviado=!!S.sent[amb()].compras[i.id];
+  if(jaEnviado){q.readOnly=true;p.readOnly=true;}
   const upd=()=>{
     const c=i.usd*S.config.dolar;
     sub.textContent='plano '+i.qtd+' · '+(i.usd?('custo R$ '+f2(c)+' · venda ×1,75 R$ '+f2(c*1.75)):'sem preço')+' · lucro esp. R$ '+f2(i.lucro);
     resumo();
   };
-  d.querySelector('.chk').onclick=()=>{i.comprado=!i.comprado;if(i.comprado&&!i.qtdc)i.qtdc=i.qtd;salvar();render();};
+  d.querySelector('.chk').onclick=()=>{if(jaEnviado){toast('Item j\u00e1 enviado. Para comprar mais, use \u201cFechar esta compra e come\u00e7ar outra\u201d em \u2699\ufe0f.');return;}i.comprado=!i.comprado;if(i.comprado&&!i.qtdc)i.qtdc=i.qtd;salvar();render();};
   q.oninput=()=>{const v=Math.max(0,Math.round(num(q.value)));if(i.comprado)i.qtdc=v;else i.qtd=v;salvar();upd();};
   p.oninput=()=>{i.usd=num(p.value);salvar();upd();};
   nota.oninput=()=>{i.nota=nota.value;d.querySelector('.nt').classList.toggle('on',!!i.nota);salvar();};
@@ -473,7 +481,7 @@ function compartilhar(txt,nome){
 function exportavel(){const x=JSON.parse(JSON.stringify(S));delete x.cat;return x;}
 $('bShare').onclick=()=>compartilhar(JSON.stringify(exportavel(),null,1),'compras.json');
 $('bBackup').onclick=()=>compartilhar(JSON.stringify(exportavel(),null,1),'compras.json');
-function abrirCfg(){$('cDolar').value=String(S.config.dolar).replace('.',',');$('cData').value=S.config.data||'';abre('cfg');}
+function abrirCfg(){$('cDolar').value=String(S.config.dolar).replace('.',',');$('cData').value=S.config.data||'';pintaHist();abre('cfg');}
 function fechaCfg(){const d=num($('cDolar').value);if(d>0)S.config.dolar=d;S.config.data=$('cData').value||S.config.data;salvar();fecha('cfg');render();}
 $('bCfg').onclick=abrirCfg;$('bFechar').onclick=fechaCfg;
 function aplicar(txt){
@@ -497,6 +505,25 @@ $('bAbrir').onclick=()=>$('arq').click();
 $('arq').onchange=function(){const r=new FileReader();r.onload=()=>aplicar(r.result);if(this.files[0])r.readAsText(this.files[0]);this.value='';};
 $('bColar').onclick=()=>aplicar($('txt').value);
 $('bReset').onclick=function(){dupla(this,'Toque de novo para apagar tudo',()=>{const cat=S.cat,sent=S.sent;S=padrao();S.cat=cat;S.sent=sent;salvar();render();abrirCfg();});};
+
+/* ---------- nova compra ---------- */
+function pintaHist(){
+  const h=S.historico;
+  $('histCompras').innerHTML=h.length?'<b>Compras anteriores</b><br>'+h.slice(0,8).map(x=>fmtData(x.data)+' \u00b7 '+x.itens+' itens \u00b7 R$ '+f2(x.totalBRL)+' \u00b7 d\u00f3lar '+f2(x.dolar)+' \u00b7 enviada: '+(x.enviado.prod?'produ\u00e7\u00e3o':x.enviado.dev?'s\u00f3 dev':'n\u00e3o')).join('<br>'):'';
+}
+function novaCompra(){
+  const d=S.config.dolar,t=totais();
+  S.historico.unshift({em:Date.now(),data:S.config.data,dolar:d,ambiente:amb(),itens:S.itens.filter(i=>i.comprado).length,totalBRL:r2(t.comp*d),despesas:S.despesas.length,despesasBRL:r2(t.desp),enviado:{dev:Object.keys(S.sent.dev.compras).length,prod:Object.keys(S.sent.prod.compras).length}});
+  S.historico=S.historico.slice(0,30);
+  S.itens.forEach(it=>{
+    const criado=S.sent.prod.produtos[it.id];
+    if(it.novo&&criado){it.pid=criado;it.vincOk=criado;it.novo=null;}
+    it.comprado=false;it.qtdc=0;it.usd=0;it.nota='';
+  });
+  S.despesas=[];S.sent={dev:Core.novoControle(),prod:Core.novoControle()};S.config.data=hoje();
+  salvar();render();pintaHist();toast('Nova compra iniciada. A anterior ficou no hist\u00f3rico.');
+}
+$('bNova').onclick=function(){dupla(this,'Toque de novo para come\u00e7ar outra',novaCompra);};
 
 /* ---------- filtros ---------- */
 $('busca').value=S.ui.q;
@@ -630,6 +657,7 @@ async function abrirPrevia(){
     });
   }catch(e){plano.avisos.push('Não consegui conferir compras já existentes ('+e.message+')');}
   if(plano.data!==hoje())plano.avisos.push('O lan\u00e7amento est\u00e1 com a data '+fmtData(plano.data)+', diferente de hoje ('+fmtData(hoje())+'). Confira em \u2699\ufe0f.');
+  if(amb()==='prod'&&plano.despesas.some(d=>!d.enviado&&d.tipo==='onibus'))plano.avisos.push('Despesa do tipo \u00d4nibus: a migra\u00e7\u00e3o do tipo \u00d4nibus precisa estar aplicada na produ\u00e7\u00e3o, sen\u00e3o o banco recusa a despesa (nada de compra \u00e9 gravado antes dela).');
   planoAtual=plano;pintaPrevia();
 }
 function pintaPrevia(){
@@ -646,7 +674,7 @@ function pintaPrevia(){
   if(p.despesas.length)h+='<div class="box"><h5>Despesas ('+p.despesas.length+')</h5>'+p.despesas.map(d=>'<div class="li"><span>'+esc(TIPO_NOME[d.tipo])+(d.descricao?' · '+esc(d.descricao):'')+(d.enviado?' ✔':'')+'</span><span>R$ '+f2(d.valor)+'</span></div>').join('')+
     '<div class="li"><span><b>Total despesas</b></span><span>R$ '+f2(p.total.despesas)+'</span></div></div>';
   h+='<div class="box"><div class="li"><span><b>Compras + despesas</b></span><span>R$ '+f2(p.total.geral)+'</span></div>'+
-    (orc?'<div class="li"><span>Orçamento R$ '+f2(orc)+'</span><span style="color:'+(orc-p.total.geral<0?'var(--err)':'var(--ok)')+'">'+(orc-p.total.geral<0?'passa ':'sobra ')+'R$ '+f2(Math.abs(orc-p.total.geral))+'</span></div>':'')+'</div>';
+    (orc?'<div class="li"><span>Or&ccedil;amento de compras R$ '+f2(orc)+'</span><span style="color:'+(orc-p.total.compras<0?'var(--err)':'var(--ok)')+'">'+(orc-p.total.compras<0?'passa ':'sobra ')+'R$ '+f2(Math.abs(orc-p.total.compras))+'</span></div>':'')+'</div>';
   if(p.avisos.length)h+='<div class="box warn"><h5>Atenção</h5>'+p.avisos.map(a=>'<div>• '+esc(a)+'</div>').join('')+'</div>';
   const a=p.aEnviar,falta=a.novos+a.compras+a.despesas;
   h+='<p class="mut">A enviar agora: '+a.novos+' produtos novos, '+a.compras+' compras, '+a.despesas+' despesas.'+(falta?'':' Tudo já foi enviado neste ambiente.')+'</p>';

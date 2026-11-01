@@ -253,14 +253,22 @@
     return { login, sair, api, inserir, catalogo, despesasRecentes, comprasDoDia, sessao: () => sess };
   }
 
-  // Envia na ordem: produtos novos -> compras -> despesas. Cada sucesso é gravado em `sent`
-  // (persistido por hooks.persist), então repetir depois de uma falha não duplica nada.
+  // Envia na ordem: despesas -> produtos novos -> compras. As despesas vao primeiro porque e nelas que um ambiente
+  // sem a migracao "onibus" recusa o valor: assim a falha acontece ANTES de gravar produtos e compras.
+  // Cada sucesso e gravado em `sent` (persistido por hooks.persist), entao repetir depois de uma falha nao duplica nada.
   async function enviar(cli, plano, sent, hooks) {
     const log = (m) => hooks && hooks.log && hooks.log(m);
     const salvar = () => hooks && hooks.persist && hooks.persist();
     const res = { produtos: 0, compras: 0, despesas: 0 };
-    if (plano.pendencias.length) throw new Error("Há pendências no de-para. Resolva antes de enviar.");
+    if (plano.pendencias.length) throw new Error("H\u00e1 pend\u00eancias no de-para. Resolva antes de enviar.");
 
+    for (const d of plano.despesas) {
+      if (sent.despesas[d.id]) continue;
+      log("Despesa: " + (d.descricao || d.tipo));
+      sent.despesas[d.id] = await cli.inserir("despesas", { data: d.data, tipo: d.tipo, descricao: d.descricao, valor: d.valor });
+      res.despesas++;
+      salvar();
+    }
     for (const n of plano.novos) {
       if (sent.produtos[n.itemId]) continue;
       log("Criando produto: " + n.nome);
@@ -271,17 +279,10 @@
     for (const c of plano.compras) {
       if (sent.compras[c.itemId]) continue;
       const pid = c.pid || sent.produtos[c.itemId];
-      if (!pid) throw new Error("O produto novo de " + c.nome + " ainda não foi criado.");
+      if (!pid) throw new Error("O produto novo de " + c.nome + " ainda n\u00e3o foi criado.");
       log("Compra: " + c.nome);
       sent.compras[c.itemId] = await cli.inserir("compras", { data: plano.data, produto_id: pid, quantidade: c.quantidade, custo_unit: c.custo_unit });
       res.compras++;
-      salvar();
-    }
-    for (const d of plano.despesas) {
-      if (sent.despesas[d.id]) continue;
-      log("Despesa: " + (d.descricao || d.tipo));
-      sent.despesas[d.id] = await cli.inserir("despesas", { data: d.data, tipo: d.tipo, descricao: d.descricao, valor: d.valor });
-      res.despesas++;
       salvar();
     }
     return res;
