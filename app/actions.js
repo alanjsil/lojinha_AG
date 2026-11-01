@@ -15,7 +15,7 @@ import { validarVendedor } from "../lib/vendedores";
 import { motivoSemAcessoVenda } from "../lib/vendas";
 
 const PAGAMENTOS = ["a_vista", "cartao"];
-const TIPOS_DESPESA = ["aluguel", "agua", "luz", "internet", "gasolina", "alimentacao", "pedagio", "outros"];
+const TIPOS_DESPESA = ["aluguel", "agua", "luz", "internet", "gasolina", "alimentacao", "pedagio", "onibus", "outros"];
 const TIPOS_LANCAMENTO = ["pro_labore", "pagamento_comissao", "saque", "aporte", "capital_inicial", "repasse"];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;

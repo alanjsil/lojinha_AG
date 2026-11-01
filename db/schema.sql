@@ -140,9 +140,9 @@ begin
   return new;
 end $$;
 
-drop trigger if exists depois_de_gravar_compra on compras;
+drop trigger if exists compras_custo_medio on compras;
 
-create trigger depois_de_gravar_compra
+create trigger compras_custo_medio
 after insert or delete or update of apagado_em,
 data,
 quantidade,
@@ -369,7 +369,7 @@ create table if not exists despesas (
   id uuid primary key default gen_random_uuid(),
   data date not null default current_date,
   tipo text not null check (
-    tipo in ('aluguel', 'agua', 'luz', 'internet', 'gasolina', 'alimentacao', 'pedagio', 'outros')
+    tipo in ('aluguel', 'agua', 'luz', 'internet', 'gasolina', 'alimentacao', 'pedagio', 'onibus', 'outros')
   ),
   descricao text,
   valor numeric(12, 2) not null check (valor > 0),

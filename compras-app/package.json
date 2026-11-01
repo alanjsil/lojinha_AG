@@ -1,0 +1,6 @@
+{
+  "name": "compras-app",
+  "private": true,
+  "type": "commonjs",
+  "description": "App Android (WebView) de lista de compras da Lojinha A&G. Build: powershell -File build.ps1. Testes: node --test tests/"
+}

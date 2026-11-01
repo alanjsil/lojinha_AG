@@ -1,0 +1,378 @@
+{
+ "categorias": [
+  {
+   "id": "be35aa87-6439-4bcc-ae8d-1829ef2cd007",
+   "nome": "Bebidas",
+   "ordem": 1,
+   "ativo": true
+  },
+  {
+   "id": "ea4b98e1-1cba-4529-8208-dc94cfb3d6df",
+   "nome": "Perfumes",
+   "ordem": 2,
+   "ativo": true
+  },
+  {
+   "id": "c4e6fb3b-b783-4d51-96aa-4d1946916100",
+   "nome": "Doces e Chocolates",
+   "ordem": 3,
+   "ativo": true
+  },
+  {
+   "id": "a35e1eed-29c8-4c31-9116-6a14a927678b",
+   "nome": "Vestuário",
+   "ordem": 4,
+   "ativo": true
+  },
+  {
+   "id": "39d870db-0c1b-49c8-999f-7ccc6dff36c8",
+   "nome": "Casa e Eletro",
+   "ordem": 5,
+   "ativo": true
+  }
+ ],
+ "produtos": [
+  {
+   "id": "74a769ae-6177-4b5e-9383-a862724ed92c",
+   "nome": "Alfajor X6 Black Fusion",
+   "preco": 46.99,
+   "categoria_id": "c4e6fb3b-b783-4d51-96aa-4d1946916100"
+  },
+  {
+   "id": "3d4e29cd-c205-4b22-8e64-f521235d028c",
+   "nome": "Amarula 750ml",
+   "preco": 99,
+   "categoria_id": "be35aa87-6439-4bcc-ae8d-1829ef2cd007"
+  },
+  {
+   "id": "228660f7-14e8-4696-b44a-ad70bfd625ad",
+   "nome": "Caixa de Música BT",
+   "preco": 180,
+   "categoria_id": "39d870db-0c1b-49c8-999f-7ccc6dff36c8"
+  },
+  {
+   "id": "e0f13225-a0c3-4f3b-8563-d58a21f4710b",
+   "nome": "Camisa de 10",
+   "preco": 50,
+   "categoria_id": "a35e1eed-29c8-4c31-9116-6a14a927678b"
+  },
+  {
+   "id": "9d8f9dba-ae90-464b-aa1b-a554db2c53a8",
+   "nome": "Camisa de 35",
+   "preco": 60,
+   "categoria_id": "a35e1eed-29c8-4c31-9116-6a14a927678b"
+  },
+  {
+   "id": "bd7d9259-cad1-4387-850d-7334e8cb9f55",
+   "nome": "Cerveja Corona (unidade)",
+   "preco": 7,
+   "categoria_id": "be35aa87-6439-4bcc-ae8d-1829ef2cd007"
+  },
+  {
+   "id": "81741072-d48e-4e9b-885d-f8dc2e436bf5",
+   "nome": "Cobertor 6K",
+   "preco": 250,
+   "categoria_id": "39d870db-0c1b-49c8-999f-7ccc6dff36c8"
+  },
+  {
+   "id": "11b31170-48f8-4176-933b-416ea3cc21dc",
+   "nome": "Conaprole 3kg",
+   "preco": 100,
+   "categoria_id": "c4e6fb3b-b783-4d51-96aa-4d1946916100"
+  },
+  {
+   "id": "5ef4cfaf-776d-4d20-a488-2648910f5c44",
+   "nome": "Conjunto Masculino",
+   "preco": 105,
+   "categoria_id": "a35e1eed-29c8-4c31-9116-6a14a927678b"
+  },
+  {
+   "id": "77b309a0-d15a-4a54-9792-c1e0f0ee0f68",
+   "nome": "Energético Red Bull 250ml",
+   "preco": 8,
+   "categoria_id": "be35aa87-6439-4bcc-ae8d-1829ef2cd007"
+  },
+  {
+   "id": "30ff95eb-3cf1-4dee-bc1b-f1bf646015ce",
+   "nome": "Fernet Stock Original 1927 1L",
+   "preco": 110,
+   "categoria_id": "be35aa87-6439-4bcc-ae8d-1829ef2cd007"
+  },
+  {
+   "id": "455ec311-d19e-442b-9489-2299be69d811",
+   "nome": "Gin Tanqueray 750ml",
+   "preco": 90,
+   "categoria_id": "be35aa87-6439-4bcc-ae8d-1829ef2cd007"
+  },
+  {
+   "id": "f297544c-7feb-474c-8ead-4bae86c6a548",
+   "nome": "Jaqueta Fem Parka",
+   "preco": 150,
+   "categoria_id": "a35e1eed-29c8-4c31-9116-6a14a927678b"
+  },
+  {
+   "id": "492dd080-45a2-48a7-83ff-28c11368ce15",
+   "nome": "Jaqueta Fem Plu Parka",
+   "preco": 160,
+   "categoria_id": "a35e1eed-29c8-4c31-9116-6a14a927678b"
+  },
+  {
+   "id": "161e5d99-da2b-49ca-91a6-1465ffcbfaff",
+   "nome": "Jaqueta M",
+   "preco": 175,
+   "categoria_id": "a35e1eed-29c8-4c31-9116-6a14a927678b"
+  },
+  {
+   "id": "f6ea369e-1c90-4dbf-8cbe-3c6c7674fce3",
+   "nome": "Jaqueta Masculina Z20 (VST-00022)",
+   "preco": 113.72,
+   "categoria_id": "a35e1eed-29c8-4c31-9116-6a14a927678b"
+  },
+  {
+   "id": "a09a847b-f563-4617-b7f0-46c77c6f8789",
+   "nome": "Jarra Elétrica Aço",
+   "preco": 50,
+   "categoria_id": "39d870db-0c1b-49c8-999f-7ccc6dff36c8"
+  },
+  {
+   "id": "412ef57a-b5dc-455d-b309-8e66a60a6c97",
+   "nome": "Jarra Elétrica Vidro",
+   "preco": 60,
+   "categoria_id": "39d870db-0c1b-49c8-999f-7ccc6dff36c8"
+  },
+  {
+   "id": "7048e010-39c9-4bfb-9ba3-5ed2177fa8af",
+   "nome": "Kit La Rive Black Fury 75ml EDT + Desodorante 150ml",
+   "preco": 180,
+   "categoria_id": "ea4b98e1-1cba-4529-8208-dc94cfb3d6df"
+  },
+  {
+   "id": "ae3dae66-16ab-4180-a4aa-ec19d5a2b6db",
+   "nome": "Kit La Rive Cabana 90ml EDT + Desodorante 150ml",
+   "preco": 105,
+   "categoria_id": "ea4b98e1-1cba-4529-8208-dc94cfb3d6df"
+  },
+  {
+   "id": "6daf8978-c2eb-4558-90ec-b320598df8ee",
+   "nome": "Kit La Rive Cash for Men 100ml EDT + Desodorante 150ml",
+   "preco": 130,
+   "categoria_id": "ea4b98e1-1cba-4529-8208-dc94cfb3d6df"
+  },
+  {
+   "id": "823acbbf-628c-4cb5-af3a-b1e224a099a8",
+   "nome": "Kit La Rive Extreme Story 100ml EDT + Desodorante 150ml",
+   "preco": 120,
+   "categoria_id": "ea4b98e1-1cba-4529-8208-dc94cfb3d6df"
+  },
+  {
+   "id": "54e176ea-08a3-47b4-9d43-db67756af684",
+   "nome": "Kit La Rive Miss Dream 100ml EDP + Desodorante 150ml",
+   "preco": 130,
+   "categoria_id": "ea4b98e1-1cba-4529-8208-dc94cfb3d6df"
+  },
+  {
+   "id": "4fb9d46d-470d-47fd-803c-6127bf359377",
+   "nome": "Kit La Rive Queen of Life 75ml EDP + Desodorante 150ml",
+   "preco": 130,
+   "categoria_id": "ea4b98e1-1cba-4529-8208-dc94cfb3d6df"
+  },
+  {
+   "id": "c7bd7265-1a01-4c41-b536-60293fa3095c",
+   "nome": "Licor 43 1L",
+   "preco": 130,
+   "categoria_id": "be35aa87-6439-4bcc-ae8d-1829ef2cd007"
+  },
+  {
+   "id": "563eccaa-5089-480a-a7ad-65bcb68c2140",
+   "nome": "Licor Jagermeister 700ml",
+   "preco": 150,
+   "categoria_id": "be35aa87-6439-4bcc-ae8d-1829ef2cd007"
+  },
+  {
+   "id": "34c6377c-d0c2-4ab0-98bd-b165a6f4f266",
+   "nome": "Licor Sheridans 700ml",
+   "preco": 160,
+   "categoria_id": "be35aa87-6439-4bcc-ae8d-1829ef2cd007"
+  },
+  {
+   "id": "149effe3-e5b7-4e46-a81f-de82c3611b74",
+   "nome": "Meia Longa",
+   "preco": 40,
+   "categoria_id": "a35e1eed-29c8-4c31-9116-6a14a927678b"
+  },
+  {
+   "id": "2c1b2471-8e9e-4de4-9efc-6352a6e38740",
+   "nome": "Milka Choco Biscuit 300g",
+   "preco": 36,
+   "categoria_id": "c4e6fb3b-b783-4d51-96aa-4d1946916100"
+  },
+  {
+   "id": "d8dce509-113f-4e6b-808b-4016fee8fe9d",
+   "nome": "Milka Choco Whole Hazelnuts 250g",
+   "preco": 36,
+   "categoria_id": "c4e6fb3b-b783-4d51-96aa-4d1946916100"
+  },
+  {
+   "id": "f71fcc53-6f2c-48bb-b543-d50c101107cb",
+   "nome": "Milka Toffee & Wholenuts 300g",
+   "preco": 36,
+   "categoria_id": "c4e6fb3b-b783-4d51-96aa-4d1946916100"
+  },
+  {
+   "id": "2c1f4e55-ae00-48f9-9aee-2719c7e1e9eb",
+   "nome": "Milka Triolade 280g",
+   "preco": 36,
+   "categoria_id": "c4e6fb3b-b783-4d51-96aa-4d1946916100"
+  },
+  {
+   "id": "536f56e8-0373-4749-bba4-9653c58455a6",
+   "nome": "Moletom",
+   "preco": 160,
+   "categoria_id": "a35e1eed-29c8-4c31-9116-6a14a927678b"
+  },
+  {
+   "id": "355b1234-c34a-4465-9526-bf8eb1464d0f",
+   "nome": "Pantufa",
+   "preco": 20,
+   "categoria_id": "a35e1eed-29c8-4c31-9116-6a14a927678b"
+  },
+  {
+   "id": "fba43100-7a14-489c-b658-254d09346bbf",
+   "nome": "Perfume Armaf",
+   "preco": 240,
+   "categoria_id": "ea4b98e1-1cba-4529-8208-dc94cfb3d6df"
+  },
+  {
+   "id": "5ae0f372-afd9-4b43-b1fb-1f10acc6566a",
+   "nome": "Perfume Khamraha Preto",
+   "preco": 160,
+   "categoria_id": "ea4b98e1-1cba-4529-8208-dc94cfb3d6df"
+  },
+  {
+   "id": "a52006af-23a1-46d1-b0c2-897bbcc7e9e0",
+   "nome": "Perfume Khamraha Vermelho",
+   "preco": 160,
+   "categoria_id": "ea4b98e1-1cba-4529-8208-dc94cfb3d6df"
+  },
+  {
+   "id": "4b5f335e-6ca8-4f01-b58a-43b814279e92",
+   "nome": "Perfume Lattafa Ansaam Gold 100ml EDP",
+   "preco": 180,
+   "categoria_id": "ea4b98e1-1cba-4529-8208-dc94cfb3d6df"
+  },
+  {
+   "id": "8632c5c5-7c05-42ed-871d-3e2f76cc6c11",
+   "nome": "Perfume Lattafa Fakhar Platin 100ml EDP",
+   "preco": 180,
+   "categoria_id": "ea4b98e1-1cba-4529-8208-dc94cfb3d6df"
+  },
+  {
+   "id": "7e7a2ac6-b799-4e05-a710-25263a339ef5",
+   "nome": "Perfume Lattafa Hayaati Al Maleky 100ml EDP",
+   "preco": 180,
+   "categoria_id": "ea4b98e1-1cba-4529-8208-dc94cfb3d6df"
+  },
+  {
+   "id": "d7bcd580-bcdd-486b-853f-b4f88ae6575f",
+   "nome": "Perfume Lattafa Maahir Black 100ml EDP",
+   "preco": 180,
+   "categoria_id": "ea4b98e1-1cba-4529-8208-dc94cfb3d6df"
+  },
+  {
+   "id": "8003f700-be23-4fcc-9b84-fda19a2b206b",
+   "nome": "Perfume Lattafa Qimmah for Men 100ml EDP",
+   "preco": 180,
+   "categoria_id": "ea4b98e1-1cba-4529-8208-dc94cfb3d6df"
+  },
+  {
+   "id": "d27e12fe-263d-435e-8ada-e0aab84db7a1",
+   "nome": "Perfume Ottomane 50ml EDP",
+   "preco": 105,
+   "categoria_id": "ea4b98e1-1cba-4529-8208-dc94cfb3d6df"
+  },
+  {
+   "id": "5414dbca-c382-499c-bfff-4c64f11eb99d",
+   "nome": "Perfume Paris Corner Khair Fusion 100ml EDP",
+   "preco": 160,
+   "categoria_id": "ea4b98e1-1cba-4529-8208-dc94cfb3d6df"
+  },
+  {
+   "id": "9a29852f-8d13-44bc-8054-6644dd015e01",
+   "nome": "Perfume Paris Corner Qissa 100ml EDP",
+   "preco": 180,
+   "categoria_id": "ea4b98e1-1cba-4529-8208-dc94cfb3d6df"
+  },
+  {
+   "id": "14d9f5ce-7e6c-4519-bcac-3c4c48ebc201",
+   "nome": "Perfume Paris Corner Taskeen Marina 100ml EDP",
+   "preco": 180,
+   "categoria_id": "ea4b98e1-1cba-4529-8208-dc94cfb3d6df"
+  },
+  {
+   "id": "b24ef6dd-60b8-49df-b20d-963a09bce78c",
+   "nome": "Perfume Riffs Fleurie Violet 100ml EDP",
+   "preco": 210,
+   "categoria_id": "ea4b98e1-1cba-4529-8208-dc94cfb3d6df"
+  },
+  {
+   "id": "5252d752-cffc-4ee4-8057-254009d0e9c8",
+   "nome": "Suéter A2",
+   "preco": 34.98,
+   "categoria_id": "a35e1eed-29c8-4c31-9116-6a14a927678b"
+  },
+  {
+   "id": "f8c1515f-d471-4b8b-b74a-67d4facef326",
+   "nome": "Tequila Jose Cuervo Ouro Calavera 750ml",
+   "preco": 140,
+   "categoria_id": "be35aa87-6439-4bcc-ae8d-1829ef2cd007"
+  },
+  {
+   "id": "42f39f18-5851-4e5f-bc40-6e7d7ddde158",
+   "nome": "Whisky Ballantines 8 anos 1L",
+   "preco": 90,
+   "categoria_id": "be35aa87-6439-4bcc-ae8d-1829ef2cd007"
+  },
+  {
+   "id": "311111dc-b8dc-42eb-8ccd-43746e04f3fe",
+   "nome": "Whisky Jack Daniels Apple 1L",
+   "preco": 140,
+   "categoria_id": "be35aa87-6439-4bcc-ae8d-1829ef2cd007"
+  },
+  {
+   "id": "3ff0a4ac-aaed-4896-a7e1-0063e024ac02",
+   "nome": "Whisky Jack Daniels Blackberry 1L",
+   "preco": 160,
+   "categoria_id": "be35aa87-6439-4bcc-ae8d-1829ef2cd007"
+  },
+  {
+   "id": "759f36d1-2710-4138-b831-7c8730fad988",
+   "nome": "Whisky Jack Daniels Fire 1L",
+   "preco": 120,
+   "categoria_id": "be35aa87-6439-4bcc-ae8d-1829ef2cd007"
+  },
+  {
+   "id": "456b78df-c6ed-44cb-bbe8-5de85c5315ae",
+   "nome": "Whisky Jack Daniels Honey 1L",
+   "preco": 140,
+   "categoria_id": "be35aa87-6439-4bcc-ae8d-1829ef2cd007"
+  },
+  {
+   "id": "5e411aab-6354-4bc2-910e-6057a7e37c21",
+   "nome": "Whisky Jack Daniels Tennessee Rye 1L",
+   "preco": 190,
+   "categoria_id": "be35aa87-6439-4bcc-ae8d-1829ef2cd007"
+  },
+  {
+   "id": "ea5ac798-f09c-4add-987f-2e4cef222c53",
+   "nome": "Whisky Johnnie Walker Red Label 1L",
+   "preco": 130,
+   "categoria_id": "be35aa87-6439-4bcc-ae8d-1829ef2cd007"
+  },
+  {
+   "id": "e3cc8395-e060-485d-aa3e-fc97091cfaa2",
+   "nome": "Whisky White Horse 1L",
+   "preco": 70,
+   "categoria_id": "be35aa87-6439-4bcc-ae8d-1829ef2cd007"
+  }
+ ]
+}

@@ -1,0 +1,727 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Compras</title>
+<!--FA_CSS-->
+<style>
+@font-face{font-family:Inter;font-weight:400;font-style:normal;src:url(fonts/inter-latin-400-normal.woff2) format('woff2')}
+@font-face{font-family:Inter;font-weight:600;font-style:normal;src:url(fonts/inter-latin-600-normal.woff2) format('woff2')}
+@font-face{font-family:Inter;font-weight:700;font-style:normal;src:url(fonts/inter-latin-700-normal.woff2) format('woff2')}
+:root{--bg:#f4f6f9;--card:#fff;--tx:#1b2430;--mut:#6b7686;--bd:#e3e8ef;--ac:#2563eb;--ok:#16a34a;--okbg:#ecfdf3;--warn:#b45309;--warnbg:#fffbeb;--err:#b42318}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--tx);padding-bottom:100px}
+header{position:sticky;top:0;z-index:3;background:rgba(244,246,249,.98);padding:0 12px 8px;border-bottom:1px solid var(--bd)}
+#faixa{margin:0 -12px 6px;text-align:center;font-size:11px;font-weight:700;letter-spacing:.04em;padding:3px 0}
+#faixa.dev{background:#f59e0b;color:#1b2430}
+#faixa.prod{background:var(--err);color:#fff}
+.topo{display:flex;align-items:center;gap:6px}
+h1{font-size:20px;font-weight:700;margin:0;flex:1}
+.ic{width:38px;height:38px;border-radius:12px;border:1px solid var(--bd);background:#fff;color:var(--tx);font-size:15px}
+.bar{height:6px;background:#dfe5ee;border-radius:3px;margin:8px 0 4px;overflow:hidden}
+#prog{height:100%;width:0;background:var(--ok);transition:width .25s}
+.cnt{font-size:12px;color:var(--mut);font-weight:600;margin-bottom:2px}
+#tot{font-size:12px;color:var(--mut);line-height:1.5}
+#tot b{color:var(--tx)}
+.filtros{display:flex;gap:8px;margin-top:8px}
+.busca{flex:1;display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--bd);border-radius:12px;padding:0 10px;color:var(--mut)}
+.busca input{flex:1;border:0;outline:0;font:inherit;font-size:15px;padding:9px 0;background:transparent;min-width:0;color:var(--tx)}
+.chip{border:1px solid var(--bd);background:#fff;border-radius:12px;padding:0 12px;font:inherit;font-size:14px;font-weight:600;color:var(--mut)}
+.chip.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+main{padding:4px 12px}
+.cat{width:100%;display:flex;align-items:center;gap:10px;background:none;border:0;font:inherit;font-weight:700;font-size:15px;padding:14px 4px 8px;color:var(--tx);text-align:left}
+.cat .ci{width:22px;color:var(--ac);text-align:center}
+.cat span{flex:1}
+.cat em{font-style:normal;font-size:13px;color:var(--mut);font-weight:600}
+.cat .cv{color:var(--mut);font-size:12px}
+.card{display:flex;gap:12px;background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px;margin-bottom:8px}
+.card.ok{background:var(--okbg);border-color:#bde5cb}
+.chk{flex:none;width:44px;height:44px;border-radius:50%;border:2px solid #c3ccd8;background:#fff;color:transparent;font-size:18px;align-self:flex-start}
+.card.ok .chk{background:var(--ok);border-color:var(--ok);color:#fff}
+.corpo{flex:1;min-width:0}
+.nome{font-weight:600;font-size:15px;line-height:1.3;margin:2px 0 8px;word-break:break-word}
+.card.ok .nome{color:#4b6b57}
+.tag{display:inline-block;font-size:10.5px;font-weight:700;border-radius:8px;padding:1px 7px;margin-left:6px;vertical-align:middle;white-space:nowrap}
+.tag.w{background:var(--warnbg);color:var(--warn);border:1px solid #fcd9a1}
+.tag.n{background:#eaf1ff;color:var(--ac);border:1px solid #c7d8fb}
+.tag.s{background:#dcfce7;color:#166534;border:1px solid #bde5cb}
+.linha{display:flex;gap:8px;align-items:flex-end}
+.linha label{display:flex;flex-direction:column;font-size:11px;color:var(--mut);font-weight:600;gap:2px;flex:1;min-width:0}
+.linha input{width:100%;font:inherit;font-size:16px;padding:8px;border:1px solid var(--bd);border-radius:10px;background:#fff;color:var(--tx)}
+.nt{flex:none;width:40px;height:40px;border-radius:10px;border:1px solid var(--bd);background:#fff;color:var(--mut)}
+.nt.on{color:var(--ac);border-color:var(--ac)}
+.sub{font-size:11.5px;color:var(--mut);margin-top:8px;line-height:1.4}
+.nota{display:none;width:100%;margin-top:8px;font:inherit;font-size:14px;padding:8px;border:1px solid var(--bd);border-radius:10px;color:var(--tx)}
+.fab{position:fixed;right:16px;bottom:18px;width:60px;height:60px;border-radius:30px;border:0;background:var(--ac);color:#fff;font-size:24px;box-shadow:0 6px 16px rgba(37,99,235,.35);z-index:4}
+.ov{display:none;position:fixed;inset:0;z-index:10;background:rgba(15,23,42,.45)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:20px 20px 0 0;padding:18px 16px 24px;max-height:92vh;overflow:auto}
+.sheet.tall{height:92vh;max-height:92vh}
+.sheet h3{margin:0 0 6px;font-size:18px}
+.sheet h4{margin:18px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+.sheet label{display:block;font-size:12px;font-weight:600;color:var(--mut);margin:12px 0 4px}
+.sheet input,.sheet select,.sheet textarea{width:100%;font:inherit;font-size:16px;padding:10px;border:1px solid var(--bd);border-radius:10px;background:#fff;color:var(--tx)}
+.sheet input[type=checkbox]{width:20px;height:20px;padding:0}
+.sheet textarea{height:90px;font-family:monospace;font-size:12px}
+.btn{font:inherit;font-weight:600;font-size:15px;padding:11px 14px;border-radius:12px;border:1px solid var(--bd);background:#fff;color:var(--tx)}
+.btn.pri{background:var(--ac);border-color:var(--ac);color:#fff}
+.btn.per{color:var(--err);border-color:#f3c4bf}
+.btn:disabled{opacity:.45}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.row .btn{flex:1;min-width:130px}
+.seg{display:flex;gap:0;border:1px solid var(--bd);border-radius:12px;overflow:hidden}
+.seg button{flex:1;border:0;background:#fff;font:inherit;font-weight:700;font-size:14px;padding:10px;color:var(--mut)}
+.seg button.on.dev{background:#f59e0b;color:#1b2430}
+.seg button.on.prod{background:var(--err);color:#fff}
+.mut{color:var(--mut);font-size:12.5px;line-height:1.45}
+.erro{color:var(--err);font-weight:600;font-size:14px}
+.dpc{border:1px solid var(--bd);border-radius:14px;padding:12px;margin-top:10px;background:#fff}
+.dpc.pend{background:var(--warnbg);border-color:#fcd9a1}
+.dpc.ok{background:var(--okbg);border-color:#bde5cb}
+.dph{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;margin-bottom:4px}
+.chip2{font-size:11px;font-weight:700;white-space:nowrap}
+.dpc select{margin-top:8px;font-size:15px}
+.dpc .row{margin-top:8px}
+.dpc .row .btn{font-size:13px;padding:8px 10px;min-width:0}
+.box{border:1px solid var(--bd);border-radius:12px;padding:10px 12px;margin-top:8px;font-size:14px;line-height:1.5}
+.box.err{background:#fef3f2;border-color:#f3c4bf}
+.box.warn{background:var(--warnbg);border-color:#fcd9a1}
+.box h5{margin:0 0 4px;font-size:13px}
+.li{display:flex;justify-content:space-between;gap:10px;padding:3px 0;font-size:13.5px}
+.li span:last-child{white-space:nowrap;font-weight:600}
+pre.log{background:#0f172a;color:#e2e8f0;border-radius:12px;padding:10px;font-size:12px;white-space:pre-wrap;max-height:160px;overflow:auto;margin:10px 0 0;display:none}
+#toast{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);background:#1b2430;color:#fff;padding:10px 14px;border-radius:12px;font-size:14px;z-index:99;display:none;max-width:90%;text-align:center}
+.vazio{text-align:center;color:var(--mut);padding:30px 0}
+</style>
+</head>
+<body>
+<header>
+  <div id="faixa"></div>
+  <div class="topo">
+    <h1>Compras</h1>
+    <button class="ic" id="bSupa" aria-label="Supabase"><i class="fa-solid fa-cloud-arrow-up"></i></button>
+    <button class="ic" id="bDesp" aria-label="Despesas"><i class="fa-solid fa-receipt"></i></button>
+    <button class="ic" id="bShare" aria-label="Compartilhar backup"><i class="fa-solid fa-share-nodes"></i></button>
+    <button class="ic" id="bCfg" aria-label="Configuração"><i class="fa-solid fa-gear"></i></button>
+  </div>
+  <div class="bar"><div id="prog"></div></div>
+  <div class="cnt" id="ptxt"></div>
+  <div id="tot"></div>
+  <div class="filtros">
+    <div class="busca"><i class="fa-solid fa-magnifying-glass"></i><input id="busca" placeholder="Buscar item"></div>
+    <button class="chip" id="bPend"><i class="fa-solid fa-filter"></i> Pendentes</button>
+  </div>
+</header>
+<main id="lista"></main>
+<button class="fab" id="bAdd" aria-label="Novo item"><i class="fa-solid fa-plus"></i></button>
+
+<!-- item: novo / editar -->
+<div class="ov" id="mod"><div class="sheet">
+  <h3 id="mt">Novo item</h3>
+  <label>Nome</label><input id="mn" placeholder="Ex.: Perf Lattafa Yara">
+  <label>Categoria</label><select id="mc"></select>
+  <div class="row">
+    <button class="btn per" id="mdel" style="display:none"><i class="fa-solid fa-trash"></i> Excluir</button>
+    <button class="btn" id="mcan">Cancelar</button>
+    <button class="btn pri" id="mok"><i class="fa-solid fa-check"></i> Salvar</button>
+  </div>
+</div></div>
+
+<!-- aviso ao renomear item já vinculado -->
+<div class="ov" id="mren"><div class="sheet">
+  <h3>Renomear item vinculado</h3>
+  <p id="renTxt" class="mut" style="font-size:14px"></p>
+  <div class="row" style="flex-direction:column">
+    <button class="btn" id="renMesmo"><i class="fa-solid fa-link"></i> Mesmo produto (só corrigir o nome)</button>
+    <button class="btn per" id="renOutro"><i class="fa-solid fa-link-slash"></i> É outro produto (desvincular)</button>
+    <button class="btn" id="renCancela">Cancelar</button>
+  </div>
+</div></div>
+
+<!-- dólar e orçamento -->
+<div class="ov" id="mdol"><div class="sheet">
+  <h3>Dólar e orçamento</h3>
+  <label>Cotação do dólar (R$)</label><input id="dDolar" inputmode="decimal">
+  <label>Orçamento (R$) — compras + despesas</label><input id="dOrc" inputmode="decimal">
+  <div class="row"><button class="btn" id="dCan">Cancelar</button><button class="btn pri" id="dOk"><i class="fa-solid fa-check"></i> Aplicar</button></div>
+</div></div>
+
+<!-- configuração -->
+<div class="ov" id="cfg"><div class="sheet">
+  <h3>Configuração</h3>
+  <label>Cotação do dólar (R$)</label><input id="cDolar" inputmode="decimal">
+  <label>Dia do lançamento (compras e despesas)</label><input id="cData" type="date">
+  <h4>Dados</h4>
+  <div class="row">
+    <button class="btn" id="bBackup"><i class="fa-solid fa-floppy-disk"></i> Backup completo</button>
+    <button class="btn" id="bAbrir"><i class="fa-solid fa-folder-open"></i> Abrir arquivo JSON</button>
+  </div>
+  <input type="file" id="arq" style="display:none">
+  <label>Ou cole um JSON aqui</label><textarea id="txt"></textarea>
+  <div class="row">
+    <button class="btn" id="bColar">Carregar texto colado</button>
+    <button class="btn per" id="bReset"><i class="fa-solid fa-rotate-left"></i> Restaurar lista original</button>
+  </div>
+  <div class="row"><button class="btn pri" id="bFechar">Fechar</button></div>
+</div></div>
+
+<!-- Supabase -->
+<div class="ov" id="sb"><div class="sheet">
+  <h3><i class="fa-solid fa-cloud-arrow-up"></i> Supabase</h3>
+  <label>Ambiente</label>
+  <div class="seg"><button id="aDev" class="dev">DEV (Pi)</button><button id="aProd" class="prod">PRODUÇÃO</button></div>
+  <div id="sbConta" style="margin-top:8px"></div>
+  <div id="sbCat" class="mut" style="margin-top:10px"></div>
+  <div class="row"><button class="btn" id="bCatAtu"><i class="fa-solid fa-rotate"></i> Atualizar catálogo</button></div>
+  <div class="row">
+    <button class="btn" id="bDepara"><i class="fa-solid fa-link"></i> De-para</button>
+    <button class="btn pri" id="bPrevia"><i class="fa-solid fa-paper-plane"></i> Prévia e envio</button>
+  </div>
+  <h4>Avançado</h4>
+  <div class="mut">Depois de resetar o banco de dev, zere o controle de envios para poder enviar de novo.</div>
+  <div class="row"><button class="btn per" id="bZerar">Zerar controle de envios deste ambiente</button></div>
+  <div class="row"><button class="btn" id="sbFechar">Fechar</button></div>
+</div></div>
+
+<!-- de-para -->
+<div class="ov" id="dp"><div class="sheet tall">
+  <h3>De-para</h3>
+  <div id="dpRes" class="mut"></div>
+  <label style="display:flex;gap:8px;align-items:center;margin:10px 0 0"><input type="checkbox" id="dpTodos" style="width:20px"> Mostrar também itens não comprados</label>
+  <div class="row"><button class="btn" id="dpNovos"><i class="fa-solid fa-plus"></i> Itens sem nenhum produto parecido → criar como novos</button></div>
+  <div id="dpLista"></div>
+  <div class="row"><button class="btn pri" id="dpFechar">Concluir</button></div>
+</div></div>
+
+<!-- prévia e envio -->
+<div class="ov" id="pv"><div class="sheet tall">
+  <h3>Prévia do envio</h3>
+  <div id="pvCorpo"></div>
+  <div id="pvConf" style="display:none">
+    <label>Para enviar à PRODUÇÃO, digite PRODUCAO</label><input id="pvTexto" autocapitalize="characters" autocomplete="off">
+  </div>
+  <pre class="log" id="pvLog"></pre>
+  <div class="row"><button class="btn" id="pvFechar">Fechar</button><button class="btn pri" id="pvEnviar"><i class="fa-solid fa-paper-plane"></i> Enviar</button></div>
+</div></div>
+
+<!-- despesas -->
+<div class="ov" id="dsp"><div class="sheet tall">
+  <h3>Despesas</h3>
+  <div id="dspTot" class="mut"></div>
+  <div class="row"><button class="btn pri" id="dspNova"><i class="fa-solid fa-plus"></i> Nova despesa</button></div>
+  <h4>A enviar / enviadas daqui</h4><div id="dspLocal"></div>
+  <h4>Já lançadas no Supabase</h4><div id="dspRemotas" class="mut">Toque em "Atualizar lista".</div>
+  <div class="row"><button class="btn" id="dspAtu"><i class="fa-solid fa-rotate"></i> Atualizar lista</button><button class="btn" id="dspFechar">Fechar</button></div>
+</div></div>
+
+<div class="ov" id="df"><div class="sheet">
+  <h3 id="dft">Nova despesa</h3>
+  <label>Data</label><input id="fData" type="date">
+  <label>Tipo</label><select id="fTipo"></select>
+  <label>Descrição</label><input id="fDesc" placeholder="Ex.: Almoço">
+  <label>Valor (R$)</label><input id="fValor" inputmode="decimal" placeholder="0,00">
+  <div class="row">
+    <button class="btn per" id="fDel" style="display:none"><i class="fa-solid fa-trash"></i> Excluir</button>
+    <button class="btn" id="fCan">Cancelar</button>
+    <button class="btn pri" id="fOk"><i class="fa-solid fa-check"></i> Salvar</button>
+  </div>
+</div></div>
+<div id="toast"></div>
+
+<script src="core.js"></script>
+<script src="config.js" onerror="void 0"></script>
+<script>
+window.CONFIG=window.CONFIG||{};
+const $=id=>document.getElementById(id);
+const {num,round2:r2,TIPOS}=Core;
+const CAT_ICON={'Bebidas':'fa-wine-bottle','Perfumes':'fa-spray-can-sparkles','Doces e Chocolates':'fa-cookie-bite','Vestuário':'fa-shirt','Casa e Eletro':'fa-plug','Outros':'fa-box'};
+const CATS=Object.keys(CAT_ICON);
+const TIPO_NOME=Object.fromEntries(TIPOS);
+// [nome, categoria, qtd sugerida, lucro esperado/un (R$), produto_id na lojinha]
+const PADRAO=[
+ ["Amarula 750ml","Bebidas",2,50.50,"3d4e29cd-c205-4b22-8e64-f521235d028c"],
+ ["JD Apple 1L","Bebidas",8,36.85,"311111dc-b8dc-42eb-8ccd-43746e04f3fe"],
+ ["JD Blackberry 1L","Bebidas",5,25.42,"3ff0a4ac-aaed-4896-a7e1-0063e024ac02"],
+ ["JD Fire 1L","Bebidas",8,44.33,"759f36d1-2710-4138-b831-7c8730fad988"],
+ ["JD Honey 1L","Bebidas",6,50.84,"456b78df-c6ed-44cb-bbe8-5de85c5315ae"],
+ ["Johnnie Walker Red 1L","Bebidas",8,80.18,"ea5ac798-f09c-4add-987f-2e4cef222c53"],
+ ["Jarra Eletrica Aco","Casa e Eletro",3,26.76,"a09a847b-f563-4617-b7f0-46c77c6f8789"],
+ ["Jarra Eletrica Vidro","Casa e Eletro",3,13.89,"412ef57a-b5dc-455d-b309-8e66a60a6c97"],
+ ["Alfajor X6 Black Fusion","Doces e Chocolates",4,10.65,"74a769ae-6177-4b5e-9383-a862724ed92c"],
+ ["Conaprole 3kg","Doces e Chocolates",1,25.00,"11b31170-48f8-4176-933b-416ea3cc21dc"],
+ ["Milka Choco Biscuit 300g","Doces e Chocolates",4,11.00,"2c1b2471-8e9e-4de4-9efc-6352a6e38740"],
+ ["Milka Hazelnuts 250g","Doces e Chocolates",4,5.50,"d8dce509-113f-4e6b-808b-4016fee8fe9d"],
+ ["Milka Toffee 300g","Doces e Chocolates",4,11.00,"f71fcc53-6f2c-48bb-b543-d50c101107cb"],
+ ["Milka Triolade 280g","Doces e Chocolates",4,11.00,"2c1f4e55-ae00-48f9-9aee-2719c7e1e9eb"],
+ ["Moleton Preto","Vestuário",2,60,null],
+ ["Moleton Colorido","Vestuário",2,60,null],
+ ["Tenis","Vestuário",2,60,null],
+ ["Perf Armaf","Perfumes",2,70,"fba43100-7a14-489c-b658-254d09346bbf"],
+ ["Perf Khamraha Preto","Perfumes",2,60,"5ae0f372-afd9-4b43-b1fb-1f10acc6566a"],
+ ["Perf Lattafa Ansaam Gold","Perfumes",2,80.04,"4b5f335e-6ca8-4f01-b58a-43b814279e92"],
+ ["Perf Lattafa Fakhar Platin","Perfumes",2,80.04,"8632c5c5-7c05-42ed-871d-3e2f76cc6c11"],
+ ["Perf Lattafa Qimmah","Perfumes",2,80.04,"8003f700-be23-4fcc-9b84-fda19a2b206b"],
+ ["Perf Ottomane 50ml","Perfumes",2,45,"d27e12fe-263d-435e-8ada-e0aab84db7a1"],
+ ["Perf Paris Corner Khair Fusion","Perfumes",2,66,"5414dbca-c382-499c-bfff-4c64f11eb99d"],
+ ["Perf Paris Corner Qissa","Perfumes",2,59.04,"9a29852f-8d13-44bc-8054-6644dd015e01"],
+ ["Perf Riffs Fleurie Violet","Perfumes",2,61.67,"b24ef6dd-60b8-49df-b20d-963a09bce78c"]
+];
+
+const uid=()=>'i'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+const f2=n=>(+n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function hoje(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10);}
+function fmtData(s){const m=/^(\d{4})-(\d\d)-(\d\d)$/.exec(s||'');return m?m[3]+'/'+m[2]:'sem data';}
+function fmtDataHora(ms){const d=new Date(ms);return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
+
+/* ---------- estado ---------- */
+function mk(r){return {id:uid(),nome:r[0],cat:CAT_ICON[r[1]]?r[1]:'Outros',qtd:r[2],qtdc:0,usd:0,lucro:r[3],pid:r[4]||null,novo:null,vincOk:null,comprado:false,nota:''};}
+function padrao(){return normaliza({config:{dolar:5.5,orcamento:6000,data:hoje(),ambiente:'dev'},itens:PADRAO.map(mk)});}
+function normaliza(x){
+  x.v=3;
+  x.config=Object.assign({dolar:5.5,orcamento:6000,data:hoje(),ambiente:'dev'},x.config||{});
+  if(x.config.ambiente!=='prod')x.config.ambiente='dev';
+  x.ui=Object.assign({pend:false,q:'',fechadas:{}},x.ui||{});x.ui.fechadas=x.ui.fechadas||{};
+  x.itens=(x.itens||[]).map(i=>Object.assign({id:uid(),qtd:1,qtdc:0,usd:0,lucro:0,pid:null,novo:null,vincOk:null,comprado:false,nota:''},i,{cat:CAT_ICON[i.cat]?i.cat:'Outros'}));
+  x.despesas=Array.isArray(x.despesas)?x.despesas:[];
+  x.sent=x.sent||{};
+  ['dev','prod'].forEach(a=>{x.sent[a]=Object.assign(Core.novoControle(),x.sent[a]||{});});
+  x.cat=x.cat||{dev:null,prod:null};
+  return x;
+}
+let S=null;
+try{S=JSON.parse(localStorage.getItem('compras_v3'))}catch(e){}
+if(!S||!S.itens||!S.itens.length){
+  let v2=null;try{v2=JSON.parse(localStorage.getItem('compras_v2'))}catch(e){}
+  S=(v2&&v2.itens&&v2.itens.length)?{config:v2.config||{},ui:v2.ui||{},itens:v2.itens}:padrao();
+}
+S=normaliza(S);
+function salvar(){try{localStorage.setItem('compras_v3',JSON.stringify(S))}catch(e){}}
+const amb=()=>S.config.ambiente;
+const catalogo=()=>S.cat[amb()];
+
+let tt;function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(tt);tt=setTimeout(()=>{t.style.display='none'},3200);}
+function dupla(btn,txt,fn){
+  if(btn.dataset.arm){delete btn.dataset.arm;btn.innerHTML=btn._orig;fn();return;}
+  const orig=btn._orig=btn.innerHTML;btn.dataset.arm='1';btn.textContent=txt;
+  setTimeout(()=>{if(btn.dataset.arm){delete btn.dataset.arm;btn.innerHTML=orig;}},3000);
+}
+
+/* ---------- janelas (pilha para o botão voltar) ---------- */
+const pilha=[];
+function abre(id){$(id).style.display='block';$(id).style.zIndex=10+pilha.length;if(pilha.indexOf(id)<0)pilha.push(id);}
+function fecha(id){$(id).style.display='none';const i=pilha.indexOf(id);if(i>=0)pilha.splice(i,1);}
+const FECHADORES={cfg:()=>fechaCfg(),dp:()=>{fecha('dp');render();pintaSb();},dsp:()=>{fecha('dsp');resumo();}};
+window.voltar=()=>{if(!pilha.length)return false;const id=pilha[pilha.length-1];(FECHADORES[id]||(()=>fecha(id)))();return true;};
+
+/* ---------- rede ---------- */
+const pend={};
+window.__resp=(id,status,text)=>{const f=pend[id];if(f){delete pend[id];f(status,text);}};
+function http(method,url,headers,body){
+  return new Promise((res,rej)=>{
+    if(window.Android&&Android.request){
+      const id='r'+Math.random().toString(36).slice(2);
+      pend[id]=(st,tx)=>st===0?rej(new Error('Sem conexão com '+url.split('/')[2]+'. '+String(tx).slice(0,90))):res({status:st,text:tx});
+      Android.request(id,method,url,JSON.stringify(headers||{}),body||'');
+    }else{
+      fetch(url,{method,headers,body:body||undefined}).then(async r=>res({status:r.status,text:await r.text()})).catch(rej);
+    }
+  });
+}
+const sessKey=a=>'compras_auth_'+a;
+const clientes={};
+function cliente(){
+  const a=amb(),c=window.CONFIG[a];
+  if(!c||!c.url||!c.key)throw new Error(a==='dev'?'Falta a chave do dev. Coloque DEV_SUPABASE_ANON_KEY no .env.local e recompile.':'Falta a URL/chave da produção no build.');
+  if(!clientes[a])clientes[a]=Core.criarCliente({url:c.url,key:c.key,http,
+    load:()=>{try{return JSON.parse(localStorage.getItem(sessKey(a)))}catch(e){return null}},
+    save:s=>{try{s?localStorage.setItem(sessKey(a),JSON.stringify(s)):localStorage.removeItem(sessKey(a))}catch(e){}}});
+  return clientes[a];
+}
+
+/* ---------- lista principal ---------- */
+function totais(){
+  let prev=0,comp=0;
+  S.itens.forEach(i=>{prev+=(i.comprado?i.qtdc:i.qtd)*i.usd;if(i.comprado)comp+=i.qtdc*i.usd;});
+  const desp=S.despesas.reduce((s,d)=>s+num(d.valor),0);
+  return {prev,comp,desp,d:S.config.dolar};
+}
+function faixa(){const f=$('faixa');f.className=amb();f.textContent=amb()==='dev'?'DEV · AMBIENTE DE TESTE':'PRODUÇÃO · DADOS REAIS';}
+function resumo(){
+  const n=S.itens.length,ok=S.itens.filter(i=>i.comprado).length;
+  const t=totais(),d=t.d,orc=num(S.config.orcamento);
+  const gasto=t.comp*d+t.desp,previsto=t.prev*d+t.desp,saldo=orc-gasto,sobra=orc-previsto;
+  $('prog').style.width=(n?ok/n*100:0)+'%';
+  $('ptxt').textContent=ok+'/'+n+' itens comprados';
+  $('tot').innerHTML='<b>Comprado</b> US$ '+f2(t.comp)+' <small>(R$ '+f2(t.comp*d)+')</small> &middot; <b>Previsto</b> US$ '+f2(t.prev)+' <small>(R$ '+f2(t.prev*d)+')</small>'+
+    (t.desp?'<br><b>Despesas</b> R$ '+f2(t.desp):'')+'<br>'+
+    '<button class="chip" id="bDol" style="padding:3px 10px;font-size:12px;color:var(--ac)"><i class="fa-solid fa-dollar-sign"></i> R$ '+f2(d)+' &middot; '+fmtData(S.config.data)+' <i class="fa-solid fa-pen"></i></button>'+
+    (orc?' <span style="font-weight:700;color:'+(saldo<0?'var(--err)':'var(--ok)')+'">Saldo R$ '+f2(saldo)+'</span> <small>de R$ '+f2(orc)+(t.desp?' (com despesas)':'')+'</small>':'')+
+    (orc&&sobra<0?'<br><span style="color:var(--err);font-weight:600"><i class="fa-solid fa-triangle-exclamation"></i> Previsto passa R$ '+f2(-sobra)+' do orçamento</span>':'');
+}
+$('tot').onclick=e=>{if(e.target.closest&&e.target.closest('#bDol'))abrirDol();};
+
+function tagsItem(it){
+  let h='';const k=catalogo();
+  if(k&&it.comprado){
+    const av=Core.avaliar(it,k.produtos);
+    if(av.estado==='novo')h+='<span class="tag n">NOVO</span>';
+    else if(av.estado!=='ok')h+='<span class="tag w">CONFERIR</span>';
+  }
+  if(S.sent[amb()].compras[it.id])h+='<span class="tag s">ENVIADO</span>';
+  return h;
+}
+function card(i){
+  const d=document.createElement('div');d.className='card'+(i.comprado?' ok':'');
+  d.innerHTML='<button class="chk" aria-label="comprado"><i class="fa-solid fa-check"></i></button>'+
+   '<div class="corpo"><div class="nome">'+esc(i.nome)+tagsItem(i)+'</div>'+
+   '<div class="linha">'+
+   '<label>Qtd<input class="q" inputmode="numeric" value="'+(i.comprado?i.qtdc:i.qtd)+'"></label>'+
+   '<label>Preço US$<input class="p" inputmode="decimal" placeholder="0,00" value="'+(i.usd?String(i.usd).replace('.',','):'')+'"></label>'+
+   '<button class="nt'+(i.nota?' on':'')+'" aria-label="nota"><i class="fa-solid fa-note-sticky"></i></button></div>'+
+   '<div class="sub"></div>'+
+   '<input class="nota" placeholder="Nota (ex.: só tinha o preto)" value="'+esc(i.nota)+'" style="display:'+(i.nota?'block':'none')+'"></div>';
+  const q=d.querySelector('.q'),p=d.querySelector('.p'),nota=d.querySelector('.nota'),sub=d.querySelector('.sub');
+  const upd=()=>{
+    const c=i.usd*S.config.dolar;
+    sub.textContent='plano '+i.qtd+' · '+(i.usd?('custo R$ '+f2(c)+' · venda ×1,75 R$ '+f2(c*1.75)):'sem preço')+' · lucro esp. R$ '+f2(i.lucro);
+    resumo();
+  };
+  d.querySelector('.chk').onclick=()=>{i.comprado=!i.comprado;if(i.comprado&&!i.qtdc)i.qtdc=i.qtd;salvar();render();};
+  q.oninput=()=>{const v=Math.max(0,Math.round(num(q.value)));if(i.comprado)i.qtdc=v;else i.qtd=v;salvar();upd();};
+  p.oninput=()=>{i.usd=num(p.value);salvar();upd();};
+  nota.oninput=()=>{i.nota=nota.value;d.querySelector('.nt').classList.toggle('on',!!i.nota);salvar();};
+  d.querySelector('.nt').onclick=()=>{const v=nota.style.display==='block';nota.style.display=v?'none':'block';if(!v)nota.focus();};
+  d.querySelector('.nome').onclick=()=>abrirMod(i);
+  upd();return d;
+}
+function render(){
+  const y=window.scrollY;
+  const q=S.ui.q.trim().toLowerCase(),box=$('lista');box.innerHTML='';
+  CATS.forEach(c=>{
+    const todos=S.itens.filter(i=>i.cat===c);if(!todos.length)return;
+    const vis=todos.filter(i=>(!S.ui.pend||!i.comprado)&&(!q||i.nome.toLowerCase().indexOf(q)>=0));
+    if(!vis.length)return;
+    const feitos=todos.filter(i=>i.comprado).length;
+    const fech=S.ui.fechadas[c]&&!q;
+    const sec=document.createElement('section');
+    sec.innerHTML='<button class="cat"><i class="fa-solid '+CAT_ICON[c]+' ci"></i><span>'+esc(c)+'</span><em>'+feitos+'/'+todos.length+'</em><i class="fa-solid fa-chevron-'+(fech?'down':'up')+' cv"></i></button>';
+    sec.querySelector('.cat').onclick=()=>{S.ui.fechadas[c]=!S.ui.fechadas[c];salvar();render();};
+    if(!fech)vis.forEach(i=>sec.appendChild(card(i)));
+    box.appendChild(sec);
+  });
+  if(!box.children.length)box.innerHTML='<p class="vazio">Nada por aqui.</p>';
+  faixa();resumo();
+  window.scrollTo(0,y);
+}
+
+/* ---------- item: novo / editar / renomear ---------- */
+let editando=null,ultCat='Bebidas',renPend=null;
+function abrirMod(i){
+  editando=i||null;$('mt').textContent=i?'Editar item':'Novo item';$('mn').value=i?i.nome:'';
+  const sel=i?i.cat:ultCat;
+  $('mc').innerHTML=CATS.map(c=>'<option'+(c===sel?' selected':'')+'>'+esc(c)+'</option>').join('');
+  $('mdel').style.display=i?'block':'none';abre('mod');
+  if(!i)setTimeout(()=>$('mn').focus(),60);
+}
+function aplicaEdicao(it,n,c,modo){
+  const velho=it.nome;
+  if(it.novo&&it.novo.nome===Core.nomeNovo(velho))it.novo.nome=Core.nomeNovo(n);
+  it.nome=n;it.cat=c;
+  if(modo==='mesmo')it.vincOk=it.pid;
+  if(modo==='outro'){it.pid=null;it.vincOk=null;}
+}
+$('bAdd').onclick=()=>abrirMod(null);
+$('mcan').onclick=()=>fecha('mod');
+$('mok').onclick=()=>{
+  const n=$('mn').value.trim();if(!n){toast('Dê um nome ao item');return;}
+  const c=$('mc').value;
+  if(editando){
+    const mudou=Core.tokens(editando.nome).join(' ')!==Core.tokens(n).join(' ');
+    if(mudou&&editando.pid){ // item ligado a um produto da lojinha: confirmar antes de trocar o nome
+      const k=catalogo(),p=k&&k.produtos.find(x=>x.id===editando.pid);
+      renPend={it:editando,n,c};
+      $('renTxt').innerHTML='Você está trocando <b>'+esc(editando.nome)+'</b> por <b>'+esc(n)+'</b>.<br>Este item está ligado a <b>'+esc(p?p.nome:'um produto da lojinha')+'</b>. Se for outro produto, desvincule para não lançar a compra no produto errado.';
+      abre('mren');return;
+    }
+    aplicaEdicao(editando,n,c,null);
+  }else{
+    S.itens.push(mk([n,c,1,0,null]));S.ui.q='';$('busca').value='';S.ui.fechadas[c]=false;
+  }
+  ultCat=c;salvar();fecha('mod');render();
+};
+function fimRenomear(modo){
+  if(renPend){aplicaEdicao(renPend.it,renPend.n,renPend.c,modo);ultCat=renPend.c;}
+  renPend=null;salvar();fecha('mren');fecha('mod');render();
+}
+$('renMesmo').onclick=()=>fimRenomear('mesmo');
+$('renOutro').onclick=()=>fimRenomear('outro');
+$('renCancela').onclick=()=>{renPend=null;fecha('mren');};
+$('mdel').onclick=function(){dupla(this,'Toque de novo para excluir',()=>{S.itens=S.itens.filter(x=>x!==editando);salvar();fecha('mod');render();});};
+
+/* ---------- dólar e orçamento ---------- */
+function abrirDol(){$('dDolar').value=String(S.config.dolar).replace('.',',');$('dOrc').value=S.config.orcamento?String(S.config.orcamento).replace('.',','):'';abre('mdol');setTimeout(()=>{$('dDolar').focus();$('dDolar').select();},60);}
+$('dCan').onclick=()=>fecha('mdol');
+$('dOk').onclick=()=>{const d=num($('dDolar').value);if(!(d>0)){toast('Informe a cotação');return;}S.config.dolar=d;S.config.orcamento=num($('dOrc').value);salvar();fecha('mdol');render();toast('Atualizado');};
+
+/* ---------- configuração, backup, importação ---------- */
+function compartilhar(txt,nome){
+  if(window.Android&&Android.share){Android.share(txt);return;}
+  const b=new Blob([txt],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=nome;a.click();
+}
+function exportavel(){const x=JSON.parse(JSON.stringify(S));delete x.cat;return x;}
+$('bShare').onclick=()=>compartilhar(JSON.stringify(exportavel(),null,1),'compras.json');
+$('bBackup').onclick=()=>compartilhar(JSON.stringify(exportavel(),null,1),'compras.json');
+function abrirCfg(){$('cDolar').value=String(S.config.dolar).replace('.',',');$('cData').value=S.config.data||'';abre('cfg');}
+function fechaCfg(){const d=num($('cDolar').value);if(d>0)S.config.dolar=d;S.config.data=$('cData').value||S.config.data;salvar();fecha('cfg');render();}
+$('bCfg').onclick=abrirCfg;$('bFechar').onclick=fechaCfg;
+function aplicar(txt){
+  let j;try{j=JSON.parse(txt)}catch(e){toast('JSON inválido');return;}
+  const arr=Array.isArray(j)?j:j.itens;
+  if(!arr&&(j.despesas||j.config)){
+    if(j.config){const a0=S.config.ambiente;S.config=Object.assign(S.config,j.config);S.config.ambiente=a0;}
+    if(Array.isArray(j.despesas))S.despesas=j.despesas.map(d=>({id:d.id||uid(),data:d.data||S.config.data,tipo:d.tipo,descricao:d.descricao||'',valor:num(d.valor)}));
+    S=normaliza(S);salvar();render();abrirCfg();toast(S.despesas.length+' despesas carregadas, data '+fmtData(S.config.data));return;
+  }
+  if(!arr){toast('Esperava uma lista ou {config, itens}');return;}
+  S.itens=arr.map(x=>Object.assign(mk([x.nome||x.produto||'?',x.cat||x.categoria||'Outros',num(x.qtd??x.quantidade??1),num(x.lucro),x.pid||x.produto_id||null]),
+    {id:x.id||uid(),qtdc:num(x.qtdc),usd:num(x.usd??x.preco_usd),comprado:!!x.comprado,nota:x.nota||'',novo:x.novo||null,vincOk:x.vincOk||null}));
+  S.itens.forEach(i=>{if(i.comprado&&!i.qtdc)i.qtdc=i.qtd;});
+  if(j.config){const amb0=S.config.ambiente;S.config=Object.assign(S.config,j.config);S.config.ambiente=j.config.ambiente||amb0;}
+  if(Array.isArray(j.despesas))S.despesas=j.despesas.map(d=>({id:d.id||uid(),data:d.data||S.config.data,tipo:d.tipo,descricao:d.descricao||'',valor:num(d.valor)}));
+  S=normaliza(S);salvar();render();abrirCfg();toast(S.itens.length+' itens e '+S.despesas.length+' despesas carregados');
+}
+window.importarExterno=txt=>{aplicar(txt);fecha('cfg');console.log('[compras] importado: '+S.itens.length+' itens, '+S.despesas.length+' despesas, data '+S.config.data+', dolar '+S.config.dolar);};
+$('bAbrir').onclick=()=>$('arq').click();
+$('arq').onchange=function(){const r=new FileReader();r.onload=()=>aplicar(r.result);if(this.files[0])r.readAsText(this.files[0]);this.value='';};
+$('bColar').onclick=()=>aplicar($('txt').value);
+$('bReset').onclick=function(){dupla(this,'Toque de novo para apagar tudo',()=>{const cat=S.cat,sent=S.sent;S=padrao();S.cat=cat;S.sent=sent;salvar();render();abrirCfg();});};
+
+/* ---------- filtros ---------- */
+$('busca').value=S.ui.q;
+$('busca').oninput=function(){S.ui.q=this.value;salvar();render();};
+$('bPend').classList.toggle('on',!!S.ui.pend);
+$('bPend').onclick=function(){S.ui.pend=!S.ui.pend;this.classList.toggle('on',S.ui.pend);salvar();render();};
+
+/* ---------- Supabase: ambiente, login, catálogo ---------- */
+function pintaSb(){
+  const a=amb(),c=window.CONFIG[a]||{};
+  $('aDev').classList.toggle('on',a==='dev');$('aProd').classList.toggle('on',a==='prod');
+  let cli=null,err='';
+  try{cli=cliente();}catch(e){err=e.message;}
+  const sess=cli&&cli.sessao();
+  let h='<div class="mut">'+esc(c.url||'sem URL configurada')+'</div>';
+  if(err)h+='<p class="erro">'+esc(err)+'</p>';
+  else if(sess)h+='<p>Conectado como <b>'+esc(sess.email||'?')+'</b></p><div class="row" style="margin-top:0"><button class="btn" id="bSair"><i class="fa-solid fa-right-from-bracket"></i> Sair</button></div>';
+  else h+='<label>E-mail</label><input id="lEmail" type="email" autocomplete="username" inputmode="email"><label>Senha</label><input id="lSenha" type="password" autocomplete="current-password"><div class="row"><button class="btn pri" id="bEntrar"><i class="fa-solid fa-right-to-bracket"></i> Entrar</button></div>';
+  $('sbConta').innerHTML=h;
+  if($('bSair'))$('bSair').onclick=()=>{cli.sair();pintaSb();};
+  if($('bEntrar'))$('bEntrar').onclick=async()=>{
+    const b=$('bEntrar');b.disabled=true;b.textContent='Entrando…';
+    try{await cli.login($('lEmail').value,$('lSenha').value);await atualizarCatalogo();}
+    catch(e){toast(e.message);b.disabled=false;b.innerHTML='<i class="fa-solid fa-right-to-bracket"></i> Entrar';}
+    pintaSb();
+  };
+  const k=S.cat[a];
+  $('sbCat').innerHTML=k?'Catálogo: <b>'+k.produtos.length+'</b> produtos · atualizado '+fmtDataHora(k.em):'Catálogo ainda não carregado.';
+  $('bCatAtu').disabled=!sess;$('bDepara').disabled=!k;$('bPrevia').disabled=!k||!sess;
+}
+async function atualizarCatalogo(){
+  const a=amb(),b=$('bCatAtu');b.disabled=true;
+  try{
+    const novo=await cliente().catalogo();
+    const ids=Object.values(S.sent[a].produtos);
+    if(a==='dev'&&ids.length&&!ids.some(id=>novo.produtos.some(p=>p.id===id))){S.sent[a]=Core.novoControle();toast('O banco de dev foi resetado: controle de envios zerado');}
+    else toast(novo.produtos.length+' produtos carregados');
+    S.cat[a]=novo;salvar();
+  }
+  catch(e){toast(e.message);}
+  pintaSb();render();
+}
+function trocaAmb(a){S.config.ambiente=a;salvar();faixa();pintaSb();render();}
+$('bSupa').onclick=()=>{pintaSb();abre('sb');};
+$('aDev').onclick=()=>trocaAmb('dev');$('aProd').onclick=()=>trocaAmb('prod');
+$('bCatAtu').onclick=atualizarCatalogo;
+$('sbFechar').onclick=()=>fecha('sb');
+$('bDepara').onclick=()=>{pintaDepara();abre('dp');};
+$('bPrevia').onclick=()=>abrirPrevia();
+$('bZerar').onclick=function(){dupla(this,'Toque de novo para zerar',()=>{S.sent[amb()]=Core.novoControle();salvar();render();toast('Controle de envios zerado');});};
+
+/* ---------- de-para ---------- */
+function usaVinculo(it,pid){it.pid=pid;it.vincOk=pid;it.novo=null;salvar();pintaDepara();}
+function criaNovo(it){it.novo={nome:Core.nomeNovo(it.nome),preco:null};it.pid=null;it.vincOk=null;salvar();pintaDepara();}
+function pintaDepara(){
+  const k=catalogo(),box=$('dpLista');box.innerHTML='';
+  if(!k){$('dpRes').textContent='';box.innerHTML='<p class="vazio">Atualize o catálogo primeiro (Supabase → Atualizar catálogo).</p>';return;}
+  const todos=$('dpTodos').checked;
+  const lista=S.itens.filter(i=>todos||i.comprado).map(it=>({it,av:Core.avaliar(it,k.produtos)}));
+  const conta={ok:0,novo:0,pend:0};
+  lista.forEach(x=>{conta[x.av.estado==='ok'?'ok':x.av.estado==='novo'?'novo':'pend']++;});
+  $('dpRes').innerHTML='<b>'+conta.ok+'</b> vinculados · <b>'+conta.novo+'</b> novos · <b style="color:var(--warn)">'+conta.pend+'</b> para resolver <span class="mut">(catálogo de '+(amb()==='dev'?'DEV':'PRODUÇÃO')+')</span>';
+  lista.sort((x,y)=>(y.av.estado!=='ok'&&y.av.estado!=='novo')-(x.av.estado!=='ok'&&x.av.estado!=='novo'));
+  if(!lista.length)box.innerHTML='<p class="vazio">Nenhum item comprado ainda.</p>';
+  lista.forEach(({it,av})=>{
+    const pendente=av.estado!=='ok'&&av.estado!=='novo';
+    const rot={ok:'✔ vinculado',novo:'➕ produto novo',conferir:'⚠ conferir',sugerido:'⚠ sugerido',sem:'✖ sem produto'}[av.estado];
+    const cor={ok:'var(--ok)',novo:'var(--ac)'}[av.estado]||'var(--warn)';
+    const d=document.createElement('div');d.className='dpc '+(pendente?'pend':av.estado);
+    let info='';
+    if(av.estado==='ok')info='Produto: <b>'+esc(av.produto.nome)+'</b>';
+    else if(av.estado==='conferir')info='Hoje ligado a <b>'+esc(av.produto.nome)+'</b>, que não parece com este item.';
+    else if(av.estado==='sugerido')info='Sugestão: <b>'+esc(av.melhor.produto.nome)+'</b>';
+    else if(av.estado==='sem')info='Nenhum produto parecido no catálogo.';
+    else info='Será criado no cadastro da lojinha.';
+    const selVal=av.estado==='novo'?'__novo__':(av.estado==='ok'?it.pid:'');
+    const parecidos=av.cands.filter(c=>c.score>=0.3).slice(0,6);
+    const opt=(p,pref)=>'<option value="'+p.id+'"'+(p.id===selVal?' selected':'')+'>'+(pref||'')+esc(p.nome)+'</option>';
+    const sel='<select>'+'<option value=""'+(selVal===''?' selected':'')+'>— escolher o produto —</option>'+
+      '<option value="__novo__"'+(selVal==='__novo__'?' selected':'')+'>➕ Criar produto novo</option>'+
+      (parecidos.length?'<optgroup label="Parecidos">'+parecidos.map(c=>opt(c.produto,c.score>=Core.LIMIAR?'★ ':'')).join('')+'</optgroup>':'')+
+      '<optgroup label="Todos os produtos">'+k.produtos.map(p=>opt(p)).join('')+'</optgroup></select>';
+    d.innerHTML='<div class="dph"><b>'+esc(it.nome)+'</b><span class="chip2" style="color:'+cor+'">'+rot+'</span></div><div class="mut">'+info+'</div>'+sel+'<div class="row"></div>';
+    d.querySelector('select').onchange=function(){
+      const v=this.value;
+      if(v==='__novo__')criaNovo(it);else if(v)usaVinculo(it,v);else{it.pid=null;it.vincOk=null;it.novo=null;salvar();pintaDepara();}
+    };
+    const row=d.querySelector('.row'),btn=(t,fn,cls)=>{const b=document.createElement('button');b.className='btn '+(cls||'');b.innerHTML=t;b.onclick=fn;row.appendChild(b);};
+    if(av.estado==='conferir'){
+      btn('Manter “'+esc(av.produto.nome.slice(0,24))+'”',()=>usaVinculo(it,it.pid));
+      if(av.melhor)btn('Usar “'+esc(av.melhor.produto.nome.slice(0,24))+'”',()=>usaVinculo(it,av.melhor.produto.id));
+      btn('Criar novo',()=>criaNovo(it));
+    }else if(av.estado==='sugerido'){
+      btn('Usar sugestão',()=>usaVinculo(it,av.melhor.produto.id),'pri');
+      btn('Criar novo',()=>criaNovo(it));
+    }else if(av.estado==='sem'){
+      btn('Criar produto novo',()=>criaNovo(it),'pri');
+    }else if(av.estado==='novo'){
+      row.remove();
+      const cu=Core.custoUnit(it.usd,S.config.dolar);
+      const f=document.createElement('div');
+      f.innerHTML='<label>Nome no cadastro</label><input class="nn" value="'+esc(it.novo.nome)+'">'+
+        '<label>Preço de venda (R$) — vazio = custo ×1,75'+(cu?' = '+f2(Core.round2(cu*Core.MARKUP)):'')+'</label><input class="np" inputmode="decimal" value="'+(it.novo.preco?String(it.novo.preco).replace('.',','):'')+'">';
+      d.appendChild(f);
+      f.querySelector('.nn').oninput=function(){it.novo.nome=this.value;salvar();};
+      f.querySelector('.np').oninput=function(){it.novo.preco=num(this.value)||null;salvar();};
+    }
+    box.appendChild(d);
+  });
+}
+$('dpTodos').onchange=pintaDepara;
+$('dpNovos').onclick=()=>{
+  const k=catalogo();if(!k)return;let n=0;
+  S.itens.filter(i=>i.comprado).forEach(it=>{if(Core.avaliar(it,k.produtos).estado==='sem'){it.novo={nome:Core.nomeNovo(it.nome),preco:null};it.pid=null;it.vincOk=null;n++;}});
+  salvar();pintaDepara();toast(n?n+' itens marcados como produto novo':'Nenhum item nessa situação');
+};
+$('dpFechar').onclick=()=>FECHADORES.dp();
+
+/* ---------- prévia e envio ---------- */
+let planoAtual=null,enviando=false;
+async function abrirPrevia(){
+  const k=catalogo();if(!k){toast('Atualize o catálogo primeiro');return;}
+  abre('pv');$('pvLog').style.display='none';$('pvLog').textContent='';$('pvTexto').value='';
+  $('pvCorpo').innerHTML='<p class="mut">Montando a prévia…</p>';$('pvEnviar').disabled=true;
+  const plano=Core.montarPlano(S,k,S.sent[amb()]);
+  try{
+    const ja=await cliente().comprasDoDia(plano.data);
+    plano.compras.filter(c=>!c.enviado&&c.pid).forEach(c=>{
+      if(ja.some(r=>r.produto_id===c.pid&&Math.abs(num(r.quantidade)-c.quantidade)<1e-6&&Math.abs(num(r.custo_unit)-c.custo_unit)<0.005))
+        plano.avisos.push('Já existe no banco uma compra igual em '+fmtData(plano.data)+': '+c.nome);
+    });
+  }catch(e){plano.avisos.push('Não consegui conferir compras já existentes ('+e.message+')');}
+  if(plano.data!==hoje())plano.avisos.push('O lan\u00e7amento est\u00e1 com a data '+fmtData(plano.data)+', diferente de hoje ('+fmtData(hoje())+'). Confira em \u2699\ufe0f.');
+  planoAtual=plano;pintaPrevia();
+}
+function pintaPrevia(){
+  const p=planoAtual,orc=num(S.config.orcamento),prod=amb()==='prod';
+  let h='<div class="box"><b>'+(prod?'PRODUÇÃO':'DEV')+'</b> · lançamento em <b>'+fmtData(p.data)+'</b> · dólar R$ '+f2(p.dolar)+' · tudo à vista (sem cartão)</div>';
+  if(p.pendencias.length){
+    h+='<div class="box err"><h5>Resolver antes de enviar ('+p.pendencias.length+')</h5>'+p.pendencias.map(x=>'<div class="li"><span>'+esc(x.item?x.item.nome:(TIPO_NOME[x.despesa.tipo]||'Despesa'))+'<br><small>'+esc(x.motivo)+'</small></span></div>').join('')+
+      '<div class="row"><button class="btn" id="pvDepara">Abrir de-para</button></div></div>';
+  }
+  const novos=p.novos;
+  if(novos.length)h+='<div class="box"><h5>Produtos novos ('+novos.length+')</h5>'+novos.map(n=>'<div class="li"><span>'+esc(n.nome)+(n.enviado?' ✔':'')+'<br><small>'+esc(n.categoria)+' · custo R$ '+f2(n.custo)+'</small></span><span>venda R$ '+f2(n.preco)+'</span></div>').join('')+'</div>';
+  h+='<div class="box"><h5>Compras ('+p.compras.length+')</h5>'+p.compras.map(c=>'<div class="li"><span>'+esc(c.produto)+(c.enviado?' ✔':'')+'<br><small>'+c.quantidade+' × R$ '+f2(c.custo_unit)+'</small></span><span>R$ '+f2(c.total)+'</span></div>').join('')+
+    '<div class="li"><span><b>Total compras</b></span><span>R$ '+f2(p.total.compras)+'</span></div></div>';
+  if(p.despesas.length)h+='<div class="box"><h5>Despesas ('+p.despesas.length+')</h5>'+p.despesas.map(d=>'<div class="li"><span>'+esc(TIPO_NOME[d.tipo])+(d.descricao?' · '+esc(d.descricao):'')+(d.enviado?' ✔':'')+'</span><span>R$ '+f2(d.valor)+'</span></div>').join('')+
+    '<div class="li"><span><b>Total despesas</b></span><span>R$ '+f2(p.total.despesas)+'</span></div></div>';
+  h+='<div class="box"><div class="li"><span><b>Compras + despesas</b></span><span>R$ '+f2(p.total.geral)+'</span></div>'+
+    (orc?'<div class="li"><span>Orçamento R$ '+f2(orc)+'</span><span style="color:'+(orc-p.total.geral<0?'var(--err)':'var(--ok)')+'">'+(orc-p.total.geral<0?'passa ':'sobra ')+'R$ '+f2(Math.abs(orc-p.total.geral))+'</span></div>':'')+'</div>';
+  if(p.avisos.length)h+='<div class="box warn"><h5>Atenção</h5>'+p.avisos.map(a=>'<div>• '+esc(a)+'</div>').join('')+'</div>';
+  const a=p.aEnviar,falta=a.novos+a.compras+a.despesas;
+  h+='<p class="mut">A enviar agora: '+a.novos+' produtos novos, '+a.compras+' compras, '+a.despesas+' despesas.'+(falta?'':' Tudo já foi enviado neste ambiente.')+'</p>';
+  $('pvCorpo').innerHTML=h;
+  if($('pvDepara'))$('pvDepara').onclick=()=>{pintaDepara();abre('dp');};
+  $('pvConf').style.display=prod?'block':'none';
+  checaEnviar();
+}
+function checaEnviar(){
+  const p=planoAtual;if(!p)return;
+  const a=p.aEnviar,falta=a.novos+a.compras+a.despesas;
+  const confirmou=amb()!=='prod'||$('pvTexto').value.trim().toUpperCase()==='PRODUCAO';
+  $('pvEnviar').disabled=enviando||!falta||p.pendencias.length>0||!confirmou;
+}
+$('pvTexto').oninput=checaEnviar;
+$('pvFechar').onclick=()=>{if(!enviando){fecha('pv');render();pintaSb();}};
+$('pvEnviar').onclick=async()=>{
+  if(enviando||!planoAtual)return;
+  enviando=true;checaEnviar();
+  const lg=$('pvLog');lg.style.display='block';lg.textContent='Enviando para '+(amb()==='prod'?'PRODUÇÃO':'DEV')+'…\n';
+  const hooks={log:m=>{lg.textContent+=m+'\n';lg.scrollTop=lg.scrollHeight;},persist:salvar};
+  try{
+    const r=await Core.enviar(cliente(),planoAtual,S.sent[amb()],hooks);
+    lg.textContent+='\nPronto: '+r.produtos+' produtos, '+r.compras+' compras, '+r.despesas+' despesas.';
+    toast('Envio concluído');
+  }catch(e){
+    lg.textContent+='\nERRO: '+e.message+'\nO que já foi enviado está registrado. Corrija e envie de novo: nada é duplicado.';
+  }
+  enviando=false;salvar();render();
+  planoAtual=Core.montarPlano(S,catalogo(),S.sent[amb()]);
+  const msg=lg.textContent;pintaPrevia();lg.style.display='block';lg.textContent=msg;
+};
+
+/* ---------- despesas (modo custo) ---------- */
+let despEd=null;
+function pintaDespesas(){
+  const t=S.despesas.reduce((s,d)=>s+num(d.valor),0),box=$('dspLocal');
+  $('dspTot').innerHTML=S.despesas.length+' despesas · <b>R$ '+f2(t)+'</b> · data padrão '+fmtData(S.config.data);
+  box.innerHTML=S.despesas.length?'':'<p class="vazio">Nenhuma despesa lançada aqui.</p>';
+  S.despesas.forEach(d=>{
+    const env=S.sent[amb()].despesas[d.id];
+    const e=document.createElement('div');e.className='box';
+    e.innerHTML='<div class="li"><span><b>'+esc(TIPO_NOME[d.tipo]||d.tipo)+'</b>'+(d.descricao?' · '+esc(d.descricao):'')+'<br><small>'+fmtData(d.data)+(env?' · ✔ enviada ('+(amb()==='dev'?'DEV':'PRODUÇÃO')+')':'')+'</small></span><span>R$ '+f2(d.valor)+'</span></div>';
+    e.onclick=()=>abrirDF(d);box.appendChild(e);
+  });
+}
+async function atualizaRemotas(){
+  const box=$('dspRemotas');box.textContent='Carregando…';
+  try{
+    const r=await cliente().despesasRecentes(30);
+    box.innerHTML=r.length?r.map(x=>'<div class="li"><span>'+fmtData(x.data)+' · '+esc(TIPO_NOME[x.tipo]||x.tipo)+(x.descricao?' · '+esc(x.descricao):'')+'</span><span>R$ '+f2(x.valor)+'</span></div>').join(''):'Nenhuma despesa no banco.';
+  }catch(e){box.innerHTML='<span class="erro">'+esc(e.message)+'</span>';}
+}
+function abrirDF(d){
+  despEd=d||null;$('dft').textContent=d?'Editar despesa':'Nova despesa';
+  $('fData').value=d?d.data:S.config.data;
+  $('fTipo').innerHTML=TIPOS.map(t=>'<option value="'+t[0]+'"'+((d?d.tipo:'alimentacao')===t[0]?' selected':'')+'>'+esc(t[1])+'</option>').join('');
+  $('fDesc').value=d?d.descricao||'':'';$('fValor').value=d?String(d.valor).replace('.',','):'';
+  $('fDel').style.display=d?'block':'none';abre('df');
+  if(!d)setTimeout(()=>$('fValor').focus(),60);
+}
+$('bDesp').onclick=()=>{pintaDespesas();abre('dsp');};
+$('dspNova').onclick=()=>abrirDF(null);
+$('dspAtu').onclick=atualizaRemotas;
+$('dspFechar').onclick=()=>FECHADORES.dsp();
+$('fCan').onclick=()=>fecha('df');
+$('fOk').onclick=()=>{
+  const linha={id:despEd?despEd.id:uid(),data:$('fData').value||S.config.data,tipo:$('fTipo').value,descricao:$('fDesc').value.trim(),valor:num($('fValor').value)};
+  const erro=Core.validarDespesa(linha);if(erro){toast(erro);return;}
+  if(despEd)Object.assign(despEd,linha);else S.despesas.push(linha);
+  salvar();fecha('df');pintaDespesas();resumo();
+};
+$('fDel').onclick=function(){dupla(this,'Toque de novo para excluir',()=>{S.despesas=S.despesas.filter(x=>x!==despEd);salvar();fecha('df');pintaDespesas();resumo();});};
+
+faixa();render();
+</script>
+</body>
+</html>

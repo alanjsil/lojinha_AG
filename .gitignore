@@ -28,3 +28,8 @@ pnpm-debug.log*
 supabase/.temp/
 yarn-debug.log*
 .playwright-mcp/
+
+# compras-app (app Android da lista de compras): gerado pelo build, nunca versionar
+compras-app/assets/
+compras-app/*.apk
+compras-app/*.idsig

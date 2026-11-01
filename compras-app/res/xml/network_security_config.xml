@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- HTTP em texto puro so para o Supabase de dev no Pi (rede local). O resto exige HTTPS. -->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">192.168.1.50</domain>
+    </domain-config>
+</network-security-config>

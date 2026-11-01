@@ -1,0 +1,30 @@
+{
+ "v": 3,
+ "config": { "dolar": 4.98, "orcamento": 2595, "data": "2026-11-01", "ambiente": "dev" },
+ "itens": [
+  { "id": "imvvkwalok62qtp", "nome": "JD Apple 1L", "cat": "Bebidas", "qtd": 3, "qtdc": 3, "usd": 16.8, "lucro": 36.85, "pid": "311111dc-b8dc-42eb-8ccd-43746e04f3fe", "comprado": true, "nota": "" },
+  { "id": "imvvkwalodmfso1", "nome": "JD Fire 1L", "cat": "Bebidas", "qtd": 3, "qtdc": 3, "usd": 16.8, "lucro": 44.33, "pid": "759f36d1-2710-4138-b831-7c8730fad988", "comprado": true, "nota": "" },
+  { "id": "imvvkwalof9k7wg", "nome": "JD Honey 1L", "cat": "Bebidas", "qtd": 2, "qtdc": 2, "usd": 16.8, "lucro": 50.84, "pid": "456b78df-c6ed-44cb-bbe8-5de85c5315ae", "comprado": true, "nota": "" },
+  { "id": "imvvkwaloync8pt", "nome": "Johnnie Walker Red 1L", "cat": "Bebidas", "qtd": 3, "qtdc": 3, "usd": 11.3, "lucro": 80.18, "pid": "ea5ac798-f09c-4add-987f-2e4cef222c53", "comprado": true, "nota": "" },
+  { "id": "imvvkwalo8urjyh", "nome": "Jarra Eletrica Vidro", "cat": "Casa e Eletro", "qtd": 3, "qtdc": 3, "usd": 6.4224, "lucro": 13.89, "pid": "412ef57a-b5dc-455d-b309-8e66a60a6c97", "comprado": true, "nota": "" },
+  { "id": "imvvkwaloe7tytk", "nome": "Alfajor X6 Black Fusion", "cat": "Doces e Chocolates", "qtd": 1, "qtdc": 1, "usd": 9.633, "lucro": 10.65, "pid": "74a769ae-6177-4b5e-9383-a862724ed92c", "comprado": true, "nota": "" },
+  { "id": "imvvkwaloid47cr", "nome": "Milka Choco Biscuit 300g", "cat": "Doces e Chocolates", "qtd": 4, "qtdc": 4, "usd": 4.817, "lucro": 11, "pid": "2c1b2471-8e9e-4de4-9efc-6352a6e38740", "comprado": true, "nota": "" },
+  { "id": "imvvkwalotfei39", "nome": "Milka Hazelnuts 250g", "cat": "Doces e Chocolates", "qtd": 4, "qtdc": 4, "usd": 4.817, "lucro": 5.5, "pid": "d8dce509-113f-4e6b-808b-4016fee8fe9d", "comprado": true, "nota": "" },
+  { "id": "imvvkwalo9wm5y5", "nome": "Milka Toffee 300g", "cat": "Doces e Chocolates", "qtd": 4, "qtdc": 4, "usd": 4.817, "lucro": 11, "pid": "f71fcc53-6f2c-48bb-b543-d50c101107cb", "comprado": true, "nota": "" },
+  { "id": "imvvkwalo8lpuod", "nome": "Milka Triolade 280g", "cat": "Doces e Chocolates", "qtd": 4, "qtdc": 4, "usd": 4.817, "lucro": 11, "pid": "2c1f4e55-ae00-48f9-9aee-2719c7e1e9eb", "comprado": true, "nota": "" },
+  { "id": "imvvkwalor734tg", "nome": "Perf Lattafa Al Oud Black", "cat": "Perfumes", "qtd": 1, "qtdc": 1, "usd": 19.07, "lucro": 70, "pid": "fba43100-7a14-489c-b658-254d09346bbf", "comprado": true, "nota": "" },
+  { "id": "imvvkwalomaspyp", "nome": "Perf Paris Corner Qissa", "cat": "Perfumes", "qtd": 1, "qtdc": 1, "usd": 39, "lucro": 60, "pid": "5ae0f372-afd9-4b43-b1fb-1f10acc6566a", "comprado": true, "nota": "" },
+  { "id": "imvvkwaloku1hp5", "nome": "Perf Lattafa Mohra", "cat": "Perfumes", "qtd": 1, "qtdc": 1, "usd": 14.9, "lucro": 80.04, "pid": "4b5f335e-6ca8-4f01-b58a-43b814279e92", "comprado": true, "nota": "" },
+  { "id": "imvwf7wlhqkvrme", "nome": "Per Lattafa Berry on Top", "cat": "Perfumes", "qtd": 1, "qtdc": 1, "usd": 24.9, "lucro": 0, "pid": null, "comprado": true, "nota": "" },
+  { "id": "imvwipvdh5lin60", "nome": "Per Lattafa Mallow Madness", "cat": "Perfumes", "qtd": 1, "qtdc": 1, "usd": 24.855, "lucro": 0, "pid": null, "comprado": true, "nota": "" },
+  { "id": "imvwiqt5fxhghoz", "nome": "Perf Lattafa Cookie Crave", "cat": "Perfumes", "qtd": 1, "qtdc": 1, "usd": 24.855, "lucro": 0, "pid": null, "comprado": true, "nota": "" }
+ ],
+ "despesas": [
+  { "id": "dsp-1", "data": "2026-11-01", "tipo": "onibus", "descricao": "Transporte", "valor": 350 },
+  { "id": "dsp-2", "data": "2026-11-01", "tipo": "alimentacao", "descricao": "Lanche", "valor": 28 },
+  { "id": "dsp-3", "data": "2026-11-01", "tipo": "alimentacao", "descricao": "Lanche", "valor": 12.97 },
+  { "id": "dsp-4", "data": "2026-11-01", "tipo": "outros", "descricao": "Táxi", "valor": 25 },
+  { "id": "dsp-5", "data": "2026-11-01", "tipo": "outros", "descricao": "Outros", "valor": 1 },
+  { "id": "dsp-6", "data": "2026-11-01", "tipo": "alimentacao", "descricao": "Almoço", "valor": 69 }
+ ]
+}

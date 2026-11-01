@@ -1,0 +1,11 @@
+{
+ "config": { "data": "2026-11-01" },
+ "despesas": [
+  { "id": "dsp-1", "data": "2026-11-01", "tipo": "onibus", "descricao": "Transporte", "valor": 350 },
+  { "id": "dsp-2", "data": "2026-11-01", "tipo": "alimentacao", "descricao": "Lanche", "valor": 28 },
+  { "id": "dsp-3", "data": "2026-11-01", "tipo": "alimentacao", "descricao": "Lanche", "valor": 12.97 },
+  { "id": "dsp-4", "data": "2026-11-01", "tipo": "outros", "descricao": "Táxi", "valor": 25 },
+  { "id": "dsp-5", "data": "2026-11-01", "tipo": "outros", "descricao": "Outros", "valor": 1 },
+  { "id": "dsp-6", "data": "2026-11-01", "tipo": "alimentacao", "descricao": "Almoço", "valor": 69 }
+ ]
+}
