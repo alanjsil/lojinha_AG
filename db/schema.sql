@@ -280,13 +280,13 @@ begin
     where papel = 'socia' and id <> new.vendedor_id
     order by created_at
     limit 1;
-  -- 040: venda de vendedor = 35% menos o que ele ganha acima de 10% (12% → 33%); venda do gerente = 35%
+  -- 040/041: venda de vendedor = 35% menos o que ele ganha acima de 10% (12% → 33%); venda do gerente = 20%
   if new.socia_id is null then
     new.socia_pct := 0;
   elsif v_papel = 'vendedor' then
     new.socia_pct := greatest(35 - greatest(new.comissao_pct - 10, 0), 0);
   else
-    new.socia_pct := 35;
+    new.socia_pct := 20;
   end if;
   return new;
 end $$;

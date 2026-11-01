@@ -32,7 +32,7 @@ A tabela completa de quem pode o quê está em [papeis-e-permissoes.md](papeis-e
 Gerente e sócia cadastram vendedores e definem a comissão deles em **Vendedores** (link no fim dos Resumos). O papel e a comissão da sócia e do gerente só o administrador do banco muda.
 
 ### Comissão do vendedor e da sócia
-A comissão é uma % do **lucro** da venda. O vendedor ganha de **10%** (padrão) a **40%**. Nas vendas de um vendedor a sócia ganha **35%**, e o que o vendedor ganhar acima de 10% sai da parte dela: vendedor 10% → sócia 35%; 12% → 33%; 15% → 30%; 40% → 5%. Nas vendas do gerente a sócia ganha 35%. Nas vendas da própria sócia vale a comissão do perfil dela, sem adicional. Mudar a % vale só para as próximas vendas.
+A comissão é uma % do **lucro** da venda. O vendedor ganha de **10%** (padrão) a **40%**. Nas vendas de um vendedor a sócia ganha **35%**, e o que o vendedor ganhar acima de 10% sai da parte dela: vendedor 10% → sócia 35%; 12% → 33%; 15% → 30%; 40% → 5%. Nas vendas do gerente a sócia ganha 20% (vendas lançadas até 01/11/2026 ficam com os 35% de antes). Nas vendas da própria sócia vale a comissão do perfil dela, sem adicional. Mudar a % vale só para as próximas vendas.
 
 ### Celular e computador
 
