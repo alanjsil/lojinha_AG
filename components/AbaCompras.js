@@ -162,7 +162,12 @@ function FormEditarCompra({ compra, cartoes, aoFechar }) {
 // Aba Compras do Estoque: entrada de mercadoria + últimos 30 dias (só o gerente lança/edita/exclui; a sócia só vê)
 export default function AbaCompras({ produtos, compras, cartoes, gerente }) {
   const nomeCartao = new Map(cartoes.map((c) => [c.id, c.nome]));
-  const itens = compras.map((c) => ({
+  const [busca, setBusca] = useState("");
+  const termo = busca.trim().toLowerCase();
+  const filtradas = termo
+    ? compras.filter((c) => `${c.produto} ${c.fornecedor ?? ""}`.toLowerCase().includes(termo))
+    : compras;
+  const itens = filtradas.map((c) => ({
     id: c.id,
     titulo: c.produto,
     sub: `${dataBR(c.data)} · ${qtd(c.quantidade)} × ${brl(c.custo_unit)}${c.cartao_id ? ` · ${nomeCartao.get(c.cartao_id) ?? "Cartão"}${c.parcelas > 1 ? ` ${c.parcelas}x` : ""}` : ""}${c.fornecedor ? ` · ${c.fornecedor}` : ""}`,
@@ -176,10 +181,17 @@ export default function AbaCompras({ produtos, compras, cartoes, gerente }) {
       {gerente && <FormCompra produtos={produtos} cartoes={cartoes} />}
       <div className="card">
         <h2>Últimos 30 dias</h2>
+        <input
+          type="search"
+          aria-label="Buscar compra"
+          placeholder="Buscar por produto ou fornecedor"
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+        />
         <ListaExpansivel
           itens={itens}
           excluir={gerente ? excluirCompra : undefined}
-          vazio="Nenhuma compra nos últimos 30 dias."
+          vazio={termo ? "Nenhuma compra encontrada." : "Nenhuma compra nos últimos 30 dias."}
           renderEditar={gerente ? (item, fechar) => <FormEditarCompra compra={item.dados} cartoes={cartoes} aoFechar={fechar} /> : undefined}
         />
       </div>
