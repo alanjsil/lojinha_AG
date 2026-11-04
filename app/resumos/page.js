@@ -2,6 +2,7 @@ import Link from "next/link";
 import { brl, dataBR, nomeMes, qtd, somarDias, somarMeses, ultimoDiaDoMes } from "../../lib/formato";
 import { todas } from "../../lib/paginar";
 import { resumoEstoque, somarPor } from "../../lib/painel";
+import { filtrarPorCaixa } from "../../lib/parcelas";
 import { despesasPorTipo, indicadoresResumo, META_SOBRA, perdasPorMotivo } from "../../lib/resumo";
 import { createClient, usuarioAtual } from "../../lib/supabase/server";
 import { sair } from "../actions";
@@ -48,9 +49,9 @@ export default async function Resumos(props) {
     return gerente ? q : q.eq("vendedor_id", usuario?.id);
   };
 
-  // a comissão cai junto com cada parcela: conta no vencimento, não na data da venda
+  // a comissão cai junto com cada parcela: conta quando a parcela é recebida (baixa), não na data da venda (mig. 042)
   const consultaParcelas = (a, b) => {
-    const q = supabase.from("parcelas").select("id, comissao, comissao_socia, socia_id, vendedor_id, perfis(nome)").gte("vencimento", de).lte("vencimento", ate).order("id").range(a, b);
+    const q = filtrarPorCaixa(supabase.from("parcelas").select("id, comissao, comissao_socia, socia_id, vendedor_id, perfis(nome)"), de, ate, hoje).order("id").range(a, b);
     if (gerente) return q;
     // a sócia também vê as parcelas de outros vendedores, só para somar a comissão extra dela
     return socia ? q.or(`vendedor_id.eq.${usuario.id},socia_id.eq.${usuario.id}`) : q.eq("vendedor_id", usuario?.id);
@@ -85,13 +86,13 @@ export default async function Resumos(props) {
     gerente ? supabase.from("categorias").select("id, nome") : vazio,
   ]);
 
-  // dinheiro das vendas em mãos: recebido (parcelas vencidas até o fim, nunca no futuro) − repasses entregues ao gerente
+  // dinheiro das vendas em mãos: recebido (parcelas com baixa até o fim, nunca no futuro) − repasses entregues ao gerente
   const [{ data: parcelasAcum }, { data: repassesAcum }] = await Promise.all([
     todas((a, b) => {
       const q = supabase
         .from("parcelas")
         .select("id, valor, comissao, comissao_socia, socia_id, vendedor_id, perfis(nome)")
-        .lte("vencimento", ate < hoje ? ate : hoje)
+        .lte("recebido_em", ate < hoje ? ate : hoje)
         .order("id")
         .range(a, b);
       if (ehGerente) return q;
@@ -189,14 +190,21 @@ export default async function Resumos(props) {
     r ? Number(r.recebido) + Number(r.capital_inicial) + Number(r.aportes) - Number(r.compras) - Number(r.despesas) - Number(r.saques) - Number(r.pro_labore) - Number(r.comissoes_pagas) : 0;
   const ac = acumuladoLinhas?.[0];
   const an = anteriorLinhas?.[0];
-  const acSaldo = caixaAte(ac);
-  const saldoInicial = caixaAte(an);
+  // mês futuro é projeção: soma as parcelas em aberto que vencem até o fim dele (as atrasadas inclusive). Se o mês anterior
+  // também é futuro, o saldo inicial já leva a projeção dele, então só a diferença entra nas entradas deste mês.
+  const emAbertoAc = futuro ? Number(ac?.em_aberto ?? 0) : 0;
+  const emAbertoAn = somarMeses(mes, -1) > hoje.slice(0, 7) ? Number(an?.em_aberto ?? 0) : 0;
+  const acSaldo = caixaAte(ac) + emAbertoAc;
+  const saldoInicial = caixaAte(an) + emAbertoAn;
+  // parcelas que já venciam até o fim do período e ainda não tinham sido recebidas (só em período que já passou ou é o atual)
+  const parcelasAtrasadas = futuro ? 0 : Number(ac?.em_aberto ?? 0);
   // gasto no cartão até o fim do período que só sai do caixa depois (já contou no lucro)
   const cartaoAPagar = Number(ac?.cartao_a_pagar ?? 0);
   // movimento do período = acumulado até o fim − acumulado até o dia anterior
   const mov = (campo) => (ac ? Number(ac[campo]) - Number(an?.[campo] ?? 0) : 0);
 
-  const entradas = mov("recebido") + mov("capital_inicial") + mov("aportes");
+  const recebidoMov = mov("recebido") + emAbertoAc - emAbertoAn;
+  const entradas = recebidoMov + mov("capital_inicial") + mov("aportes");
   const saidas = mov("compras") + mov("despesas") + mov("saques") + mov("pro_labore") + mov("comissoes_pagas");
 
   const nVendas = new Set((vendas ?? []).map((v) => v.grupo_id ?? v.id)).size;
@@ -264,7 +272,7 @@ export default async function Resumos(props) {
             </div>
             {futuro && (
               <p className="sub" style={{ marginTop: -8, marginBottom: 12 }}>
-                Projeção: conta como recebidas as parcelas que ainda vão vencer e como pagas as faturas do cartão.
+                Projeção: conta como recebidas as parcelas em aberto que vencem até o fim do mês (as atrasadas também) e como pagas as faturas do cartão.
               </p>
             )}
             {cartaoAPagar > 0 && (
@@ -301,7 +309,7 @@ export default async function Resumos(props) {
           </div>
         </div>
         <p className="info">
-          Vendas, lucro e ticket contam na data da venda; comissões, no vencimento de cada parcela. Num mês com muita venda parcelada, a comissão do mês fica menor que a das
+          Vendas, lucro e ticket contam na data da venda; comissões, quando cada parcela é recebida. Num mês com muita venda parcelada, a comissão do mês fica menor que a das
           vendas do mês (e a margem líquida, maior): ela aparece nos meses seguintes.
         </p>
       </div>
@@ -333,7 +341,7 @@ export default async function Resumos(props) {
             })}
           </ul>
           <p className="info">
-            Pendente = recebido das vendas (parcelas vencidas) − repasses entregues, até {dataBR(ate, true)}. Limpo = pendente − a comissão que ainda é {ehGerente ? "do vendedor" : "sua"}
+            Pendente = recebido das vendas (parcelas com baixa) − repasses entregues, até {dataBR(ate, true)}. Limpo = pendente − a comissão que ainda é {ehGerente ? "do vendedor" : "sua"}
             : é o que {ehGerente ? "ele ainda deve entregar" : "você ainda deve entregar"} se a comissão for acertada com esse dinheiro.
           </p>
         </div>
@@ -394,7 +402,7 @@ export default async function Resumos(props) {
             </li>
           </ul>
           <p className="info">
-            As comissões contam no vencimento de cada parcela; as despesas, na data do gasto (mesmo no cartão). As compras não entram aqui: o custo da mercadoria já está no CMV de
+            As comissões contam quando a parcela é recebida; as despesas, na data do gasto (mesmo no cartão). As compras não entram aqui: o custo da mercadoria já está no CMV de
             cada venda. Toque em Despesas para ver por tipo.
           </p>
         </div>
@@ -416,7 +424,7 @@ export default async function Resumos(props) {
                 </summary>
                 <ul className="lista">
                   {[
-                    ["Vendas recebidas", mov("recebido")],
+                    ["Vendas recebidas", recebidoMov],
                     ["Capital inicial", mov("capital_inicial")],
                     ["Aportes", mov("aportes")],
                   ].map(([nome, v]) => (
@@ -454,6 +462,14 @@ export default async function Resumos(props) {
               <span className="titulo">= {futuro ? "Saldo projetado" : "Saldo final"}</span>
               <span className={`valor ${acSaldo < 0 ? "negativo" : "positivo"}`}>{brl(acSaldo)}</span>
             </li>
+            {parcelasAtrasadas > 0 && (
+              <li>
+                <span className="sub">
+                  Parcelas vencidas sem baixa (não entram no caixa) · <Link href="/parcelas">ver parcelas</Link>
+                </span>
+                <span className="valor negativo">{brl(parcelasAtrasadas)}</span>
+              </li>
+            )}
             {cartaoAPagar > 0 && (
               <li>
                 <span className="sub">Cartão a pagar (faturas futuras)</span>
@@ -462,9 +478,9 @@ export default async function Resumos(props) {
             )}
           </ul>
           <p className="info">
-            Dinheiro em caixa: vendas à vista entram na data e cartão em cada parcela, no vencimento. Despesas e compras no cartão saem no vencimento da fatura (no lucro, contam na
-            data do gasto). O saldo de um mês passa para o seguinte. Supõe que toda parcela vencida caiu: não é o saldo da conta bancária.
-            {futuro ? " Neste mês futuro, tudo o que ainda vai vencer já está contado." : ""}
+            Dinheiro em caixa: vendas à vista entram na data e cartão em cada parcela, na data da baixa (tela Parcelas). Despesas e compras no cartão saem no vencimento da fatura (no lucro, contam na
+            data do gasto). O saldo de um mês passa para o seguinte. Parcela vencida sem baixa não conta: não é o saldo da conta bancária.
+            {futuro ? " Neste mês futuro, as parcelas em aberto que vencem até o fim dele já estão contadas." : ""}
           </p>
         </div>
       )}
@@ -600,7 +616,7 @@ export default async function Resumos(props) {
             </ul>
           </details>
         )}
-        <p className="info">Ordem: quem mais vendeu no mês. A comissão é a que vence no mês (parcelas), por isso não bate com as vendas do mês.</p>
+        <p className="info">Ordem: quem mais vendeu no mês. A comissão é a das parcelas recebidas no mês, por isso não bate com as vendas do mês.</p>
       </div>
 
       {gerente && (

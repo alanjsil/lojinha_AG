@@ -128,57 +128,68 @@ export default function PainelClient({ periodo, indicadores: ind, anterior, caix
           <summary>
             <h2>A receber e a pagar (a partir de amanhã)</h2>
           </summary>
-          {futuro.meses.length === 0 ? (
+          {futuro.meses.length === 0 && futuro.atrasado.n === 0 ? (
             <p className="vazio">Nenhuma parcela ou fatura a vencer.</p>
           ) : (
             <>
               <div className="kpis">
+                {futuro.atrasado.n > 0 && (
+                  <Kpi rotulo="Em atraso" valor={<span className="negativo">{brl(futuro.atrasado.receber)}</span>}>
+                    <Link href="/parcelas" className="variacao">
+                      {futuro.atrasado.n} {futuro.atrasado.n === 1 ? "parcela" : "parcelas"} sem baixa ›
+                    </Link>
+                  </Kpi>
+                )}
                 <Kpi rotulo="A receber (parcelas)" valor={brl(futuro.receber)}>
                   <span className="variacao">comissões embutidas {brl(futuro.comissao)}</span>
                 </Kpi>
                 <Kpi rotulo="Cartão a pagar" valor={brl(futuro.pagar)} />
                 <Kpi rotulo="Caixa hoje" valor={futuro.caixaHoje === null ? "–" : brl(futuro.caixaHoje)} />
                 <Kpi rotulo="Saldo projetado" valor={<span className={futuro.saldoFinal < 0 ? "negativo" : undefined}>{brl(futuro.saldoFinal)}</span>}>
-                  <span className="variacao">em {nomeMes(futuro.meses.at(-1).chave).toLowerCase()}</span>
+                  {futuro.meses.length > 0 && <span className="variacao">em {nomeMes(futuro.meses.at(-1).chave).toLowerCase()}</span>}
                 </Kpi>
               </div>
-              <GraficoLinha
-                pontos={futuro.meses}
-                rotuloX={(k, longo) => (longo ? nomeMes(k) : MES_CURTO[Number(k.slice(5, 7)) - 1])}
-                series={[
-                  { campo: "receber", nome: "A receber" },
-                  { campo: "pagar", nome: "Cartão a pagar" },
-                ]}
-              />
-              <div className="tabela-rolagem">
-                <table className="tabela-painel">
-                  <thead>
-                    <tr>
-                      <th>Mês</th>
-                      <th>A receber</th>
-                      <th>Comissões</th>
-                      <th>Cartão a pagar</th>
-                      <th>Saldo projetado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {futuro.meses.map((m) => (
-                      <tr key={m.chave}>
-                        <td>{nomeMes(m.chave)}</td>
-                        <td>{brl(m.receber)}</td>
-                        <td>{brl(m.comissao)}</td>
-                        <td>{brl(m.pagar)}</td>
-                        <td className={m.saldo < 0 ? "negativo" : undefined}>{brl(m.saldo)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              {futuro.meses.length > 0 && (
+                <>
+                  <GraficoLinha
+                    pontos={futuro.meses}
+                    rotuloX={(k, longo) => (longo ? nomeMes(k) : MES_CURTO[Number(k.slice(5, 7)) - 1])}
+                    series={[
+                      { campo: "receber", nome: "A receber" },
+                      { campo: "pagar", nome: "Cartão a pagar" },
+                    ]}
+                  />
+                  <div className="tabela-rolagem">
+                    <table className="tabela-painel">
+                      <thead>
+                        <tr>
+                          <th>Mês</th>
+                          <th>A receber</th>
+                          <th>Comissões</th>
+                          <th>Cartão a pagar</th>
+                          <th>Saldo projetado</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {futuro.meses.map((m) => (
+                          <tr key={m.chave}>
+                            <td>{nomeMes(m.chave)}</td>
+                            <td>{brl(m.receber)}</td>
+                            <td>{brl(m.comissao)}</td>
+                            <td>{brl(m.pagar)}</td>
+                            <td className={m.saldo < 0 ? "negativo" : undefined}>{brl(m.saldo)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
             </>
           )}
           <p className="info">
-            A receber = parcelas de vendas no cartão que ainda vão vencer. Cartão a pagar = faturas de despesas e compras no cartão. Saldo projetado = caixa de hoje + a receber − comissões dessas
-            parcelas − faturas, mês a mês (sem as despesas e vendas que ainda não foram lançadas).
+            A receber = parcelas de vendas no cartão que ainda vão vencer e não foram recebidas. Em atraso = parcelas vencidas sem baixa (tela Parcelas). Cartão a pagar = faturas de despesas e
+            compras no cartão. Saldo projetado = caixa de hoje + em atraso + a receber − comissões dessas parcelas − faturas, mês a mês (sem as despesas e vendas que ainda não foram lançadas).
           </p>
         </details>
 

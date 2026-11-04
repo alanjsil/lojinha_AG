@@ -6,6 +6,7 @@ import { after } from "next/server";
 import { clienteDaVenda } from "../lib/crm";
 import { numero, preenchido, qtd } from "../lib/formato";
 import { ABERTOS, avisoStatus, mudancaValida } from "../lib/pedido";
+import { dataRecebimentoValida } from "../lib/parcelas";
 import { avisarCliente } from "../lib/push";
 import { motivoDaContagem } from "../lib/resumo";
 import { ehEquipe } from "../lib/rotas";
@@ -99,7 +100,7 @@ function diaDoCartao(texto, nome) {
 }
 
 function atualizarTudo() {
-  ["/vendas", "/estoque", "/saidas", "/resumos"].forEach((p) => revalidatePath(p));
+  ["/vendas", "/estoque", "/saidas", "/resumos", "/parcelas", "/painel"].forEach((p) => revalidatePath(p));
 }
 
 // ---------- Vendas ----------
@@ -684,6 +685,42 @@ export async function restaurarRegistro({ tabela, id }) {
     },
     { exigeGerente: true },
   );
+}
+
+// ---------- Parcelas (mig. 042) ----------
+
+// o servidor roda em UTC; "hoje" precisa ser o dia de Brasília
+const hojeBR = () => new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+
+// itens: [{ vendaId, numero }] (uma entrada por item da venda e parcela). A função do banco é quem confere quem pode,
+// venda de cartão, número da parcela e a data (nem futura nem antes da venda); data nula desfaz a baixa.
+async function baixarParcelas(supabase, itens, data) {
+  if (!Array.isArray(itens) || itens.length === 0 || itens.length > 200) falha("Escolha de 1 a 200 parcelas.");
+  for (const i of itens) {
+    if (!UUID.test(i?.vendaId ?? "") || !Number.isInteger(i?.numero) || i.numero < 1 || i.numero > 12) falha("Parcela inválida.");
+  }
+  const { error } = await supabase.rpc("receber_parcelas", { p_vendas: itens.map((i) => i.vendaId), p_numeros: itens.map((i) => i.numero), p_data: data });
+  if (error?.code === "P0001") falha(error.message);
+  if (error) throw error;
+  atualizarTudo();
+}
+
+// Dá baixa: o dinheiro entrou em `data` (antes do vencimento = antecipação; depois = atraso).
+// Vendedor e sócia só nas próprias vendas; quem garante é receber_parcelas() no banco (mig. 043).
+export async function receberParcelas({ itens, data }) {
+  return executar(async (supabase) => {
+    const erro = dataRecebimentoValida(data, null, hojeBR());
+    if (erro) falha(erro);
+    await baixarParcelas(supabase, itens, data);
+  });
+}
+
+// Desfaz a baixa: a parcela volta a "em aberto" (ou "atrasada") e sai do caixa e da comissão do mês.
+// Vendedor e sócia só a baixa que eles deram, até 48 h depois (o banco confere).
+export async function desfazerRecebimento({ itens }) {
+  return executar(async (supabase) => {
+    await baixarParcelas(supabase, itens, null);
+  });
 }
 
 // ---------- Contagem cíclica ----------

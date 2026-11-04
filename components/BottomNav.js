@@ -28,6 +28,8 @@ const links = [
     label: "Resumos",
     icone: <Icone nome="relatorios" />,
   },
+  // baixa das parcelas do cartão (recebimento real, antecipação e atraso); vendedor vê só as próprias vendas
+  { href: "/parcelas", label: "Parcelas", icone: icone("M3 6h18v12H3zM3 10h18M7 15h3") },
   // só no PC (classe so-pc); vendedor que abrir cai no Resumos
   {
     href: "/painel",

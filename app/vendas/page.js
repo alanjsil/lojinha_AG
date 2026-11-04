@@ -6,18 +6,29 @@ import ModalVendas from "../../components/ModalVendas";
 import PedidosLoja from "../../components/PedidosLoja";
 import { brl, dataBR, qtd, somarDias } from "../../lib/formato";
 import { ABERTOS, formatarTelefone } from "../../lib/pedido";
-import { primeiroVencimentoVenda } from "../../lib/parcelas";
+import { primeiroVencimentoVenda, situacaoParcela } from "../../lib/parcelas";
 import { createClient, usuarioAtual } from "../../lib/supabase/server";
 import { motivoSemAcessoVenda } from "../../lib/vendas";
 import { excluirVenda } from "../actions";
 
 const FORMA = { a_vista: "À Vista", cartao: "Cartão" };
 
+// o servidor roda em UTC; "hoje" precisa ser o dia de Brasília
+const hojeBR = () => new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+
+// situação da parcela (baixa dada pelo gerente na tela Parcelas, mig. 042)
+function situacaoTexto(p, hoje) {
+  const s = situacaoParcela(p, hoje);
+  if (s.tipo === "recebida") return `recebida ${dataBR(p.recebido_em)}${s.antecipada ? " (antecipada)" : ""}`;
+  return s.tipo === "atrasada" ? `atrasada há ${s.dias} ${s.dias === 1 ? "dia" : "dias"}` : "em aberto";
+}
+
 // ?pedido=<id>: o formulário abre com os itens de um pedido da loja (vitrine)
 export default async function Vendas({ searchParams }) {
   const { pedido: pedidoId } = await searchParams;
   const supabase = await createClient();
   const usuario = await usuarioAtual(supabase);
+  const hoje = hojeBR();
 
   const desde = somarDias(new Date().toLocaleDateString("sv-SE"), -6);
   const [{ data: produtos }, { data: vendas }, { data: pedidos }] = await Promise.all([
@@ -25,7 +36,7 @@ export default async function Vendas({ searchParams }) {
     supabase
       .from("vendas")
       .select(
-        "id, grupo_id, vendedor_id, created_at, data, quantidade, preco_unit, custo_unit, pagamento, parcelas, obs, cliente_nome, cliente_telefone, lucro, comissao, comissao_socia, produtos(nome, unidade), perfis!vendas_vendedor_id_fkey(nome), parcelas_venda:parcelas(numero, vencimento, valor, comissao)",
+        "id, grupo_id, vendedor_id, created_at, data, quantidade, preco_unit, custo_unit, pagamento, parcelas, obs, cliente_nome, cliente_telefone, lucro, comissao, comissao_socia, produtos(nome, unidade), perfis!vendas_vendedor_id_fkey(nome), parcelas_venda:parcelas(numero, vencimento, valor, comissao, recebido_em)",
       )
       .order("data", { ascending: false })
       .order("created_at", { ascending: false })
@@ -54,8 +65,10 @@ export default async function Vendas({ searchParams }) {
   const detalhesDe = (v) => [
     ...(mostraSocia ? [`Custo unit.: ${brl(v.custo_unit)}`, `Lucro: ${brl(v.lucro)} · Comissão: ${brl(v.comissao)}`] : [`Sua comissão: ${brl(v.comissao)}`]),
     ...(mostraSocia && Number(v.comissao_socia) > 0 ? [`Comissão da sócia: ${brl(v.comissao_socia)}`] : []),
-    ...(v.parcelas > 1
-      ? [...(v.parcelas_venda ?? [])].sort((a, b) => a.numero - b.numero).map((p) => `${p.numero}/${v.parcelas} · ${dataBR(p.vencimento)} · ${brl(p.valor)} · comissão ${brl(p.comissao)}`)
+    ...(v.pagamento === "cartao"
+      ? [...(v.parcelas_venda ?? [])]
+          .sort((a, b) => a.numero - b.numero)
+          .map((p) => `${p.numero}/${v.parcelas} · ${dataBR(p.vencimento)} · ${brl(p.valor)} · comissão ${brl(p.comissao)} · ${situacaoTexto(p, hoje)}`)
       : []),
   ];
   const pagamentoDe = (v) => `${FORMA[v.pagamento]}${v.parcelas > 1 ? ` ${v.parcelas}x` : ""}`;

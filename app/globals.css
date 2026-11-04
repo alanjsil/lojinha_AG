@@ -830,9 +830,7 @@ button:disabled {
   margin-top: 12px;
   border-top: 1px solid #eee;
 }
-
 /* ---------- Pedidos da loja (Vendas) ---------- */
-
 .contador {
   display: inline-grid;
   place-items: center;
@@ -846,7 +844,6 @@ button:disabled {
   font-size: 15px;
   vertical-align: middle;
 }
-
 /* link com cara de botão principal (ex.: Lançar venda) */
 .botao-link-cheio {
   display: flex;
@@ -862,11 +859,9 @@ button:disabled {
   font-weight: 700;
   text-decoration: none;
 }
-
 .botao-link-cheio:active {
   background: var(--primaria-escura);
 }
-
 .titulo-linha .link-chip {
   display: flex;
   align-items: center;
@@ -874,9 +869,7 @@ button:disabled {
   font-weight: 700;
   text-decoration: none;
 }
-
 /* ---------- Vitrine pública (/) ---------- */
-
 /* topo + busca ficam juntos e fixos ao rolar */
 .loja-fixo {
   position: sticky;
@@ -884,12 +877,10 @@ button:disabled {
   z-index: 5;
   margin: -16px -16px 0;
 }
-
 .loja-busca-caixa {
   padding: 10px 16px;
   background: var(--fundo);
 }
-
 .loja-topo {
   display: flex;
   align-items: center;
@@ -899,18 +890,15 @@ button:disabled {
   color: #fff;
   font-size: 19px;
 }
-
 .loja-logo {
   width: 36px;
   height: 36px;
   border-radius: 8px;
 }
-
 .loja-topo strong {
   flex: 1;
   min-width: 0;
 }
-
 .loja-entrar {
   display: flex;
   align-items: center;
@@ -923,15 +911,12 @@ button:disabled {
   font-weight: 700;
   text-decoration: none;
 }
-
 .loja-entrar:active {
   background: var(--primaria-clara);
 }
-
 .loja-busca {
   margin: 0;
 }
-
 .loja-grade {
   list-style: none;
   display: grid;
@@ -940,7 +925,6 @@ button:disabled {
   margin: 12px 0 0;
   padding: 0;
 }
-
 .loja-grade li {
   display: flex;
   flex-direction: column;
@@ -949,13 +933,11 @@ button:disabled {
   border: 1px solid #eee;
   border-radius: var(--raio);
 }
-
 .loja-foto-caixa {
   position: relative;
   aspect-ratio: 1;
   margin-bottom: 8px;
 }
-
 .loja-foto {
   display: block;
   width: 100%;
@@ -1660,5 +1642,200 @@ textarea:focus {
   .card {
     animation: none;
     transition: none;
+  }
+}
+
+/* ---------- Parcelas (baixa do cartão): tabela no PC, cartões no celular ---------- */
+
+.tabela-painel input[type="checkbox"] {
+  appearance: auto;
+  -webkit-appearance: auto;
+  width: 22px;
+  min-height: 22px;
+  height: 22px;
+  padding: 0;
+  accent-color: var(--primaria);
+}
+
+.tabela-painel button.pequeno {
+  width: auto;
+  min-height: 36px;
+  margin: 0;
+  padding: 6px 14px;
+  font-size: 15px;
+}
+
+.parcelas-detalhe > td {
+  padding: 8px 12px 16px 28px;
+  background: var(--primaria-clara);
+}
+
+.parcelas-detalhe .tabela-painel th,
+.parcelas-detalhe .tabela-painel td {
+  padding: 8px 10px;
+}
+
+.parcelas-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.parcelas-acoes label {
+  margin: 0 0 4px;
+}
+
+.parcelas-acoes input[type="date"] {
+  width: auto;
+  min-height: 44px;
+}
+
+.parcelas-acoes button,
+.parcelas-acoes a {
+  width: auto;
+  min-height: 44px;
+  margin: 0;
+  padding: 10px 18px;
+  font-size: 16px;
+}
+
+.parcelas-acoes a {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 10px;
+  background: #1f9d55;
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.parcelas-acoes a:active {
+  background: var(--verde-escuro);
+}
+
+.parcelas-marca {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-weight: 400;
+}
+
+@media (min-width: 1024px) {
+  .so-celular {
+    display: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  .parcelas-filtros .segmentos {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .parcelas-filtros .segmentos button {
+    font-size: 15px;
+  }
+
+  .tabela-parcelas,
+  .tabela-parcelas tbody,
+  .tabela-parcelas tfoot {
+    display: block;
+  }
+
+  .tabela-parcelas thead {
+    display: none;
+  }
+
+  .tabela-parcelas tr {
+    display: flex;
+    flex-direction: column;
+    padding: 10px 0;
+    border-bottom: 1px solid #e3e1dc;
+  }
+
+  .tabela-painel.tabela-parcelas td {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    padding: 4px 0;
+    border-bottom: 0;
+    text-align: right;
+    white-space: normal;
+  }
+
+  .tabela-parcelas td[data-rotulo]::before {
+    content: attr(data-rotulo);
+    flex-shrink: 0;
+    color: var(--texto-suave);
+    text-align: left;
+  }
+
+  .tabela-parcelas td:empty {
+    display: none !important;
+  }
+
+  .tabela-parcelas .compra-linha td {
+    order: 2;
+  }
+
+  .tabela-painel.tabela-parcelas .compra-linha .compra-titulo {
+    display: block;
+    order: 0;
+    text-align: left;
+  }
+
+  .tabela-parcelas .compra-linha .compra-situacao {
+    order: 1;
+    font-weight: 700;
+  }
+
+  .tabela-parcelas .ordenar {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 44px;
+    font-size: 18px;
+  }
+
+  .tabela-painel.tabela-parcelas .parcelas-detalhe > td {
+    display: block;
+    padding: 8px 12px 14px;
+    border-radius: 10px;
+    text-align: left;
+  }
+
+  .parcelas-marca {
+    min-height: 44px;
+  }
+
+  .tabela-painel.tabela-parcelas button.pequeno {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .tabela-painel.tabela-parcelas tfoot td {
+    border-top: 0;
+  }
+
+  .parcelas-acoes {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .parcelas-acoes input[type="date"] {
+    width: 100%;
+    min-height: 52px;
+  }
+
+  .parcelas-acoes button,
+  .parcelas-acoes a {
+    width: 100%;
+    min-height: 52px;
+    justify-content: center;
+    text-align: center;
   }
 }

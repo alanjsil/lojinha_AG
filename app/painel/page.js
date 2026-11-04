@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import PainelClient from "../../components/PainelClient";
 import { todas } from "../../lib/paginar";
+import { filtrarPorCaixa } from "../../lib/parcelas";
 import { fluxoFuturo, indicadores, periodoAnterior, periodoPainel, PERIODOS_PAINEL, resumoEstoque, seriePorTempo, somarPor } from "../../lib/painel";
 import { createClient, usuarioAtual } from "../../lib/supabase/server";
 
@@ -47,7 +48,8 @@ export default async function Painel({ searchParams }) {
   ] = await Promise.all([
     todas((a, b) => supabase.from("vendas").select(camposVenda).gte("data", de).lte("data", ate).order("id").range(a, b)),
     todas((a, b) => supabase.from("vendas").select("id, grupo_id, quantidade, preco_unit, lucro").gte("data", ant.de).lte("data", ant.ate).order("id").range(a, b)),
-    todas((a, b) => supabase.from("parcelas").select("id, comissao, comissao_socia").gte("vencimento", de).lte("vencimento", ate).order("id").range(a, b)),
+    // comissão do período = parcelas recebidas nele (baixa, mig. 042)
+    todas((a, b) => filtrarPorCaixa(supabase.from("parcelas").select("id, comissao, comissao_socia"), de, ate, hoje).order("id").range(a, b)),
     todas((a, b) => supabase.from("despesas").select("id, valor").gte("data", de).lte("data", ate).order("id").range(a, b)),
     todas((a, b) => supabase.from("lancamentos").select("id, valor").eq("tipo", "pro_labore").gte("data", de).lte("data", ate).order("id").range(a, b)),
     supabase.rpc("resumo_acumulado", { ate }),
@@ -56,8 +58,8 @@ export default async function Painel({ searchParams }) {
     todas((a, b) => supabase.from("estoque_atual").select("id, nome, unidade, custo, preco, saldo, ativo").order("id").range(a, b)),
     supabase.from("categorias").select("id, nome"),
     supabase.from("pedidos").select("id", { count: "exact", head: true }).eq("status", "novo"),
-    // o que ainda vai entrar (parcelas de venda) e sair (faturas de despesa/compra no cartão) a partir de amanhã
-    todas((a, b) => supabase.from("parcelas").select("id, vencimento, valor, comissao, comissao_socia").gt("vencimento", hoje).order("id").range(a, b)),
+    // o que ainda vai entrar (parcelas de venda sem baixa, as vencidas são o atraso) e sair (faturas de despesa/compra no cartão) a partir de amanhã
+    todas((a, b) => supabase.from("parcelas").select("id, vencimento, valor, comissao, comissao_socia").is("recebido_em", null).order("id").range(a, b)),
     todas((a, b) => supabase.from("saidas_parcelas").select("id, vencimento, valor").gt("vencimento", hoje).order("id").range(a, b)),
   ]);
 
@@ -101,7 +103,7 @@ export default async function Painel({ searchParams }) {
         .map((g) => ({ chave: g.chave, nome: g.nome, quantidade: g.quantidade, custo: g.receita - g.lucro, receita: g.receita, lucro: g.lucro }))}
       porPagamento={["a_vista", "cartao"].map((f) => ({ nome: FORMA[f], valor: lista.filter((v) => v.pagamento === f).reduce((s, v) => s + Number(v.quantidade) * Number(v.preco_unit), 0) }))}
       estoque={{ valorCusto: est.valorCusto, valorVenda: est.valorVenda, esgotados: est.esgotados.map(enxuto), parados: est.parados.slice(0, 10).map(enxuto), nParados: est.parados.length }}
-      futuro={{ caixaHoje, ...fluxoFuturo({ receber: receber ?? [], pagar: pagar ?? [], caixaHoje: caixaHoje ?? 0 }) }}
+      futuro={{ caixaHoje, ...fluxoFuturo({ receber: receber ?? [], pagar: pagar ?? [], caixaHoje: caixaHoje ?? 0, hoje }) }}
     />
   );
 }
