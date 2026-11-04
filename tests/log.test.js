@@ -30,3 +30,14 @@ test("aindaApagados considera só a última entrada de cada registro", () => {
   ];
   assert.deepEqual([...aindaApagados(log)], ["b"]);
 });
+
+test("baixa de parcelas aparece legível no log", () => {
+  const linhas = mudancas({ recebimentos: {} }, { recebimentos: { 2: "2026-12-01", 1: "2026-11-03" } });
+  assert.deepEqual(linhas.map(sp), ["Parcelas recebidas: nenhuma → 1ª 03/11/2026 · 2ª 01/12/2026"]);
+});
+
+test("autoria da baixa não aparece como campo no log", () => {
+  const linhas = mudancas({ recebimentos: {}, recebimentos_meta: {} }, { recebimentos: { 1: "2026-11-03" }, recebimentos_meta: { 1: { por: "u", em: "x" } } });
+  assert.equal(linhas.length, 1);
+  assert.match(linhas[0], /^Parcelas recebidas/);
+});

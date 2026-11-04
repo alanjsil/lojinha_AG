@@ -38,6 +38,28 @@ test("fluxo futuro: a receber − comissões − cartão a pagar, acumulado por 
   assert.equal(f.saldoFinal, 105);
 });
 
+test("fluxo futuro: parcela vencida sem baixa vira atraso e já entra no saldo projetado", () => {
+  const f = fluxoFuturo({
+    caixaHoje: 100,
+    hoje: "2026-11-10",
+    receber: [
+      { vencimento: "2026-11-08", valor: 200, comissao: 20, comissao_socia: 5 }, // venceu e ninguém deu baixa
+      { vencimento: "2026-11-10", valor: 50, comissao: 5, comissao_socia: 0 }, // vence hoje: ainda não é atraso
+      { vencimento: "2026-12-08", valor: 200, comissao: 20, comissao_socia: 0 },
+    ],
+  });
+  assert.deepEqual(f.atrasado, { receber: 200, comissao: 25, n: 1 });
+  assert.deepEqual(
+    f.meses.map((m) => [m.chave, m.receber, m.saldo]),
+    [
+      ["2026-11", 50, 100 + 200 - 25 + 50 - 5],
+      ["2026-12", 200, 100 + 200 - 25 + 50 - 5 + 200 - 20],
+    ],
+  );
+  assert.equal(f.receber, 250);
+  assert.equal(f.saldoFinal, 500);
+});
+
 const vendas = [
   { id: "1", grupo_id: "g", data: "2026-10-01", quantidade: 2, preco_unit: 10, lucro: 8, vendedor_id: "a" },
   { id: "2", grupo_id: "g", data: "2026-10-01", quantidade: 1, preco_unit: 30, lucro: 10, vendedor_id: "a" },

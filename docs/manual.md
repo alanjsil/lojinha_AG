@@ -16,7 +16,7 @@ A tabela completa de quem pode o quê está em [papeis-e-permissoes.md](papeis-e
 - **O app só conhece vendas, compras, despesas e lançamentos.** Ninguém digita saldo de banco: o caixa é calculado a partir do que foi lançado.
 - **Todo produto tem custo e preço.** O lucro de cada venda é preço − custo, e o custo é "fotografado" na hora da venda. Mudar o custo depois não altera vendas antigas.
 - **Comissão é sobre o lucro, não sobre o valor vendido.** O padrão é 40% do lucro. Venda no prejuízo não gera comissão negativa.
-- **Cartão parcela, à vista não.** Pagamento é **À vista** ou **Cartão** (de 1 a 12x). O dinheiro do cartão entra no caixa em cada parcela, no vencimento. A comissão também cai parcela a parcela.
+- **Cartão parcela, à vista não.** Pagamento é **À vista** ou **Cartão** (de 1 a 12x). O dinheiro do cartão entra no caixa **quando a parcela recebe baixa** (tela Parcelas), na data em que o dinheiro entrou; antecipou ou atrasou, vale a data real. A comissão cai junto, parcela a parcela, no mês da baixa.
 - **Nada é apagado de verdade.** Venda, compra, despesa e lançamento excluídos ficam guardados. O gerente pode restaurar em **Histórico de alterações**.
 - **Datas são de Brasília.** "Hoje" é o dia no Brasil, mesmo de madrugada.
 
@@ -182,17 +182,17 @@ O vendedor vê só as próprias vendas, comissão e repasse. Gerente e sócia ve
 | **Vendas** | Soma de quantidade × preço das vendas com data no mês. |
 | **Lucro líquido** | Ver 02 · Resultado. |
 | **Margem líquida** | Lucro líquido ÷ vendas. |
-| **Comissões / Sua comissão** | Comissões das **parcelas que vencem no mês**, inclusive a comissão extra da sócia. |
+| **Comissões / Sua comissão** | Comissões das **parcelas recebidas no mês** (com baixa), inclusive a comissão extra da sócia. Em mês futuro: as que vencem nele e ainda estão sem baixa. |
 | **Ticket médio** | Vendas ÷ número de vendas. Venda com vários itens conta uma vez. |
 
-**Por que as datas não batem.** Vendas e lucro contam na data da venda; a comissão conta no vencimento da parcela. Num mês com muita venda parcelada, a comissão do mês fica menor e a margem, maior. A diferença aparece nos meses seguintes.
+**Por que as datas não batem.** Vendas e lucro contam na data da venda; a comissão conta quando a parcela é recebida. Num mês com muita venda parcelada, a comissão do mês fica menor e a margem, maior. A diferença aparece nos meses seguintes.
 
 ### Dinheiro com os vendedores / Seu repasse
 Para cada vendedor:
-- **Recebido:** parcelas das vendas dele já vencidas, do começo até o fim do mês e nunca depois de hoje.
+- **Recebido:** parcelas das vendas dele com baixa, do começo até o fim do mês e nunca depois de hoje. Parcela vencida sem baixa não conta.
 - **Entregue:** repasses lançados.
 - **Pendente** = recebido − entregue. É o dinheiro das vendas que ainda está com ele.
-- **Comissão a receber** = comissão das parcelas vencidas − comissão já paga.
+- **Comissão a receber** = comissão das parcelas recebidas − comissão já paga.
 - **Limpo** = pendente − comissão a receber. É o que ele ainda deve entregar se a comissão for acertada com esse dinheiro.
 
 ### 02 · Resultado (só gerente)
@@ -200,7 +200,7 @@ Para cada vendedor:
   Receita
 − CMV (custo das mercadorias vendidas, fotografado em cada venda)
 = Lucro bruto
-− Comissões (no vencimento das parcelas)
+− Comissões (no recebimento das parcelas)
 − Despesas (na data do gasto; toque para ver por tipo)
 − Pró-labore
 = Lucro líquido
@@ -214,10 +214,11 @@ Compras **não** entram aqui: o custo delas já está no CMV de cada venda.
 − Saídas: compras, despesas, saques, pró-labore, comissões pagas
 = Saldo final (ou Saldo projetado, em mês futuro)
 ```
-- **Vendas recebidas:** à vista conta na data da venda; cartão, no vencimento de cada parcela.
+- **Vendas recebidas:** à vista conta na data da venda; cartão, na data da baixa de cada parcela. Em mês futuro (projeção), entram também as parcelas sem baixa que vencem até o fim dele, as atrasadas inclusive.
+- **Parcelas vencidas sem baixa** aparecem numa linha à parte (fora do saldo), com atalho para a tela Parcelas.
 - **Despesas e compras no cartão** saem no vencimento da fatura.
 - O saldo final de um mês é o saldo inicial do seguinte.
-- **Não é o saldo do banco.** O app supõe que toda parcela vencida caiu na conta.
+- **Não é o saldo do banco.** O app só conta o cartão que recebeu baixa; o que venceu e ainda não foi baixado fica em "Parcelas vencidas sem baixa".
 
 ### 04 · Estoque
 | Número | De onde vem |
@@ -275,10 +276,11 @@ Link no fim dos Resumos, logo abaixo do Histórico. **Novo vendedor:** nome, cel
 
 ### Blocos
 - **A receber e a pagar (a partir de amanhã):** independe do período escolhido.
-  - **A receber:** parcelas de vendas no cartão que ainda vão vencer, com as comissões embutidas.
+  - **Em atraso:** parcelas de cartão que já venceram e estão sem baixa (link para a tela Parcelas). Entram no saldo projetado como se fossem recebidas agora.
+  - **A receber:** parcelas de vendas no cartão que ainda vão vencer e estão sem baixa, com as comissões embutidas.
   - **Cartão a pagar:** faturas de despesas e compras.
   - **Caixa hoje.**
-  - **Saldo projetado mês a mês** = caixa de hoje + a receber − comissões dessas parcelas − faturas.
+  - **Saldo projetado mês a mês** = caixa de hoje + em atraso + a receber − comissões dessas parcelas − faturas.
   - Não inclui vendas e despesas que ainda não foram lançadas.
 - **Vendas e lucro por dia** (ou por mês, no Ano). Passe o mouse para ver os valores, ou abra "Ver em tabela".
 - **Por categoria, por vendedor, 10 produtos que mais venderam, forma de pagamento.**
@@ -320,7 +322,46 @@ Link no fim dos Resumos, logo abaixo do Histórico. **Novo vendedor:** nome, cel
 
 ---
 
-## 9. Avisos no celular
+## 9. Parcelas (`/parcelas`, celular e computador; toda a equipe)
+Onde o cartão vira dinheiro de verdade. Cada venda no cartão gera parcelas com um vencimento previsto, mas elas só entram no caixa — e a comissão só cai — quando recebem **baixa**, na data em que o dinheiro entrou. A baixa vale na hora.
+
+### Quem vê e quem mexe
+| Papel | Vê | Dá baixa | Desfaz |
+| --- | --- | --- | --- |
+| **Gerente** | todas as vendas | em qualquer venda; pode trocar a data | qualquer baixa, a qualquer momento |
+| **Sócia** | todas as vendas | só nas próprias | só a que ela deu, até 48 h depois |
+| **Vendedor** | só as próprias vendas | só nas próprias | só a que ele deu, até 48 h depois |
+
+Baixa do histórico (migração 042), ou dada pelo gerente, só o gerente desfaz. O vendedor que dá baixa fica com esse valor no **Pendente** de "Dinheiro com os vendedores" até fazer o repasse.
+
+### Quando usar
+- **Cliente antecipou** (pagou antes do vencimento, uma parcela ou o resto da compra): dê a baixa com a **data do pagamento**. O dinheiro e a comissão entram nesse mês, e a parcela deixa de contar no vencimento original.
+- **Cliente pagou em dia:** dê a baixa na data (ou em qualquer data entre a venda e hoje).
+- **Cliente atrasou:** a parcela fica "Em atraso" e fora do caixa até a baixa. Use **Cobrar no WhatsApp** (abre a conversa com a mensagem pronta).
+- **Baixa errada:** **Desfazer** na parcela recebida, dentro das regras da tabela acima. Ela volta a "em aberto" (ou "atrasada") e sai do caixa e da comissão. Fora delas, aparece "Só o gerente pode desfazer".
+- Venda **à vista** não aparece aqui: entra sozinha na data da venda.
+
+### A tela
+- **Números do topo:** *Em atraso* (parcelas vencidas sem baixa, em quantas compras), *Falta receber no mês* (vence no mês escolhido e está sem baixa), *Total a receber* (todas as sem baixa) e *Recebido no mês* (com quanto foi antecipado). Setas ‹ › trocam o mês.
+- **Filtros:** Em atraso, Vencem no mês, Recebidas no mês, Todas em aberto — cada um com a quantidade de compras. A busca acha por cliente, WhatsApp, produto ou vendedor.
+- **Lista por compra** (itens lançados juntos são uma compra só): cliente, produtos, data e vendedor, parcelas pagas, total, em aberto e situação. No celular cada compra é um cartão; no computador, uma linha da tabela. Toque no nome do cliente para abrir as parcelas **no próprio item**. O nome do vendedor não aparece para o vendedor.
+- **Dentro da compra:** marque as parcelas, escolha **Recebido em** e toque **Dar baixa**; ou **Quitar tudo** para baixar o que falta de uma vez (é o caso da antecipação do saldo). A data não pode ser futura nem anterior à venda.
+- A situação de cada parcela também aparece nos detalhes da venda (Vendas): *recebida dd/mm (antecipada)*, *atrasada há N dias* ou *em aberto*.
+
+### O que a baixa muda
+| Onde | Efeito |
+| --- | --- |
+| Resumos › Caixa | O valor entra no mês da data da baixa, não no do vencimento. |
+| Resumos › Comissões | A comissão do vendedor e a da sócia caem no mês da baixa. |
+| Dinheiro com os vendedores | "Recebido" só soma parcelas com baixa. |
+| Painel › A receber | A parcela sai do "A receber" (ou do "Em atraso"). |
+| Histórico de alterações | A baixa fica registrada (quem e quando). |
+
+Editar a venda, apagar e restaurar **não perdem** as baixas. Mudar a venda para à vista apaga as baixas; reduzir as parcelas descarta as das parcelas que sobraram de fora.
+
+**Histórico:** na primeira vez (migração 042), toda parcela que já tinha vencido foi marcada como recebida no próprio vencimento, para o caixa de hoje não mudar. Se alguma dessas na verdade não foi paga, abra a compra e use **Desfazer**: ela passa a contar como atraso.
+
+## 10. Avisos no celular
 Em Vendas, **"Ativar avisos"** pede permissão ao navegador.
 - **A equipe** recebe aviso de cada pedido novo da vitrine.
 - **O cliente** recebe as mudanças de situação dos pedidos dele.
@@ -340,7 +381,7 @@ Em Vendas, **"Ativar avisos"** pede permissão ao navegador.
 | Regra das 48 h | `lib/vendas.js` + `pode_mexer_venda()` no banco |
 | Pedido (carrinho, situações, WhatsApp) | `lib/pedido.js` |
 | Fatura do cartão | `lib/cartao.js` + `vencimento_fatura()` no banco |
-| 1ª parcela da venda | `lib/parcelas.js` |
+| 1ª parcela da venda, baixa (situação, atraso, agrupar compras, KPIs, cobrança) | `lib/parcelas.js` (`primeiroVencimentoVenda`, `situacaoParcela`, `filtrarPorCaixa`, `agruparCompras`, `comprasDoMes`, `resumoParcelas`, `dataRecebimentoValida`, `mensagemCobranca`) + `receber_parcelas()` no banco; quem pode: `podeDarBaixa`, `motivoSemDesfazer`, `comPermissoes` |
 | Gráficos SVG | `lib/graficos.js` (geometria) + `components/Graficos.js` |
 
 Toda conta pura tem teste em `tests/` (`npm test`).
@@ -349,14 +390,15 @@ Toda conta pura tem teste em `tests/` (`npm test`).
 
 - **Lucro da venda** = `round((preco_unit − custo_unit) × quantidade, 2)`, coluna gerada.
 - **Comissão da venda** = `round(max(lucro, 0) × comissao_pct / 100, 2)`. Comissão da sócia: o mesmo com `socia_pct`, só em venda de outro vendedor. `socia_pct` (040, `vendas_preencher`) = `35 − max(comissao_pct − 10, 0)` em venda de vendedor e `35` em venda do gerente. Vendedor só de 10 a 40% (constraint `perfis_comissao_vendedor`).
-- **Parcelas** (`vendas_gerar_parcelas`): à vista = 1 parcela na data. Cartão = 1ª em `primeiro_vencimento` ou no dia 8 do mês seguinte, depois mês a mês. Valor e comissão são divididos entre as parcelas.
+- **Parcelas** (`vendas_gerar_parcelas`): à vista = 1 parcela na data, já recebida (`recebido_em` = data). Cartão = 1ª em `primeiro_vencimento` ou no dia 8 do mês seguinte, depois mês a mês; nasce sem `recebido_em` até a baixa. Valor e comissão são divididos entre as parcelas.
+- **Baixa (mig. 042):** a data do recebimento vive em `vendas.recebimentos` (`{"1":"2026-11-03"}`, chave = nº da parcela), porque `vendas_gerar_parcelas` apaga e recria as parcelas a cada edição/exclusão/restauração; `parcelas.recebido_em` é a cópia para consulta, repreenchida na regeração. Só a RPC `receber_parcelas(vendas[], numeros[], data)` grava (security definer; data nula desfaz; confere venda ativa, cartão, nº da parcela, data ≤ hoje e ≥ data da venda). **Mig. 043:** vendedor e sócia só na própria venda, sem reescrever data de parcela já recebida, e só desfazem a baixa que deram há menos de 48 h; autor e horário ficam em `vendas.recebimentos_meta` (`{"1":{"por":"<uid>","em":"<timestamptz>"}}`), fora do texto do log. Policy `parcelas_ver`: `vendedor_id = auth.uid()` ou `eh_resumo_completo()`. A tabela `vendas` segue legível pela equipe na API (a lista de Vendas mostra o nome de quem vendeu). Ela não dispara a regeração. O trigger `vendas_ajustar_recebimentos` limpa as baixas ao virar à vista e descarta as de parcelas que deixaram de existir. O `auditar_vendas` registra cada baixa no log.
 - **Custo médio móvel** (`recalcular_custo_medio`): refaz o histórico em ordem cronológica. Na compra: `(saldo × custo + qtd × custo_compra) ÷ (saldo + qtd)`. Saldo ≤ 0 antes da compra vale o custo da compra. Venda e contagem só mexem na quantidade.
 - **Estoque** (`estoque_atual`) = compras − vendas + diferenças das contagens, sem as apagadas.
-- **Lucro líquido** = lucro bruto − comissões (no vencimento) − despesas (na data) − pró-labore.
-- **Caixa** (`resumo_acumulado(ate)`) = recebido (parcelas com vencimento ≤ ate) + capital inicial + aportes − compras (`saidas_parcelas` com vencimento ≤ ate) − despesas (idem) − saques − pró-labore − comissões pagas. Com `ate` no futuro, conta parcelas que ainda não venceram: por isso "Saldo projetado".
+- **Lucro líquido** = lucro bruto − comissões (no recebimento) − despesas (na data) − pró-labore.
+- **Caixa** (`resumo_acumulado(ate)`) = recebido (parcelas com `recebido_em` ≤ ate) + capital inicial + aportes − compras (`saidas_parcelas` com vencimento ≤ ate) − despesas (idem) − saques − pró-labore − comissões pagas. `em_aberto` = parcelas com vencimento ≤ ate que ainda não tinham sido recebidas nessa data (com `ate` = hoje é o atraso). A tela de Resumos, em mês futuro, soma `em_aberto` ao caixa: por isso "Saldo projetado". As comissões do período seguem a mesma regra (`filtrarPorCaixa`): recebidas nele; em período futuro, as sem baixa que vencem nele.
 - **Margem de contribuição** = (lucro − comissões) ÷ receita. **Margem mínima** = despesas ÷ receita, que fica OK quando a contribuição é maior ou igual a ela. **Ponto de equilíbrio** = despesas ÷ contribuição.
 - **Meta** (receita R em que sobra 20% do lucro bruto): `R × contrib − despesas = 0,2 × R × bruta`, logo `R = despesas ÷ (contrib − 0,2 × bruta)`.
-- **Fluxo futuro** (`fluxoFuturo`): parcelas e `saidas_parcelas` com vencimento > hoje, por mês. O saldo acumulado parte do caixa de hoje e soma a receber − comissões − a pagar.
+- **Fluxo futuro** (`fluxoFuturo`): parcelas sem baixa e `saidas_parcelas` com vencimento > hoje, por mês; as sem baixa que já venceram (antes de hoje) são o `atrasado`. O saldo acumulado parte do caixa de hoje + atrasado e soma a receber − comissões − a pagar.
 - **Comparativo do Painel** (`periodoAnterior`): mês → mês anterior até o mesmo dia (limitado ao fim do mês), mês fechado → mês anterior inteiro; ano → mesmas datas do ano anterior (29/02 vira 28/02); N dias → os N dias antes.
 - **CRM:**
   - Identidade = `cliente_id` → WhatsApp sem o 55 → nome sem acento e minúsculo. Um WhatsApp que já apareceu numa venda com conta vai para a conta.
@@ -385,9 +427,10 @@ Toda conta pura tem teste em `tests/` (`npm test`).
 | `/vendas`, `/estoque`, `/resumos` | equipe | o conteúdo varia por papel |
 | `/saidas`, `/log` | gerente | |
 | `/vendedores` | gerente e sócia | cadastro pela Server Action com a service role (`criarAdmin()`) |
+| `/parcelas` | equipe | gerente e sócia veem tudo; vendedor, só as próprias vendas. A baixa segue as regras da RPC `receber_parcelas` |
 | `/painel`, `/crm` | gerente e sócia | só no menu do PC (`so-pc`); vendedor é mandado para `/resumos` |
 
 O menu (`components/BottomNav.js`) recebe `gerente` e `socia` do layout, que lê o papel do `app_metadata` do Auth.
 
 ## E. Deploy das migrações
-Produção recebe migrações pelo workflow manual `.github/workflows/db.yml`: rode primeiro com `dry_run` e só depois de verdade. O dev em rede local recebe por `npm run db:dev`. **Ordem:** primeiro as migrações em produção, depois o deploy do app, porque as telas de Vendas, CRM e Resumos leem as colunas novas. Detalhes em [supabase-e-vapid.md](supabase-e-vapid.md).
+Produção recebe migrações pelo workflow manual `.github/workflows/db.yml`: rode primeiro com `dry_run` e só depois de verdade. O dev em rede local recebe por `npm run db:dev`. **Ordem:** primeiro as migrações em produção, depois o deploy do app, porque as telas de Vendas, CRM, Resumos, Painel e Parcelas leem as colunas novas (a 042 também troca `resumo_acumulado`). Detalhes em [supabase-e-vapid.md](supabase-e-vapid.md).
